@@ -1,0 +1,9 @@
+{
+  "name": "台股難波萬",
+  "short_name": "難波萬",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0c0e",
+  "theme_color": "#0b0c0e",
+  "icons": [{ "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

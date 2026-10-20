@@ -1,0 +1,40 @@
+# 盤中資金流記錄：交易日 08:50（台灣時間）啟動，09:00–13:30 每 30 秒記一筆，收盤後把當天紀錄 commit 回 repo
+name: flow-recorder
+
+on:
+  schedule:
+    - cron: "50 0 * * 1-5" # UTC 00:50 = 台灣 08:50
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flow-recorder
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: 記錄資金流
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: npm run flow-recorder
+      - name: 存檔
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/flow
+          if git diff --cached --quiet; then echo "沒有新紀錄"; exit 0; fi
+          git commit -m "資金流紀錄 $(TZ=Asia/Taipei date +%F)"
+          git pull --rebase
+          git push
