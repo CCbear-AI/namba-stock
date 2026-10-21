@@ -160,10 +160,10 @@ function Rank({ title, rows, sub }: { title: string; rows: { c: string; n: strin
       {/* 一次顯示 5 檔，其餘用滾輪 */}
       <div className="scroll-y max-h-[150px] px-2 pb-2">
         {rows.map((r) => (
-          <Link key={r.c} href={`/stock/${r.c}`} className="flex items-center gap-1.5 h-[30px] px-1.5 border-b border-line/60 last:border-0 hover:bg-panel-2">
-            <span className="mono text-text-2 w-9 shrink-0">{r.c}</span><span className="flex-1 min-w-[3em] max-w-[6em] truncate">{r.n}</span>
-            {r.p && <span className={`mono w-14 text-right shrink-0 ${cls(r.p.chg)}`}>{price(r.p.price)}</span>}
-            <span className="mono min-w-[4rem] text-right whitespace-nowrap shrink-0">{r.v}</span>
+          <Link key={r.c} href={`/stock/${r.c}`} className="flex items-center gap-1.5 h-[30px] px-1 text-[12.5px] border-b border-line/60 last:border-0 hover:bg-panel-2">
+            <span className="mono text-text-2 w-8 shrink-0">{r.c}</span><span className="flex-1 min-w-[3em] max-w-[6em] truncate" title={r.n}>{r.n}</span>
+            {r.p && <span className={`mono min-w-[2.6rem] text-right shrink-0 ${cls(r.p.chg)}`}>{price(r.p.price)}</span>}
+            <span className="mono min-w-[3.6rem] text-right whitespace-nowrap shrink-0">{r.v}</span>
           </Link>
         ))}
         {!rows.length && <div className="sub px-2 py-6 text-center loading">載入中…</div>}
