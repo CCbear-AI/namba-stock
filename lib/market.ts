@@ -3,6 +3,7 @@ import { getQuotes, ch, type Quote } from "./mis";
 import { UNIVERSE, BY_CODE } from "./universe";
 import type { Market, Row, IndexQuote } from "./types";
 import { getDaily, lastIdx } from "./history";
+import { misOhlc } from "./misStats";
 
 const INDEX_CH = ["tse_t00.tw", "otc_o00.tw", "tse_0050.tw"];
 let cache: { at: number; data: Market } | null = null;
@@ -98,7 +99,9 @@ async function load(): Promise<Market> {
     if (s.down && s.price <= s.down) b.limitDown++;
     b.value += s.value;
   }
-  b.value = Math.round(b.value);
+  // 成交金額用證交所 MIS 的上市＋上櫃官方累計（跟里長伯、證交所網站一致）；抓不到才用估算
+  const [mt, mo] = await Promise.all([misOhlc("TSE"), misOhlc("OTC")]);
+  b.value = mt.orders && mo.orders ? Math.round(mt.orders.value + mo.orders.value) : Math.round(b.value);
   // 用加權指數的時間（個股盤後零股會到 14:30）
   const t00 = list.find((q) => q.c === "t00");
   return { time: t00?.time ?? Math.max(0, ...list.map((q) => q.time)), open: isTradingNow(), indices, stocks, breadth: b };
