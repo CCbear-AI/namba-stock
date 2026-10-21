@@ -162,7 +162,7 @@ function Rank({ title, rows, sub }: { title: string; rows: { c: string; n: strin
           <Link key={r.c} href={`/stock/${r.c}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-panel-2">
             <span className="mono text-text-2 w-10 shrink-0">{r.c}</span><span className="w-[5em] truncate shrink-0">{r.n}</span>
             {r.p && <span className={`mono w-14 text-right shrink-0 ${cls(r.p.chg)}`}>{price(r.p.price)}</span>}
-            <span className="mono flex-1 min-w-0 text-right whitespace-nowrap">{r.v}</span>
+            <span className="mono min-w-[4.2rem] text-right whitespace-nowrap shrink-0">{r.v}</span>
           </Link>
         ))}
         {!rows.length && <div className="sub px-2 py-6 text-center loading">載入中…</div>}
