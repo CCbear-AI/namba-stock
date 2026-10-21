@@ -60,7 +60,8 @@ export function scan(m: Market): ScanRow[] {
   const ath = A.upTo >= today && A.prev ? A.prev : A.s;
   // 盤後已經有今天的日 K 檔時，歷史只算到前一天
   const end = dates.at(-1) === today ? dates.length - 2 : dates.length - 1;
-  const cal20 = new Date(Date.parse(today) - 20 * 864e5).toISOString().slice(0, 10);
+  // 近 20 天：從前一個交易日往前推 20 個日曆天（跟里長伯一致）
+  const cal20 = new Date(Date.parse(dates[end] ?? today) - 20 * 864e5).toISOString().slice(0, 10);
   const calIdx = dates.findLastIndex((d) => d <= cal20);
   const tw = new Date(Date.now() + 8 * 3600e3);
   const minute = tw.getUTCHours() * 60 + tw.getUTCMinutes();
