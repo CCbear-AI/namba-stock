@@ -22,7 +22,15 @@ export type FlowDay = {
   /** 最新快照的個股全天累積：代號 → [淨額(億), 成交值(億), 漲跌幅%] */
   stocks: Record<string, [number, number, number]>;
   updated: number;
+  /** 上市委買／委賣張數：[時間, 委買, 委賣] */
+  orders?: [string, number, number][];
+  /** 盤中動態（最新在後） */
+  events?: FlowEvent[];
+  /** 漲跌停追蹤：代號 → { 首次漲停時間, 打開次數, 首次跌停時間 } */
+  limits?: Record<string, { up?: string; upOpen?: number; dn?: string; dnOpen?: number }>;
 };
+
+export type FlowEvent = { t: string; c: string; n: string; k: "lockUp" | "openUp" | "lockDn" | "openDn" | "rvol"; msg: string };
 
 export function updateStock(st: StockFlow | undefined, q: Quote): StockFlow {
   if (!st) {

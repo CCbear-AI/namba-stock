@@ -1,9 +1,11 @@
-# 每個交易日 16:30（台灣時間）更新類股指數日 K 與股票清單
+# 每個交易日 16:30（台灣時間）更新盤後資料：全市場日 K、法人籌碼、融資券、期貨選擇權、類股指數、歷史高低、量能曲線
+# 週六早上另外跑一次抓集保股權分散（每週五晚上公布）
 name: daily-data
 
 on:
   schedule:
     - cron: "30 8 * * 1-5" # UTC 08:30 = 台灣 16:30
+    - cron: "0 1 * * 6" # 台灣週六 09:00：集保
   workflow_dispatch:
 
 permissions:
@@ -12,7 +14,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,8 +22,25 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run sector-history
-      - run: npm run universe
+      - name: 盤後資料
+        if: github.event.schedule != '0 1 * * 6'
+        run: |
+          npm run market-history
+          npm run futures
+          npm run sector-history
+          npm run ath -- update
+          npm run volcurve
+          npm run universe
+      - name: 集保股權分散
+        run: npm run tdcc
+      - name: 法人買超提醒推播
+        if: github.event.schedule != '0 1 * * 6'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: npm run push-insti
       - name: 存檔
         run: |
           git config user.name "github-actions[bot]"

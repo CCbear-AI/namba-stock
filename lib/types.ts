@@ -9,6 +9,7 @@ export type Row = {
   value: number; // 成交值（億，估算）
   cap: number; // 市值（億）
   up: number; down: number;
+  bid1: number; ask1: number; bv: number; av: number; // 最佳一檔買賣價與張數（判斷漲跌停鎖住）
 };
 
 export type IndexQuote = { c: string; n: string; price: number; prev: number; chg: number; pct: number; high: number; low: number; open: number };
@@ -19,6 +20,8 @@ export type Market = {
   indices: IndexQuote[];
   stocks: Row[];
   breadth: { up: number; flat: number; down: number; limitUp: number; limitDown: number; value: number };
+  /** true = 即時報價抓不到，暫時顯示最近一天收盤 */
+  stale?: boolean;
 };
 
 export type Bar = { time: number; open: number; high: number; low: number; close: number; volume: number };

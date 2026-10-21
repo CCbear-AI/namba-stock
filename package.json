@@ -9,19 +9,28 @@
     "lint": "eslint",
     "universe": "tsx scripts/build-universe.ts",
     "sector-history": "tsx scripts/sector-history.ts",
-    "flow-recorder": "tsx scripts/flow-recorder.ts"
+    "flow-recorder": "tsx scripts/flow-recorder.ts",
+    "market-history": "tsx scripts/market-history.ts",
+    "futures": "tsx scripts/futures.ts",
+    "ath": "tsx scripts/ath.ts",
+    "tdcc": "tsx scripts/tdcc.ts",
+    "push-insti": "tsx scripts/push-insti.ts",
+    "volcurve": "tsx scripts/volcurve.ts"
   },
   "dependencies": {
+    "html-to-image": "^1.11.13",
     "lightweight-charts": "^5.2.1",
     "next": "16.4.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",

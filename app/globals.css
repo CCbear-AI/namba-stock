@@ -71,3 +71,9 @@ body {
 
 @keyframes shimmer { from { opacity: .4 } to { opacity: 1 } }
 .loading { animation: shimmer 1s ease-in-out infinite alternate; color: var(--text-2); }
+
+/* 河道裡往前流的光點 */
+.river-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, #ffffffcc 1px, transparent 1.5px); background-size: 22px 100%; animation: riverflow 1.2s linear infinite; }
+@keyframes riverflow { from { background-position: 0 0 } to { background-position: 22px 0 } }
+@media (prefers-reduced-motion: reduce) { .river-dots { animation: none; } }
+.btn:disabled { opacity: .4; cursor: not-allowed; }

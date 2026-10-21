@@ -1,8 +1,8 @@
 // Yahoo Finance 歷史 K 線（個股、加權指數）
 import type { Bar } from "./types";
 
-export type TF = "1m" | "5m" | "1d" | "1wk" | "1mo";
-const RANGE: Record<TF, string> = { "1m": "1d", "5m": "1mo", "1d": "2y", "1wk": "10y", "1mo": "max" };
+export type TF = "1m" | "5m" | "15m" | "30m" | "60m" | "1d" | "1wk" | "1mo";
+const RANGE: Record<TF, string> = { "1m": "1d", "5m": "1mo", "15m": "1mo", "30m": "1mo", "60m": "3mo", "1d": "2y", "1wk": "10y", "1mo": "max" };
 
 export function yahooSymbol(code: string, m: "tse" | "otc") {
   if (code === "TAIEX") return "^TWII";
@@ -13,7 +13,7 @@ const cache = new Map<string, { at: number; bars: Bar[] }>();
 
 export async function yahooBars(symbol: string, tf: TF): Promise<Bar[]> {
   const key = `${symbol}:${tf}`;
-  const ttl = tf === "1m" || tf === "5m" ? 30_000 : 10 * 60_000;
+  const ttl = tf.endsWith("m") && tf !== "1mo" ? 30_000 : 10 * 60_000;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttl) return hit.bars;
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${RANGE[tf]}&interval=${tf}`;

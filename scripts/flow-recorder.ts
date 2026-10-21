@@ -5,6 +5,13 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { getQuotes, ch, type Quote } from "../lib/mis";
 import { updateStock, makePoint, type StockFlow, type FlowDay } from "../lib/flow";
 import { hasSupabase, saveFlowDayRemote } from "../lib/store";
+import { Tracker } from "../lib/tracker";
+import { misOhlc } from "../lib/misStats";
+import { getDaily } from "../lib/history";
+import { toRow } from "../lib/market";
+import { scan } from "../lib/scan";
+import { checkAndPush, pushReady } from "../lib/pushServer";
+import type { Row } from "../lib/types";
 
 type U = { c: string; n: string; m: "tse" | "otc"; ind: string; sh: number };
 const universe: U[] = JSON.parse(readFileSync("data/universe.json", "utf8"));
@@ -28,7 +35,15 @@ async function main() {
     ? JSON.parse(readFileSync(file, "utf8"))
     : { date, points: [], stocks: {}, updated: 0 };
   const state = new Map<string, StockFlow>();
-  console.log(`資金流記錄器 ${date}，${universe.length} 檔，Supabase：${hasSupabase ? "有" : "無（只存本機檔）"}`);
+  // 近 20 日均量（張），給「同時段量能」判斷
+  const { s: hist } = getDaily();
+  const avg20 = new Map<string, number>();
+  for (const [c, x] of hist) {
+    const v = x.v.filter((y) => !Number.isNaN(y)).slice(-20);
+    if (v.length >= 5) avg20.set(c, v.reduce((a, y) => a + y, 0) / v.length);
+  }
+  const tracker = new Tracker(day, new Map(universe.map((u) => [u.c, u.n])), avg20);
+  console.log(`資金流記錄器 ${date}，${universe.length} 檔，Supabase：${hasSupabase ? "有" : "無（只存本機檔）"}，背景推播：${pushReady ? "有" : "無"}`);
 
   if (!testRounds) {
     // 等到 09:00
@@ -48,6 +63,18 @@ async function main() {
     const quotes = new Map<string, Quote>(list.map((q) => [q.c, q]));
     for (const q of list) state.set(q.c, updateStock(state.get(q.c), q));
     const { point, stocks } = makePoint(hms(now), state, quotes, meta);
+    tracker.update(list, hms(now).slice(0, 5), minutes(now));
+    // 背景推播：用這一輪的報價檢查大家的提醒（法人買超在盤後另外檢查）
+    if (pushReady && !testRounds) {
+      try {
+        const stocks = list.map(toRow).filter((r): r is Row => !!r);
+        const rows = scan({ time: list[0]?.time ?? Date.now(), open: true, indices: [], stocks, breadth: { up: 0, flat: 0, down: 0, limitUp: 0, limitDown: 0, value: 0 } });
+        const sent = await checkAndPush(rows, date, (k) => k !== "insti");
+        if (sent) console.log(`推播 ${sent} 則`);
+      } catch (e) { console.error("提醒檢查失敗", (e as Error).message); }
+    }
+    const o = (await misOhlc("TSE")).orders;
+    if (o) (day.orders ??= []).push([hms(now).slice(0, 5), o.bidLots, o.askLots]);
     day.points.push(point);
     day.stocks = stocks;
     day.updated = Date.now();

@@ -43,7 +43,18 @@ export async function listFlowDays(): Promise<string[]> {
   return [...set].sort().reverse();
 }
 
+// 盤中很多頁面都會讀當天紀錄，伺服器記憶體快取 15 秒
+const dayCache = new Map<string, { at: number; v: FlowDay | null }>();
 export async function getFlowDay(date?: string): Promise<FlowDay | null> {
+  const k = date ?? "latest";
+  const hit = dayCache.get(k);
+  if (hit && Date.now() - hit.at < 15_000) return hit.v;
+  const v = await loadFlowDay(date);
+  dayCache.set(k, { at: Date.now(), v });
+  return v;
+}
+
+async function loadFlowDay(date?: string): Promise<FlowDay | null> {
   const d = date ?? (await listFlowDays())[0];
   if (!d) return null;
   if (hasSupabase) {

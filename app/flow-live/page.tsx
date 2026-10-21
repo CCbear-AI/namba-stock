@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePoll } from "@/components/hooks";
+import ExportBtn from "@/components/ExportBtn";
+import { recordRiver } from "@/components/River";
 import { cls, pct } from "@/components/fmt";
 import { industryGroup } from "@/lib/industries";
 import type { FlowDay } from "@/lib/flow";
@@ -64,6 +66,24 @@ export default function FlowLive() {
       .sort((a, b) => b.net - a.net);
   }, [pts, idx, win, group]);
 
+  // 匯出影片：把當天每一筆紀錄依序播放（各板塊主動買賣淨額）
+  const [vprog, setVprog] = useState<number | null>(null);
+  const exportVideo = async () => {
+    const step = Math.max(1, Math.ceil(pts.length / 150));
+    const frames = pts.filter((_, i) => i % step === 0 || i === pts.length - 1).map((p) => ({
+      t: p.t.slice(0, 5),
+      v: Object.fromEntries(Object.entries(p.s).filter(([k]) => group === "全部" || industryGroup(k) === group).map(([k, v]) => [k, v[0]])),
+    }));
+    const names = new Map(Object.keys(frames.at(-1)?.v ?? {}).map((k) => [k, { n: k, ind: k }]));
+    setVprog(0);
+    const blob = await recordRiver(`資金流向 ${day?.date ?? ""}${group === "全部" ? "" : ` · ${group}`}`, names, frames, setVprog, "億");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `資金流-${day?.date ?? ""}.${blob.type.includes("mp4") ? "mp4" : "webm"}`;
+    a.click();
+    setTimeout(() => setVprog(null), 1500);
+  };
+
   const total = rows.reduce((s, r) => s + r.net, 0);
   const best = rows[0], worst = rows[rows.length - 1];
   const sel = rows.find((r) => r.k === pick) ?? best;
@@ -95,6 +115,8 @@ export default function FlowLive() {
         </select>
         <div className="seg">{WINDOWS.map((w) => <button key={w.k} className={win === w.k ? "on" : ""} onClick={() => setWin(w.k)}>{w.l}</button>)}</div>
         <div className="seg">{GROUPS.map((g) => <button key={g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{g}</button>)}</div>
+        <ExportBtn name="即時資金流" target={() => document.querySelector("main")} />
+        <button className="btn" disabled={pts.length < 2 || vprog != null} onClick={exportVideo}>🎬 {vprog != null ? `${Math.round(vprog * 100)}%` : "匯出影片"}</button>
       </div>
 
       {!day ? (

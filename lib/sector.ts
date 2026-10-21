@@ -5,18 +5,30 @@ import { getQuotes } from "./mis";
 import type { Bar } from "./types";
 
 type Store = { bars: Record<string, [string, number, number, number, number][]> };
-let store: { at: number; s: Store } | null = null;
+const stores: Record<string, { at: number; s: Store }> = {};
 
-function load(): Store {
-  if (store && Date.now() - store.at < 10 * 60_000) return store.s;
-  const f = path.join(process.cwd(), "data", "sector-tse.json");
+function load(market: "tse" | "otc" = "tse"): Store {
+  const hit = stores[market];
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.s;
+  const f = path.join(process.cwd(), "data", `sector-${market}.json`);
   const s: Store = existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : { bars: {} };
-  store = { at: Date.now(), s };
+  stores[market] = { at: Date.now(), s };
   return s;
 }
 
+// 上櫃：MIS 名稱（櫃買半導體類指數）↔ 櫃買歷史名稱（半導體業）
+const OTC_ALIAS: Record<string, string> = { 營建: "建材營造", 化工: "化學" };
+const normName = (n: string) => n.replace(/^櫃買/, "").replace(/類指數$|指數$/, "").replace(/設備業$|工業$|業$/, "");
+function historyKey(name: string, market: "tse" | "otc") {
+  const st = load(market);
+  if (market === "tse") return st.bars[name] ? name : null;
+  if (name === "櫃買指數") return st.bars[name] ? name : null;
+  const want = OTC_ALIAS[normName(name)] ?? normName(name);
+  return Object.keys(st.bars).find((k) => normName(k) === want) ?? null;
+}
+
 const TSE_CODES = Array.from({ length: 31 }, (_, i) => `tse_t${String(i + 1).padStart(2, "0")}.tw`);
-const OTC_CODES = Array.from({ length: 32 }, (_, i) => `otc_o${String(i + 1).padStart(2, "0")}.tw`);
+const OTC_CODES = ["otc_o00.tw", ...Array.from({ length: 32 }, (_, i) => `otc_o${String(i + 1).padStart(2, "0")}.tw`)];
 
 export type SectorQuote = { id: string; name: string; short: string; market: "tse" | "otc"; price: number; prev: number; pct: number; hasHistory: boolean };
 
@@ -24,7 +36,6 @@ let live: { at: number; list: SectorQuote[] } | null = null;
 
 export async function sectorQuotes(): Promise<SectorQuote[]> {
   if (live && Date.now() - live.at < 15_000) return live.list;
-  const s = load();
   const qs = await getQuotes([...TSE_CODES, ...OTC_CODES]);
   const list = qs
     .filter((q) => q.price > 0)
@@ -34,7 +45,7 @@ export async function sectorQuotes(): Promise<SectorQuote[]> {
       return {
         id: q.c, name: q.n, short, market,
         price: q.price, prev: q.prev, pct: q.prev ? Math.round(((q.price - q.prev) / q.prev) * 10000) / 100 : 0,
-        hasHistory: market === "tse" && Boolean(s.bars[q.n]),
+        hasHistory: Boolean(historyKey(q.n, market)),
       } as SectorQuote;
     });
   live = { at: Date.now(), list };
@@ -46,7 +57,8 @@ export async function sectorDaily(id: string): Promise<Bar[]> {
   const list = await sectorQuotes();
   const q = list.find((x) => x.id === id);
   if (!q) return [];
-  const raw = load().bars[q.name] ?? [];
+  const key = historyKey(q.name, q.market);
+  const raw = key ? load(q.market).bars[key] ?? [] : [];
   const bars: Bar[] = raw.map(([d, o, h, l, c]) => ({ time: Date.parse(d) / 1000, open: o, high: h, low: l, close: c, volume: 0 }));
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
   const t = Date.parse(today) / 1000;

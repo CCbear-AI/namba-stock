@@ -24,7 +24,7 @@ const n = (s?: string) => {
   const v = Number(s);
   return Number.isFinite(v) ? v : 0;
 };
-const arr = (s?: string) => (s ? s.split("_").filter(Boolean).map(Number) : []);
+const arr = (s?: string) => (s ? s.split("_").map(Number).filter((v) => Number.isFinite(v) && v > 0) : []);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parse(x: any): Quote {
