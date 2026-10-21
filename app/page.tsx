@@ -47,7 +47,7 @@ export default function Home() {
 
   // 首頁面板：可以拖曳換位置，順序記在這台裝置
   const panels: Record<string, { span: string; node: React.ReactNode }> = {
-    index: { span: "lg:col-span-8", node: (
+    index: { span: "md:col-span-12 lg:col-span-8", node: (
       <div className="card overflow-hidden">
         <div className="px-4 pt-4 flex items-baseline gap-3 flex-wrap">
           <div className="seg"><button className={idx === "t00" ? "on" : ""} onClick={() => setIdx("t00")}>加權指數</button><button className={idx === "o00" ? "on" : ""} onClick={() => setIdx("o00")}>櫃買指數</button></div>
@@ -73,7 +73,7 @@ export default function Home() {
         )}
       </div>
     ) },
-    watch: { span: "lg:col-span-4", node: (
+    watch: { span: "md:col-span-12 lg:col-span-4", node: (
       <div className="card flex flex-col min-h-0">
         <div className="card-h">我的自選股 <Link href="/watchlist" className="text-[13px] text-[var(--gold)]">管理</Link></div>
         <div className="scroll-y max-h-[380px] px-2 pb-2">
@@ -108,14 +108,14 @@ export default function Home() {
         <div className="px-4 pb-3">{adding ? <StockPicker autoFocus onPick={(c) => { wl.toggle(c); setAdding(false); }} placeholder="輸入代號或名稱，按 Enter 加入" /> : <button className="w-full rounded-lg border border-dashed border-line py-1.5 sub hover:text-text" onClick={() => setAdding(true)}>搜尋並加入更多</button>}</div>
       </div>
     ) },
-    gainers: { span: "min-[1024px]:col-span-6 min-[1180px]:col-span-3", node: <Rank title="漲幅排行" rows={gainers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} /> },
-    losers: { span: "min-[1024px]:col-span-6 min-[1180px]:col-span-3", node: <Rank title="跌幅排行" rows={losers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} /> },
-    value: { span: "min-[1024px]:col-span-6 min-[1180px]:col-span-3", node: <Rank title="成交值排行" sub="股價 · 成交值(億)" rows={value.map((r) => ({ c: r.c, n: r.n, p: r, v: r.value.toFixed(1) }))} /> },
-    foreign: { span: "min-[1024px]:col-span-6 min-[1180px]:col-span-3", node: <Rank title="外資買超" sub={ch ? `股價 · 買超(張) · ${md(ch.date)}` : "張"} rows={(ch?.rank.f.buy ?? []).slice(0, 30).map((r) => ({ c: r.c, n: r.n, p: byCode.get(r.c), v: <span className="up">+{num(r.lots)}</span> }))} /> },
-    signals: { span: "lg:col-span-8", node: (
+    gainers: { span: "md:col-span-6 lg:col-span-3", node: <Rank title="漲幅排行" rows={gainers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} /> },
+    losers: { span: "md:col-span-6 lg:col-span-3", node: <Rank title="跌幅排行" rows={losers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} /> },
+    value: { span: "md:col-span-6 lg:col-span-3", node: <Rank title="成交值排行(億)" rows={value.map((r) => ({ c: r.c, n: r.n, p: r, v: r.value.toFixed(1) }))} /> },
+    foreign: { span: "md:col-span-6 lg:col-span-3", node: <Rank title="外資買超(張)" sub={ch ? md(ch.date) : undefined} rows={(ch?.rank.f.buy ?? []).slice(0, 30).map((r) => ({ c: r.c, n: r.n, p: byCode.get(r.c), v: <span className="up">+{num(r.lots)}</span> }))} /> },
+    signals: { span: "md:col-span-12 lg:col-span-8", node: (
       <div className="card">
         <div className="card-h">飆股訊號 <Link href="/screener" className="text-[13px] text-[var(--gold)]">開啟選股器</Link></div>
-        <div className="scroll-y max-h-[420px] px-2 pb-2">
+        <div className="scroll-y max-h-[240px] px-2 pb-2">
           <table className="tbl">
             <thead><tr><th>股票</th><th className="!text-left">符合的訊號</th><th>股價</th><th>漲跌幅</th><th>RVOL</th></tr></thead>
             <tbody>
@@ -134,10 +134,10 @@ export default function Home() {
         </div>
       </div>
     ) },
-    events: { span: "lg:col-span-4", node: (
+    events: { span: "md:col-span-12 lg:col-span-4", node: (
       <div className="card">
         <div className="card-h">盤中動態 <Link href="/alerts" className="text-[13px] text-[var(--gold)]">提醒設定</Link></div>
-        <div className="scroll-y max-h-[420px] px-2 pb-2">
+        <div className="scroll-y max-h-[240px] px-2 pb-2">
           {(ev?.today ? ev.events : []).map((e, i) => (
             <Link key={i} href={`/stock/${e.c}`} className="flex gap-3 px-2 py-1.5 rounded-lg hover:bg-panel-2 text-[13px]">
               <span className="mono sub">{e.t}</span>
@@ -156,13 +156,14 @@ export default function Home() {
 function Rank({ title, rows, sub }: { title: string; rows: { c: string; n: string; p?: ScanRow; v: React.ReactNode }[]; sub?: string }) {
   return (
     <div className="card flex flex-col min-h-0">
-      <div className="card-h">{title}{sub && <span className="sub">{sub}</span>}</div>
-      <div className="scroll-y max-h-[260px] px-2 pb-2">
+      <div className="card-h !pt-3 !pb-1.5">{title}{sub && <span className="sub mr-auto">{sub}</span>}</div>
+      {/* 一次顯示 5 檔，其餘用滾輪 */}
+      <div className="scroll-y max-h-[150px] px-2 pb-2">
         {rows.map((r) => (
-          <Link key={r.c} href={`/stock/${r.c}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-panel-2">
-            <span className="mono text-text-2 w-10 shrink-0">{r.c}</span><span className="w-[5em] truncate shrink-0">{r.n}</span>
+          <Link key={r.c} href={`/stock/${r.c}`} className="flex items-center gap-1.5 h-[30px] px-1.5 border-b border-line/60 last:border-0 hover:bg-panel-2">
+            <span className="mono text-text-2 w-9 shrink-0">{r.c}</span><span className="flex-1 min-w-[3em] max-w-[6em] truncate">{r.n}</span>
             {r.p && <span className={`mono w-14 text-right shrink-0 ${cls(r.p.chg)}`}>{price(r.p.price)}</span>}
-            <span className="mono min-w-[4.2rem] text-right whitespace-nowrap shrink-0">{r.v}</span>
+            <span className="mono min-w-[4rem] text-right whitespace-nowrap shrink-0">{r.v}</span>
           </Link>
         ))}
         {!rows.length && <div className="sub px-2 py-6 text-center loading">載入中…</div>}

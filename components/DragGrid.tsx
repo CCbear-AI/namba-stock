@@ -28,7 +28,7 @@ export default function DragGrid({ panels, storageKey }: { panels: Record<string
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-12">
+    <div className="grid gap-4 md:grid-cols-12">
       {order.map((id) => (
         <div key={id} className={`drag-cell relative ${panels[id].span} ${dragging === id ? "opacity-40" : ""} ${over === id && dragging && dragging !== id ? "outline outline-2 outline-[var(--gold)] rounded-[22px]" : ""}`}
           draggable={armed === id}
@@ -46,7 +46,7 @@ export default function DragGrid({ panels, storageKey }: { panels: Record<string
         </div>
       ))}
       {saved.length > 0 && (
-        <div className="lg:col-span-12 text-right">
+        <div className="md:col-span-12 text-right">
           <button className="sub hover:text-text" onClick={() => save([])}>恢復預設排列</button>
         </div>
       )}
