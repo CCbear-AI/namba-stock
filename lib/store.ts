@@ -3,8 +3,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type { FlowDay } from "./flow";
 
-const URL_ = process.env.SUPABASE_URL;
-const KEY = process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_ANON_KEY;
+const URL_ = process.env.SUPABASE_URL?.trim();
+const KEY = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)?.trim();
 export const hasSupabase = Boolean(URL_ && KEY);
 
 async function sb(pathq: string, init?: RequestInit) {
