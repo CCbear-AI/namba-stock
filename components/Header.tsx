@@ -83,20 +83,31 @@ function Ticker({ m, fut }: { m: Market | null; fut: { price: number; chg: numbe
   if (!m?.indices) return <div className="h-8 border-t border-line" />;
   const name: Record<string, string> = { t00: "加權指數", o00: "櫃買指數", "0050": "元大台灣50" };
   const b = m.breadth;
+  const items = (
+    <>
+      {m.indices.map((q) => (
+        <span key={q.c} className="whitespace-nowrap">
+          <span className="text-text-2">{name[q.c] ?? q.n}</span> {price(q.price)}{" "}
+          <span className={cls(q.chg)}>{q.chg > 0 ? "+" : ""}{price(q.chg)} ({pct(q.pct)})</span>
+        </span>
+      ))}
+      {fut?.price ? <span className="whitespace-nowrap"><span className="text-text-2">台指期近一</span> {num(fut.price)} <span className={cls(fut.chg)}>{fut.chg > 0 ? "+" : ""}{num(fut.chg)} ({pct(fut.pct)})</span></span> : null}
+      <span className="whitespace-nowrap"><span className="text-text-2">成交金額</span> {num(b.value)} 億</span>
+      <span className="whitespace-nowrap"><span className="text-text-2">漲</span> <span className="up">{b.up}</span> · <span className="text-text-2">跌</span> <span className="down">{b.down}</span> · <span className="text-text-2">平</span> {b.flat}</span>
+      <span className="whitespace-nowrap"><span className="text-text-2">漲停</span> <span className="up">{b.limitUp}</span> · <span className="text-text-2">跌停</span> <span className="down">{b.limitDown}</span></span>
+    </>
+  );
   return (
     <div className="border-t border-line h-8 flex items-center">
-      <div className="max-w-[1440px] w-full mx-auto px-3 sm:px-4 scroll-x flex items-center gap-6 text-[12.5px] mono">
-        {m.indices.map((q) => (
-          <span key={q.c} className="whitespace-nowrap">
-            <span className="text-text-2">{name[q.c] ?? q.n}</span> {price(q.price)}{" "}
-            <span className={cls(q.chg)}>{q.chg > 0 ? "+" : ""}{price(q.chg)} ({pct(q.pct)})</span>
-          </span>
-        ))}
-        {fut?.price ? <span className="whitespace-nowrap"><span className="text-text-2">台指期近一</span> {num(fut.price)} <span className={cls(fut.chg)}>{fut.chg > 0 ? "+" : ""}{num(fut.chg)} ({pct(fut.pct)})</span></span> : null}
-        <span className="whitespace-nowrap"><span className="text-text-2">成交金額</span> {num(b.value)} 億</span>
-        <span className="whitespace-nowrap"><span className="text-text-2">漲</span> <span className="up">{b.up}</span> · <span className="text-text-2">跌</span> <span className="down">{b.down}</span> · <span className="text-text-2">平</span> {b.flat}</span>
-        <span className="whitespace-nowrap"><span className="text-text-2">漲停</span> <span className="up">{b.limitUp}</span> · <span className="text-text-2">跌停</span> <span className="down">{b.limitDown}</span></span>
-        <span className="whitespace-nowrap text-text-2 ml-auto">{m.stale ? <span className="text-[var(--gold-2)]">即時報價暫時中斷，顯示 {new Date(m.time + 8 * 3600e3).toISOString().slice(5, 10).replace("-", "/")} 收盤</span> : <>{m.open ? "盤中" : "已收盤"} {hm(m.time)}</>}</span>
+      <div className="max-w-[1440px] w-full mx-auto px-3 sm:px-4 flex items-center gap-4 text-[12.5px] mono">
+        {/* 跑馬燈：內容放兩份往左捲，滑鼠移上去暫停 */}
+        <div className="marquee flex-1 min-w-0 overflow-hidden" aria-label="大盤跑馬燈">
+          <div className="marquee-track">
+            <div className="flex items-center gap-8 pr-8">{items}</div>
+            <div className="flex items-center gap-8 pr-8" aria-hidden="true">{items}</div>
+          </div>
+        </div>
+        <span className="whitespace-nowrap text-text-2 shrink-0">{m.stale ? <span className="text-[var(--gold-2)]">即時報價暫時中斷，顯示 {new Date(m.time + 8 * 3600e3).toISOString().slice(5, 10).replace("-", "/")} 收盤</span> : <>{m.open ? "盤中" : "已收盤"} {hm(m.time)}</>}</span>
       </div>
     </div>
   );

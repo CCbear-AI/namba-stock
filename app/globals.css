@@ -77,3 +77,9 @@ body {
 @keyframes riverflow { from { background-position: 0 0 } to { background-position: 22px 0 } }
 @media (prefers-reduced-motion: reduce) { .river-dots { animation: none; } }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 跑馬燈 */
+.marquee-track { display: flex; width: max-content; animation: marquee 45s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+@keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@media (prefers-reduced-motion: reduce) { .marquee-track { animation: none; } }
