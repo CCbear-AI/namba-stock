@@ -30,9 +30,12 @@ export type FlowDay = {
   events?: FlowEvent[];
   /** 漲跌停追蹤：代號 → { 首次漲停時間, 打開次數, 首次跌停時間 } */
   limits?: Record<string, { up?: string; upOpen?: number; dn?: string; dnOpen?: number }>;
+  /** 第一次突破上市以來最高／跌破最低的時間：代號 → [時間, 前高或前低] */
+  ath?: Record<string, [string, number]>;
+  atl?: Record<string, [string, number]>;
 };
 
-export type FlowEvent = { t: string; c: string; n: string; k: "lockUp" | "openUp" | "lockDn" | "openDn" | "rvol"; msg: string };
+export type FlowEvent = { t: string; c: string; n: string; k: "lockUp" | "openUp" | "lockDn" | "openDn" | "rvol" | "ath"; msg: string };
 
 export function updateStock(st: StockFlow | undefined, q: Quote): StockFlow {
   if (!st) {

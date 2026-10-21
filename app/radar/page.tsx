@@ -11,13 +11,14 @@ type Tab = "ath" | "near" | "atl";
 const SPIDERS = 32;
 const PATROL = 5; // 掃完後留下來巡邏的蜘蛛
 const NEAR = 0.03; // 離歷史高點 3% 以內算「即將破頂」
-const isAth = (r: ScanRow) => r.ath > 0 && r.vol > 0 && r.high > r.ath;
+const isAth = (r: ScanRow) => r.ath > 0 && r.vol > 0 && r.price > r.ath;
 const isNear = (r: ScanRow) => r.ath > 0 && r.vol > 0 && !isAth(r) && r.price >= r.ath * (1 - NEAR);
-const isAtl = (r: ScanRow) => r.atl > 0 && r.vol > 0 && r.low < r.atl;
+const isAtl = (r: ScanRow) => r.atl > 0 && r.vol > 0 && r.price < r.atl;
 const FIRST_KEY = "namba.radar.first";
 
 export default function Radar() {
   const { data } = usePoll<Scan>("/api/scan", 20_000);
+  const { data: ev } = usePoll<{ today?: boolean; ath: Record<string, [string, number]>; atl: Record<string, [string, number]> }>("/api/events", 30_000);
   const [tab, setTab] = useState<Tab>("ath");
   const [sound, setSound] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -81,7 +82,9 @@ export default function Radar() {
     const t = setInterval(() => setSlide((x) => (x + 1) % closest.length), 4000);
     return () => clearInterval(t);
   }, [closest.length]);
-  const athSorted = ath.slice().sort((a, b) => (first[a.c] ?? "99").localeCompare(first[b.c] ?? "99"));
+  // 破頂時間：盤中記錄器記的優先
+  const firstAt = (c: string) => (ev?.today ? ev.ath[c]?.[0] ?? ev.atl[c]?.[0] : undefined) ?? first[c];
+  const athSorted = ath.slice().sort((a, b) => (firstAt(a.c) ?? "99").localeCompare(firstAt(b.c) ?? "99"));
   const earliest = athSorted[0], latest = athSorted.at(-1);
   const nearSorted = near.slice().sort((a, b) => b.price / b.ath - a.price / a.ath);
   const athSet = new Set(ath.map((r) => r.c)), nearSet = new Set(near.map((r) => r.c)), atlSet = new Set(atl.map((r) => r.c));
@@ -111,7 +114,7 @@ export default function Radar() {
           </div>
           <div className="sub mt-1">
             {progress < 1 ? "蜘蛛正在逐檔比對每一檔上市以來的最高價與最低價…" : <>
-              {earliest && <>最早 {first[earliest.c] ?? ""} {earliest.n}</>}{latest && latest !== earliest && <> · 最新 {first[latest.c] ?? ""} {latest.n}</>}
+              {earliest && <>最早 {firstAt(earliest.c) ?? ""} {earliest.n}</>}{latest && latest !== earliest && <> · 最新 {firstAt(latest.c) ?? ""} {latest.n}</>}
               {earliest ? " · " : ""}另有 <span className="text-[var(--gold-2)]">{near.length}</span> 檔離高點不到 3%
             </>}
           </div>
@@ -185,8 +188,8 @@ export default function Radar() {
                     <div className="flex-1 min-w-0">
                       <div className="truncate">{r.n} <span className="sub">{r.ind}</span></div>
                       <div className="sub">
-                        {tab === "near" ? `距前高 ${price(r.ath)} 還差 ${pct(-d)}` : `${first[r.c] ?? ""} ${tab === "ath" ? "破頂 · 高於前高" : "破底 · 低於前低"} `}
-                        {tab !== "near" && <span className={tab === "ath" ? "up" : "down"}>{pct(tab === "ath" ? (r.high / r.ath - 1) * 100 : d)}</span>}
+                        {tab === "near" ? `距前高 ${price(r.ath)} 還差 ${pct(-d)}` : `${firstAt(r.c) ?? ""} ${tab === "ath" ? "破頂 · 高於前高" : "破底 · 低於前低"} `}
+                        {tab !== "near" && <span className={tab === "ath" ? "up" : "down"}>{pct(tab === "ath" ? (r.price / r.ath - 1) * 100 : (r.price / r.atl - 1) * 100)}</span>}
                       </div>
                     </div>
                     <div className="text-right mono"><div>{price(r.price)}</div><div className={cls(r.pct)}>{pct(r.pct)}</div></div>

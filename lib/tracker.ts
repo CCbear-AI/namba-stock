@@ -7,9 +7,11 @@ type St = { lockUp: boolean; lockDn: boolean; rvol: boolean };
 
 export class Tracker {
   private st = new Map<string, St>();
-  constructor(private day: FlowDay, private names: Map<string, string>, private avg20: Map<string, number>) {
+  constructor(private day: FlowDay, private names: Map<string, string>, private avg20: Map<string, number>, private hiLo: Record<string, [number, string, number, string]> = {}) {
     day.events ??= [];
     day.limits ??= {};
+    day.ath ??= {};
+    day.atl ??= {};
   }
 
   private push(e: FlowEvent) {
@@ -51,6 +53,13 @@ export class Tracker {
           this.push({ t: hm, c: q.c, n, k: "rvol", msg: `${n} 同時段量能達 20 日均量 ${rvol.toFixed(1)} 倍` });
         }
       }
+      // 破頂／破底：現價第一次越過上市以來最高／最低
+      const hl = this.hiLo[q.c];
+      if (hl && hl[0] > 0 && q.price > hl[0] && !this.day.ath![q.c]) {
+        this.day.ath![q.c] = [hm, hl[0]];
+        this.push({ t: hm, c: q.c, n, k: "ath", msg: `${n} 創上市以來新高 ${q.price}（前高 ${hl[0]}）` });
+      }
+      if (hl && hl[2] > 0 && q.price < hl[2] && !this.day.atl![q.c]) this.day.atl![q.c] = [hm, hl[2]];
       s.lockUp = lockUp || (s.lockUp && atUp);
       s.lockDn = lockDn || (s.lockDn && atDn);
       this.st.set(q.c, s);

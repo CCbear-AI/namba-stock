@@ -7,7 +7,7 @@ import { updateStock, makePoint, type StockFlow, type FlowDay } from "../lib/flo
 import { hasSupabase, saveFlowDayRemote } from "../lib/store";
 import { Tracker } from "../lib/tracker";
 import { misOhlc } from "../lib/misStats";
-import { getDaily } from "../lib/history";
+import { getDaily, getAth } from "../lib/history";
 import { toRow } from "../lib/market";
 import { scan } from "../lib/scan";
 import { checkAndPush, pushReady } from "../lib/pushServer";
@@ -43,7 +43,9 @@ async function main() {
     const v = x.v.filter((y) => !Number.isNaN(y)).slice(-20);
     if (v.length >= 5) avg20.set(c, v.reduce((a, y) => a + y, 0) / v.length);
   }
-  const tracker = new Tracker(day, new Map(universe.map((u) => [u.c, u.n])), avg20);
+  // 上市以來高低：檔案已含今天時用前一天的版本
+  const A = getAth();
+  const tracker = new Tracker(day, new Map(universe.map((u) => [u.c, u.n])), avg20, A.upTo >= date && A.prev ? A.prev : A.s);
   console.log(`資金流記錄器 ${date}，${universe.length} 檔，Supabase：${hasSupabase ? "有" : "無（只存本機檔）"}，背景推播：${pushReady ? "有" : "無"}`);
 
   if (!testRounds) {

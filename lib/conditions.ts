@@ -34,7 +34,7 @@ export const CONDS: Cond[] = [
   { id: "hi60", label: "創 60 日新高", test: (r) => newHigh(r, r.hi60) },
   { id: "hi20", label: "創 20 日新高", test: (r) => newHigh(r, r.hi20) },
   { id: "hi120", label: "創半年新高（120 日）", test: (r) => newHigh(r, r.hi120) },
-  { id: "ath", label: "創歷史新高", test: (r) => r.ath > 0 && r.vol > 0 && r.high > r.ath },
+  { id: "ath", label: "創歷史新高", test: (r) => r.ath > 0 && r.vol > 0 && r.price > r.ath },
   { id: "vol3k", label: "量 ≥ 3,000 張", test: (r) => r.vol >= 3000 },
   { id: "limup", label: "今日漲停", test: isLimitUp },
   { id: "ma60", label: "站上 60 日線", test: (r) => above(r.price, r.ma60) },
@@ -45,7 +45,7 @@ export const CONDS: Cond[] = [
   { id: "lo20", label: "創 20 日新低", test: (r) => newLow(r, r.lo20) },
   { id: "lo60", label: "創 60 日新低", test: (r) => newLow(r, r.lo60) },
   { id: "lo120", label: "創半年新低（120 日）", test: (r) => newLow(r, r.lo120) },
-  { id: "atl", label: "創歷史新低", test: (r) => r.atl > 0 && r.price < r.atl },
+  { id: "atl", label: "創歷史新低", test: (r) => r.atl > 0 && r.vol > 0 && r.price < r.atl },
 ];
 export const COND = Object.fromEntries(CONDS.map((c) => [c.id, c]));
 
@@ -63,7 +63,7 @@ export function matchAll(r: ScanRow, ids: string[]) {
 
 /** 均線／新高欄位：只顯示最重要的一個 */
 export function hiTag(r: ScanRow) {
-  if (r.ath > 0 && r.high > r.ath) return "歷史新高";
+  if (r.ath > 0 && r.price > r.ath) return "歷史新高";
   if (newHigh(r, r.hi120)) return "半年新高";
   if (newHigh(r, r.hi60)) return "60 日新高";
   if (newHigh(r, r.hi20)) return "20 日新高";
