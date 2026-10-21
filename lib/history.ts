@@ -48,7 +48,8 @@ export const getChips = cached((): ChipDay[] =>
 /** 上市櫃以來最高／最低（到 upTo 那天收盤為止） */
 export const getAth = cached(() => {
   const f = path.join(DATA, "ath.json");
-  return existsSync(f) ? readJson<{ upTo: string; s: Record<string, [number, string, number, string]> }>(f) : { upTo: "", s: {} };
+  type A = Record<string, [number, string, number, string]>;
+  return existsSync(f) ? readJson<{ upTo: string; s: A; prev?: A }>(f) : { upTo: "", s: {} as A, prev: undefined };
 });
 
 /** 集保：最近幾週 [千張大戶%, 股東人數] */

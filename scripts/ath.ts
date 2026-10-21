@@ -60,18 +60,23 @@ async function full() {
       if (i % 200 === 0) console.log(`${i} / ${universe.length}`);
     }
   }));
-  for (const f of files) applyDay(store, f);
-  for (const r of Object.values(store)) { r[0] = Math.round(r[0] * 100) / 100; r[2] = Math.round(r[2] * 100) / 100; }
-  writeFileSync(FILE, JSON.stringify({ upTo: files.at(-1)?.slice(0, 10) ?? "", s: store }));
+  for (const f of files.slice(0, -1)) applyDay(store, f);
+  const prev = JSON.parse(JSON.stringify(store)); // 最後一天之前的版本：盤後檔案已含今天時，雷達要跟這個比
+  if (files.length) applyDay(store, files[files.length - 1]);
+  for (const r of [...Object.values(store), ...Object.values(prev) as Rec[]]) { r[0] = Math.round(r[0] * 100) / 100; r[2] = Math.round(r[2] * 100) / 100; }
+  writeFileSync(FILE, JSON.stringify({ upTo: files.at(-1)?.slice(0, 10) ?? "", s: store, prev }));
   console.log("完成", Object.keys(store).length, "檔");
 }
 
 function update() {
   if (!existsSync(FILE)) return full();
-  const { upTo, s } = JSON.parse(readFileSync(FILE, "utf8")) as { upTo: string; s: Record<string, Rec> };
+  const { upTo, s, prev: oldPrev } = JSON.parse(readFileSync(FILE, "utf8")) as { upTo: string; s: Record<string, Rec>; prev?: Record<string, Rec> };
   const files = dailyFiles().filter((f) => f.slice(0, 10) > upTo);
-  for (const f of files) applyDay(s, f);
-  writeFileSync(FILE, JSON.stringify({ upTo: dailyFiles().at(-1)?.slice(0, 10) ?? upTo, s }));
+  if (!files.length) return console.log("沒有新的日 K");
+  for (const f of files.slice(0, -1)) applyDay(s, f);
+  const prev = files.length ? JSON.parse(JSON.stringify(s)) : oldPrev; // 最後一天之前的版本
+  applyDay(s, files[files.length - 1]);
+  writeFileSync(FILE, JSON.stringify({ upTo: dailyFiles().at(-1)?.slice(0, 10) ?? upTo, s, prev }));
   console.log("更新", files.length, "天");
 }
 

@@ -53,8 +53,10 @@ export function scan(m: Market): ScanRow[] {
   if (memo?.key === key) return memo.rows;
   const { dates, s } = getDaily();
   const chips = getChips();
-  const ath = getAth().s;
+  // 上市以來高低：盤後檔案已經含今天的話，改用「到前一天為止」的版本，今天破頂的才比得出來
+  const A = getAth();
   const today = new Date(m.time + 8 * 3600e3).toISOString().slice(0, 10);
+  const ath = A.upTo >= today && A.prev ? A.prev : A.s;
   // 盤後已經有今天的日 K 檔時，歷史只算到前一天
   const end = dates.at(-1) === today ? dates.length - 2 : dates.length - 1;
   const tw = new Date(Date.now() + 8 * 3600e3);

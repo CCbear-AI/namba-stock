@@ -9,6 +9,7 @@ import type { ScanRow } from "@/lib/scan";
 type Scan = { time: number; open: boolean; rows: ScanRow[] };
 type Tab = "ath" | "near" | "atl";
 const SPIDERS = 32;
+const PATROL = 5; // 掃完後留下來巡邏的蜘蛛
 const NEAR = 0.03; // 離歷史高點 3% 以內算「即將破頂」
 const isAth = (r: ScanRow) => r.ath > 0 && r.vol > 0 && r.high > r.ath;
 const isNear = (r: ScanRow) => r.ath > 0 && r.vol > 0 && !isAth(r) && r.price >= r.ath * (1 - NEAR);
@@ -24,6 +25,8 @@ export default function Radar() {
   const area = useRef<HTMLDivElement>(null);
   const known = useRef<Set<string> | null>(null);
   const [first, setFirst] = useState<Record<string, string>>({});
+  const [rescan, setRescan] = useState(0);
+  const [slide, setSlide] = useState(0);
 
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => r.ath > 0), [data]);
   const groups = useMemo(() => {
@@ -48,7 +51,7 @@ export default function Radar() {
     };
     id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
-  }, [data?.time, order.length]);
+  }, [data?.time, order.length, rescan]);
   const scanned = Math.floor(progress * order.length);
   const done = new Set(order.slice(0, scanned));
 
@@ -71,7 +74,16 @@ export default function Radar() {
 
   const list = (tab === "ath" ? ath : tab === "near" ? near : atl).slice().sort((a, b) =>
     sort === "pct" ? (tab === "atl" ? a.pct - b.pct : b.pct - a.pct) : Math.abs(a.price / a.ath - 1) - Math.abs(b.price / b.ath - 1));
-  const closest = useMemo(() => rows.filter((r) => r.vol > 0 && !isAth(r)).sort((a, b) => b.price / b.ath - a.price / a.ath).slice(0, 3), [rows]);
+  const closest = useMemo(() => rows.filter((r) => r.vol > 0 && !isAth(r)).sort((a, b) => b.price / b.ath - a.price / a.ath).slice(0, 5), [rows]);
+  // 「最接近破頂」卡片每 4 秒換一檔
+  useEffect(() => {
+    if (closest.length < 2) return;
+    const t = setInterval(() => setSlide((x) => (x + 1) % closest.length), 4000);
+    return () => clearInterval(t);
+  }, [closest.length]);
+  const athSorted = ath.slice().sort((a, b) => (first[a.c] ?? "99").localeCompare(first[b.c] ?? "99"));
+  const earliest = athSorted[0], latest = athSorted.at(-1);
+  const nearSorted = near.slice().sort((a, b) => b.price / b.ath - a.price / a.ath);
   const athSet = new Set(ath.map((r) => r.c)), nearSet = new Set(near.map((r) => r.c)), atlSet = new Set(atl.map((r) => r.c));
 
   return (
@@ -79,44 +91,57 @@ export default function Radar() {
       <div className="flex flex-wrap items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>破頂雷達</h1>
-          <div className="sub mt-1 flex items-center gap-2"><span className={`inline-block w-2 h-2 rounded-full ${data?.open ? "bg-[var(--up)] animate-pulse" : "bg-dim"}`} />{data?.open ? "盤中" : "已收盤"} · 每 20 秒重新比對 {data ? hm(data.time) : ""}</div>
+          <div className="sub mt-1 flex items-center gap-2"><span className={`inline-block w-2 h-2 rounded-full ${data?.open ? "bg-[var(--up)] animate-pulse" : "bg-dim"}`} />{data?.open ? `盤中 · 每 20 秒重新比對 ${hm(data.time)}` : data ? `收盤 · ${new Date(data.time + 8 * 3600e3).toISOString().slice(5, 10).replace("-", "/")} 的資料 ${hm(data.time)}` : ""}</div>
         </div>
         <div className="ml-auto w-72">
           <div className="flex items-center gap-2 text-[13px]">
             <button data-noexport onClick={() => setSound(!sound)} title={sound ? "關閉音效" : "打開音效"} aria-label={sound ? "關閉音效" : "打開音效"} className="text-text-2 hover:text-text">{sound ? "🔊" : "🔈"}</button>
-            <span>蜘蛛 × {SPIDERS}</span><span className="ml-auto mono sub">{scanned.toLocaleString()} / {order.length.toLocaleString()}</span>
+            {progress < 1 ? <><span>蜘蛛 × {SPIDERS}</span><span className="ml-auto mono sub">{scanned.toLocaleString()} / {order.length.toLocaleString()}</span></>
+              : <><span>掃描完成 · {PATROL} 隻巡邏中</span><button data-noexport className="btn !py-0.5 ml-auto" onClick={() => setRescan((x) => x + 1)}>重新掃描</button></>}
           </div>
           <div className="h-1 bg-panel-2 rounded mt-2 overflow-hidden"><div className="h-full bg-[var(--gold)]" style={{ width: `${progress * 100}%` }} /></div>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_360px] items-center">
-        <div>
-          <div className="text-3xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>今天 <span className="up">{ath.length}</span> 檔創上市以來新高</div>
-          <div className="sub mt-1">{progress < 1 ? "蜘蛛正在逐檔比對每一檔上市以來的最高價與最低價…" : `掃描完成：即將破頂 ${near.length} 檔、創歷史新低 ${atl.length} 檔`}</div>
+      <div className="grid gap-4 md:grid-cols-[1fr_380px] items-center">
+        <div id="radar-head">
+          <div className="flex items-start gap-2">
+            <div className="text-3xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>今天 <span className="up">{ath.length}</span> 檔創上市以來新高</div>
+            <span className="ml-auto"><ExportBtn icon name="創上市以來新高" target={() => document.getElementById("radar-head")} /></span>
+          </div>
+          <div className="sub mt-1">
+            {progress < 1 ? "蜘蛛正在逐檔比對每一檔上市以來的最高價與最低價…" : <>
+              {earliest && <>最早 {first[earliest.c] ?? ""} {earliest.n}</>}{latest && latest !== earliest && <> · 最新 {first[latest.c] ?? ""} {latest.n}</>}
+              {earliest ? " · " : ""}另有 <span className="text-[var(--gold-2)]">{near.length}</span> 檔離高點不到 3%
+            </>}
+          </div>
         </div>
-        <div className="card px-4 py-3 text-[13px]">
-          {progress < 1 ? <div className="sub text-center py-2">掃完會在這裡顯示離歷史新高最近的股票</div> : (
-            <>
-              <div className="sub mb-1">離歷史新高最近</div>
-              {closest.map((r) => (
-                <Link key={r.c} href={`/stock/${r.c}`} className="flex gap-2 py-0.5 hover:text-[var(--gold-2)]">
-                  <span className="mono text-text-2">{r.c}</span><span className="flex-1">{r.n}</span>
-                  <span className="mono">{price(r.price)}</span><span className="mono down">距前高 {pct((r.price / r.ath - 1) * 100)}</span>
-                </Link>
-              ))}
-            </>
-          )}
-        </div>
+        <Closest list={closest} index={slide} ready={progress >= 1} onDot={setSlide} />
       </div>
 
+      {progress >= 1 && (ath.length > 0 || nearSorted.length > 0) && (
+        <div className="marquee overflow-hidden border-y border-line py-2 text-[13px] mono" aria-label="破頂與即將破頂輪播">
+          <div className="marquee-track" style={{ animationDuration: `${Math.max(30, (ath.length + nearSorted.length) * 4)}s` }}>
+            {[0, 1].map((k) => (
+              <div key={k} className="flex items-center gap-8 pr-8" aria-hidden={k === 1}>
+                {ath.map((r) => <Link key={r.c} href={`/stock/${r.c}`} className="whitespace-nowrap hover:text-[var(--gold-2)]">{r.c} {r.n} <span className={cls(r.pct)}>{pct(r.pct)}</span></Link>)}
+                {nearSorted.length > 0 && <span className="chip !text-[12px] whitespace-nowrap">即將破頂 {nearSorted.length}</span>}
+                {nearSorted.map((r) => <Link key={r.c} href={`/stock/${r.c}`} className="whitespace-nowrap hover:text-[var(--gold-2)]">{r.c} {r.n} <span className={cls(r.pct)}>{pct(r.pct)}</span> <span className="sub">差 {((1 - r.price / r.ath) * 100).toFixed(2)}%</span></Link>)}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <div className="card p-4 relative overflow-hidden">
+        <div className="card p-4 relative overflow-hidden" id="radar-grid">
+          <div className="absolute right-3 top-3 z-10"><ExportBtn icon name="破頂雷達" target={() => document.getElementById("radar-grid")} /></div>
           {groups.map((g) => {
             const hi = g.l.filter((r) => athSet.has(r.c)).length;
+            const nr = g.l.filter((r) => nearSet.has(r.c)).length;
             return (
               <div key={g.k} className="mb-3">
-                <div className="text-[13px] mb-1"><b>{g.k}</b> <span className="sub">{g.l.length}</span>{hi > 0 && <span className="up ml-2">新高 {hi}</span>}</div>
+                <div className="text-[13px] mb-1"><b>{g.k}</b> <span className="sub">{g.l.length}</span>{hi > 0 && <span className="up ml-2">新高 {hi}</span>}{nr > 0 && <span className="text-[var(--gold-2)] ml-2">逼近 {nr}</span>}</div>
                 <div className="flex flex-wrap gap-x-1 gap-y-0.5 mono text-[12px]">
                   {g.l.map((r) => {
                     const seen = done.has(r.c);
@@ -133,7 +158,7 @@ export default function Radar() {
             );
           })}
           {!rows.length && <div className="sub text-center py-16 loading">雷達暖機中…（需要先有歷史最高價資料）</div>}
-          {progress < 1 && rows.length > 0 && <Spiders progress={progress} />}
+          {rows.length > 0 && <Spiders progress={progress} />}
         </div>
 
         <div className="grid gap-3 content-start">
@@ -179,22 +204,57 @@ export default function Radar() {
 
 /** 爬來爬去的蜘蛛（純裝飾，跟著掃描進度往下爬） */
 function Spiders({ progress }: { progress: number }) {
-  const pts = Array.from({ length: 6 }, (_, i) => {
-    const t = progress * 6 + i * 0.37;
-    return { x: 8 + ((Math.sin(t * 2.1 + i) + 1) / 2) * 84, y: Math.min(96, progress * 100 + Math.sin(t * 3 + i * 2) * 6) };
-  });
+  const [now, setNow] = useState(0);
+  const patrol = progress >= 1;
+  useEffect(() => {
+    if (!patrol) return;
+    let id = 0;
+    const loop = () => { setNow(performance.now() / 1000); id = requestAnimationFrame(loop); };
+    id = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(id);
+  }, [patrol]);
+  // 掃描中跟著進度往下爬；掃完後留幾隻慢慢巡邏
+  const pts = patrol
+    ? Array.from({ length: PATROL }, (_, i) => { const t = now * 0.08 + i * 1.7; return { x: 10 + ((Math.sin(t * 1.3 + i) + 1) / 2) * 80, y: 5 + ((Math.cos(t * 0.9 + i * 2) + 1) / 2) * 90 }; })
+    : Array.from({ length: 6 }, (_, i) => {
+      const t = progress * 6 + i * 0.37;
+      return { x: 8 + ((Math.sin(t * 2.1 + i) + 1) / 2) * 84, y: Math.min(96, progress * 100 + Math.sin(t * 3 + i * 2) * 6) };
+    });
+  const spin = patrol ? now : progress * 40;
   return (
     <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
       {pts.map((p, i) => (
         <svg key={i} x={`${p.x}%`} y={`${p.y}%`} overflow="visible">
           {[0, 1, 2, 3, 4, 5, 6, 7].map((k) => {
-            const a = (k / 8) * Math.PI * 2 + progress * 40;
+            const a = (k / 8) * Math.PI * 2 + spin;
             return <line key={k} x1={0} y1={0} x2={Math.cos(a) * 14} y2={Math.sin(a) * 14} stroke="#5aa9ff" strokeWidth={1} opacity={0.8} />;
           })}
           <circle r={4} fill="#d9b45a" />
         </svg>
       ))}
     </svg>
+  );
+}
+
+/** 最接近破頂：圓環＝現價占前高的比例，每 4 秒換一檔 */
+function Closest({ list, index, ready, onDot }: { list: ScanRow[]; index: number; ready: boolean; onDot: (i: number) => void }) {
+  const r = list[index % Math.max(1, list.length)];
+  if (!ready || !r) return <div className="card px-4 py-5 sub text-center">掃完會在這裡顯示離歷史新高最近的股票</div>;
+  const ratio = Math.min(1, r.price / r.ath), gap = (1 - ratio) * 100, C = 2 * Math.PI * 22;
+  return (
+    <div className="card px-4 py-3 flex items-center gap-4" id="radar-closest">
+      <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="22" fill="none" stroke="#2a2f36" strokeWidth="5" />
+        <circle cx="28" cy="28" r="22" fill="none" stroke="var(--gold)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${C * ratio} ${C}`} transform="rotate(-90 28 28)" /></svg>
+      <Link href={`/stock/${r.c}`} className="flex-1 min-w-0">
+        <div className="sub">最接近破頂</div>
+        <div className="text-lg font-semibold truncate"><span className="mono">{r.c}</span> {r.n}</div>
+        <div className="mono text-[13px]">{price(r.price)} <span className={cls(r.pct)}>{pct(r.pct)}</span> · <span className="text-[var(--gold-2)]">差 {gap.toFixed(2)}%，再 {price(Math.max(0, r.ath - r.price))} 元</span></div>
+      </Link>
+      <div className="flex flex-col items-end gap-2 self-stretch">
+        <div className="flex gap-1">{list.map((x, i) => <button key={x.c} aria-label={`看 ${x.n}`} onClick={() => onDot(i)} className={`h-1.5 rounded-full ${i === index % list.length ? "w-4 bg-[var(--gold)]" : "w-1.5 bg-[#3a3f47]"}`} />)}</div>
+        <span className="mt-auto"><ExportBtn icon name="最接近破頂" target={() => document.getElementById("radar-closest")} /></span>
+      </div>
+    </div>
   );
 }
 
