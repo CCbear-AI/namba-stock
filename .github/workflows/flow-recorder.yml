@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "50 0 * * 1-5" # UTC 00:50 = 台灣 08:50
   workflow_dispatch:
+    inputs:
+      test:
+        description: "測試輪數（填數字就不管時間跑幾輪、不存檔；留空 = 正式記錄）"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -28,8 +33,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: npm run flow-recorder
+        run: npm run flow-recorder ${{ inputs.test && format('-- --test {0}', inputs.test) || '' }}
       - name: 存檔
+        if: ${{ !inputs.test }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
