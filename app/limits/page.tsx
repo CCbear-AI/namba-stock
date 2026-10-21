@@ -44,7 +44,7 @@ export default function Limits() {
   return (
     <div className="grid gap-4" id="limits-area">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold">漲跌停監控</h1><span className="sub">漲跌幅限制 ±10% · 盤中每 40 秒更新</span>
+        <h1 className="text-lg font-bold">漲跌停監控</h1><span className="sub">漲跌幅限制 ±10% · {data?.open ? "盤中每 40 秒更新" : "已收盤"}</span>
         <span className="ml-auto"><ExportBtn name="漲跌停監控" target={() => document.getElementById("limits-area")} /></span>
       </div>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-5">

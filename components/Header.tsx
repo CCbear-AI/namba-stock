@@ -107,7 +107,7 @@ function Ticker({ m, fut }: { m: Market | null; fut: { price: number; chg: numbe
             <div className="flex items-center gap-8 pr-8" aria-hidden="true">{items}</div>
           </div>
         </div>
-        <span className="whitespace-nowrap text-text-2 shrink-0">{m.stale ? <span className="text-[var(--gold-2)]">即時報價暫時中斷，顯示 {new Date(m.time + 8 * 3600e3).toISOString().slice(5, 10).replace("-", "/")} 收盤</span> : <>{m.open ? "盤中" : "已收盤"} {hm(m.time)}</>}</span>
+        <span className="whitespace-nowrap text-text-2 shrink-0">{m.stale ? <span className="text-[var(--gold-2)]">即時報價暫時中斷，顯示 {new Date(m.time + 8 * 3600e3).toISOString().slice(5, 10).replace("-", "/")} 收盤</span> : <>{m.open ? `盤中 ${hm(m.time)}` : `已收盤 ${new Date(m.time + 8 * 3600e3).toISOString().slice(5, 10).replace("-", "/")} ${hm(m.time)}`}</>}</span>
       </div>
     </div>
   );

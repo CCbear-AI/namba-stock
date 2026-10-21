@@ -6,7 +6,8 @@ import type { Group } from "./hooks";
 /** 0050 權值股：上市市值前 50 大（台灣 50 指數的選股邏輯），依市值排序 */
 export const top50 = (rows: ScanRow[]) => rows.filter((r) => r.m === "tse").sort((a, b) => b.cap - a.cap).slice(0, 50);
 export const athRows = (rows: ScanRow[]) => rows.filter((r) => r.ath > 0 && r.vol > 0 && r.price > r.ath).sort((a, b) => b.pct - a.pct);
-export const d20Rows = (rows: ScanRow[]) => rows.filter((r) => r.d20 >= 20).sort((a, b) => b.d20 - a.d20);
+// 近 20 天（日曆天）漲超 20%，跟里長伯同一種算法
+export const d20Rows = (rows: ScanRow[]) => rows.filter((r) => r.vol > 0 && r.d20c >= 20).sort((a, b) => b.d20c - a.d20c);
 
 export function builtinCodes(id: string, rows: ScanRow[]) {
   if (id === "b-0050") return top50(rows).map((r) => r.c);

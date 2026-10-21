@@ -39,7 +39,7 @@ function Chips() {
         <h1 className="text-lg font-bold">籌碼分析</h1><span className="sub">大盤法人動向 · 資料日期 {data.date.replace(/-/g, "/")}（盤後公布）</span>
         <span className="ml-auto"><ExportBtn name="籌碼分析" target={() => document.getElementById("chips-area")} /></span>
       </div>
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <Card l="外資及陸資" v={`${yi(m.f)} 億`} c={m.f} s={streakText(m.fStreak)} />
         <Card l="投信" v={`${yi(m.t)} 億`} c={m.t} s={streakText(m.tStreak)} />
         <Card l="自營商" v={`${yi(m.d)} 億`} c={m.d} s={`自行買賣 ${yi(m.dSelf)} · 避險 ${yi(m.dHedge)}`} />

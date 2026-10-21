@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useScan } from "@/components/hooks";
 import { cls, pct } from "@/components/fmt";
 import ExportBtn from "@/components/ExportBtn";
-import Heatmap, { PERIODS, periodPct, type Period } from "@/components/Heatmap";
+import Heatmap, { PERIODS, periodPct, heat, type Period } from "@/components/Heatmap";
 import { industryGroup } from "@/lib/industries";
 
 export default function HeatmapPage() {
@@ -41,9 +41,10 @@ export default function HeatmapPage() {
         <div className="seg"><button className={sizeBy === "cap" ? "on" : ""} onClick={() => setSizeBy("cap")}>市值</button><button className={sizeBy === "value" ? "on" : ""} onClick={() => setSizeBy("value")}>成交值</button></div>
         <div className="seg">{(["全部", "電子", "金融", "傳產"] as const).map((g) => <button key={g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{g}</button>)}</div>
         <div className="flex-1" />
+        <Legend cap={period === "d" ? 10 : period === 5 ? 15 : 35} />
         <ExportBtn name="大盤熱力圖" target={() => document.getElementById("heatmap-area")} />
       </div>
-      <div id="heatmap-area" className="grid gap-4 xl:grid-cols-[1fr_280px]">
+      <div id="heatmap-area" className="grid gap-4 lg:grid-cols-[1fr_260px]">
         <div className="card p-2 overflow-hidden">
           <div className="sub px-1 pb-2">
             紅色上漲 · 綠色下跌 · 面積越大代表{sizeBy === "cap" ? "市值" : "成交值"}越大 · 每個產業顯示{sizeBy === "cap" ? "市值" : "成交值"}最大的 {per} 檔（佔全體 {share}%）
@@ -80,5 +81,17 @@ export default function HeatmapPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** 顏色圖例：-N% 綠 … +N% 紅 */
+function Legend({ cap }: { cap: number }) {
+  const steps = [-1, -0.66, -0.33, 0, 0.33, 0.66, 1];
+  return (
+    <span className="flex items-center gap-1.5 mono text-[11px] text-text-2" aria-label={`顏色：-${cap}% 到 +${cap}%`}>
+      -{cap}%
+      <span className="flex h-2.5 w-28 overflow-hidden rounded">{steps.map((t) => <i key={t} className="flex-1" style={{ background: heat(t * cap, cap) }} />)}</span>
+      +{cap}%
+    </span>
   );
 }

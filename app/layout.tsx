@@ -23,6 +23,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* 中文字型：內文 Noto Sans TC、卡片標題 Noto Serif TC（Google Fonts 會依用到的字分段下載） */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* 這是 App Router 的根版面，所有頁面都會載入，不受下面這條規則的限制 */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" />
       </head>
       <body className="min-h-full flex flex-col">

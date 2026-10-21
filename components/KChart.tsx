@@ -244,13 +244,11 @@ export default function KChart({
             <IconBtn title="放大：看更細的區間" onClick={() => zoom(0.66)} d="M8 8m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0M6 8h4M8 6v4M12 12l5 5" />
             <IconBtn title="回到最新（在圖上點兩下也可以）" onClick={() => chart.current?.timeScale().scrollToRealTime()} d="M4 10h10M10 5l5 5-5 5M17 4v12" />
           </div>
-          {tf !== "1m" && (
-            <button className={`btn ${sr ? "on" : ""}`} onClick={() => setSr(!sr)} title="超級支撐壓力：依這個週期的 K 線標出支撐與壓力價位">
-              <SparkIcon /> 超級支撐壓力
-            </button>
-          )}
-          {tf !== "1m" && <button className={`btn ${line ? "on" : ""}`} onClick={() => setLine(!line)} title="改成折線（收盤價連線）">折線</button>}
-          {tf !== "1m" && <button className={`btn ${menu ? "on" : ""}`} onClick={() => setMenu(!menu)} title="技術指標：均線、通道、動能、量能、波動…共 74 個">指標</button>}
+          {tf !== "1m" && <>
+            <IconBtn title="超級支撐壓力：依這個週期的 K 線標出支撐與壓力價位" on={sr} onClick={() => setSr(!sr)} d="M10 2l1.8 4.6L16.5 8l-4.7 1.4L10 14l-1.8-4.6L3.5 8l4.7-1.4zM16 13l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
+            <IconBtn title="改成折線（收盤價連線）" on={line} onClick={() => setLine(!line)} d="M3 15l4-5 3 3 7-8" />
+            <IconBtn title="技術指標：均線、通道、動能、量能、波動…共 74 個" on={menu} onClick={() => setMenu(!menu)} d="M3 16h14M4 13l3-4 3 2 3-5 3 3" />
+          </>}
           <IconBtn title="把目前的圖存成圖片" onClick={saveImage} d="M10 3v10M6 9l4 4 4-4M4 16h12" />
           <IconBtn title="全螢幕" onClick={toggleFull} d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" />
         </>}
