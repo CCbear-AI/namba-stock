@@ -24,7 +24,8 @@ function clean(points: FlowPoint[], key: "s" | "g" = "s"): FlowPoint[] {
     const s: FlowPoint["s"] = {};
     for (const [k, v] of Object.entries(p[key] ?? {})) {
       const g = good[k];
-      if (g && v[1] < g[1] * 0.97) s[k] = g;
+      // 成交值是累計的，只會變大；變小就是那一輪漏抓了股票
+      if (g && v[1] < g[1] - 0.05) s[k] = g;
       else { s[k] = v; good[k] = v; }
     }
     for (const [k, g] of Object.entries(good)) if (!s[k]) s[k] = g;

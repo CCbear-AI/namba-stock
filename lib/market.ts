@@ -8,6 +8,7 @@ const INDEX_CH = ["tse_t00.tw", "otc_o00.tw", "tse_0050.tw"];
 let cache: { at: number; data: Market } | null = null;
 // 每檔最後一次抓到的資料：某一批抓失敗時先沿用，避免股票整批從清單消失
 const lastRow = new Map<string, Row>();
+const lastIndex = new Map<string, IndexQuote>();
 let pending: Promise<Market> | null = null;
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -78,9 +79,12 @@ async function load(): Promise<Market> {
   const indices: IndexQuote[] = [];
   const stocks: Row[] = [];
   for (const q of list) {
-    if (q.c === "t00" || q.c === "o00" || q.c === "0050") indices.push(toIndex(q));
+    if (q.c === "t00" || q.c === "o00" || q.c === "0050") { const x = toIndex(q); indices.push(x); lastIndex.set(x.c, x); }
     else { const r = toRow(q); if (r) { stocks.push(r); lastRow.set(r.c, r); } }
   }
+  // 指數那一批沒抓到時沿用上一輪（權值股貢獻點數要用加權指數當基準）
+  for (const [c, x] of lastIndex) if (!indices.some((i) => i.c === c)) indices.push(x);
+  indices.sort((a, b) => ["t00", "o00", "0050"].indexOf(a.c) - ["t00", "o00", "0050"].indexOf(b.c));
   if (stocks.length < UNIVERSE.length) {
     const have = new Set(stocks.map((r) => r.c));
     for (const [c, r] of lastRow) if (!have.has(c)) stocks.push(r);
