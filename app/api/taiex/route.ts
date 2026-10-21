@@ -1,6 +1,7 @@
 import { getMarket } from "@/lib/market";
 import { misOhlc } from "@/lib/misStats";
 import { UNIVERSE } from "@/lib/universe";
+import { getDaily, lastIdx } from "@/lib/history";
 import { getFlowDay } from "@/lib/store";
 import { txf } from "@/lib/taifex";
 
@@ -34,7 +35,16 @@ export async function GET() {
   // 權值股貢獻點數（估算）：個股市值變動 ÷ 上市總市值 × 指數
   const tse0 = m.stocks.filter((s) => s.m === "tse");
   const sh = new Map(UNIVERSE.map((u) => [u.c, u.sh]));
-  const totalCap = tse0.reduce((a, s) => a + (sh.get(s.c) ?? 0) * s.prev, 0);
+  // 分母用全部上市股票的市值（這一輪沒抓到的用最近收盤補），避免股票少算時點數被放大
+  const prevOf = new Map(tse0.map((s) => [s.c, s.prev]));
+  const { s: hist } = getDaily();
+  let totalCap = 0;
+  for (const u of UNIVERSE) {
+    if (u.m !== "tse") continue;
+    let p = prevOf.get(u.c);
+    if (p == null) { const x = hist.get(u.c); const i = x ? lastIdx(x.c) : -1; p = i >= 0 ? x!.c[i] : 0; }
+    totalCap += u.sh * p;
+  }
   const contrib = t00 && totalCap ? tse0.map((s) => ({ c: s.c, n: s.n, pct: s.pct, pt: r2((((sh.get(s.c) ?? 0) * (s.price - s.prev)) / totalCap) * t00.prev) })) : [];
   contrib.sort((a, b) => b.pt - a.pt);
   const today = new Date(m.time + 8 * 3600e3).toISOString().slice(0, 10);
