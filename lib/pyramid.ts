@@ -24,6 +24,7 @@ export async function holderHistory(code: string): Promise<HolderWeek[]> {
     out.push({ date, holders: num(cells[i + 2]), big400: num(cells[i + 5]), big: num(cells[i + 11]), close: num(cells[i + 12]) });
   }
   out.sort((a, b) => a.date.localeCompare(b.date));
+  if (!out.length) throw new Error(`神秘金字塔沒有回資料（${html.length} 字，${html.slice(0, 80).replace(/\s+/g, " ")}）`);
   if (out.length) cache.set(code, { at: Date.now(), v: out });
   return out;
 }

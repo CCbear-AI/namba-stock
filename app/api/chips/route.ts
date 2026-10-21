@@ -29,7 +29,8 @@ export async function GET(req: Request) {
     const tdcc = getTdcc();
     const t1 = tdcc.at(-1), t0 = tdcc.at(-2);
     // 大戶持股歷史：先用神秘金字塔（有多年每週資料），抓不到才用集保開放資料
-    const hist = await holderHistory(code).catch(() => []);
+    let holdersError: string | null = null;
+    const hist = await holderHistory(code).catch((e) => { holdersError = (e as Error).message; return []; });
     const h1 = hist.at(-1), h0 = hist.at(-2);
     return Response.json({
       code, date: last.date,
@@ -42,6 +43,7 @@ export async function GET(req: Request) {
       tdcc: h1 ? { date: h1.date, big: h1.big, holders: h1.holders, bigChg: h0 ? r2(h1.big - h0.big) : null, holdersChg: h0 ? h1.holders - h0.holders : null, big400: h1.big400 }
         : t1?.s[code] ? { date: t1.date, big: t1.s[code][0], holders: t1.s[code][1], bigChg: t0?.s[code] ? r2(t1.s[code][0] - t0.s[code][0]) : null, holdersChg: t0?.s[code] ? t1.s[code][1] - t0.s[code][1] : null } : null,
       holders: hist.slice(-26).map((w) => [w.date, w.big, w.holders, w.close]),
+      holdersError,
     });
   }
 
