@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import KChart from "@/components/KChart";
-import ScrollRow from "@/components/ScrollRow";
 import { usePoll } from "@/components/hooks";
 import { cls, pct, price } from "@/components/fmt";
 import { industryGroup } from "@/lib/industries";
@@ -45,15 +44,16 @@ export default function SectorPage() {
         </div>
         <span className="sub">證交所／櫃買中心官方類股指數，點右邊成分股可看個股並判讀超級支撐壓力</span>
       </div>
-      <ScrollRow activeKey={id}>
+      {/* 類股按鈕依視窗寬度自動換行，全部都看得到 */}
+      <div className="flex flex-wrap gap-2">
         {list.map((s) => (
-          <button key={s.id} data-active={s.id === id} onClick={() => { setId(s.id); setStock(null); }}
+          <button key={s.id} onClick={() => { setId(s.id); setStock(null); }}
             className={`shrink-0 px-3 py-1.5 rounded-full border text-[13px] ${s.id === id ? "border-[var(--gold)] bg-[#2a2416] text-[var(--gold-2)]" : "border-line bg-panel hover:border-dim"}`}>
             {s.short} <span className={`mono ${cls(s.pct)}`}>{pct(s.pct)}</span>
           </button>
         ))}
         {!list.length && <span className="loading">類股載入中…</span>}
-      </ScrollRow>
+      </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         <div className="card overflow-hidden">
           <div className="px-4 pt-3 flex items-baseline gap-3 flex-wrap">
