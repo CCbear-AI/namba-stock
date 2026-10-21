@@ -71,7 +71,7 @@ export default function HeatmapPage() {
               <div className="px-2 pb-2">
                 {x.l.map((r) => (
                   <Link key={r.c} href={`/stock/${r.c}`} className="flex gap-3 px-2 py-1.5 rounded-lg hover:bg-panel-2">
-                    <span className="mono text-text-2 w-12">{r.c}</span><span className="flex-1 truncate">{r.n}</span>
+                    <span className="mono text-text-2 w-12 shrink-0">{r.c}</span><span className="w-[6.5em] truncate shrink-0">{r.n}</span>
                     <span className={`mono ${cls(periodPct(r, period))}`}>{pct(periodPct(r, period))}</span>
                   </Link>
                 ))}

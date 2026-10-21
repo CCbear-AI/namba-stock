@@ -90,3 +90,6 @@ body {
 
 /* 頁面標題用襯線字 */
 main h1 { font-family: var(--font-serif); letter-spacing: .03em; }
+
+/* 首頁可拖曳面板：同一列的卡片等高 */
+.drag-cell > .card { height: 100%; }
