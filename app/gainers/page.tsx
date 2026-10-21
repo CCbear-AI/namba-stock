@@ -32,7 +32,8 @@ export default function Gainers() {
   const list = useMemo(() => {
     const f = sc.find((s) => s.id === scope) ?? sc[0];
     const s = q.trim();
-    let rows = f.filter(all).filter((r) => (p === "d" ? r.vol > 0 : Number.isFinite(val(r, p)) && val(r, p) !== 0) && r.value >= minVal && (!s || r.c.startsWith(s) || r.n.includes(s)));
+    // 跟里長伯一樣只列有上漲的
+    let rows = f.filter(all).filter((r) => (p === "d" ? r.vol > 0 : true) && Number.isFinite(val(r, p)) && val(r, p) > 0 && r.value >= minVal && (!s || r.c.startsWith(s) || r.n.includes(s)));
     rows = rows.sort((a, b) => val(b, p) - val(a, p) || b.value - a.value);
     if (lockOrder) {
       // 鎖定排序：維持鎖定當下的順序，只更新數字
@@ -53,7 +54,7 @@ export default function Gainers() {
     <div className="grid gap-4">
       <div className="flex items-end gap-3">
         <div>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>漲幅排行<span className="text-[var(--gold)]">.</span></h1>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>漲幅排行</h1>
           <p className="sub mt-1">先看漲幅，再看走勢。把值得追蹤的股票放在一起。</p>
         </div>
         <span className="ml-auto sub">● {data?.open ? "即時" : "收盤"} {data ? hm(data.time) : ""}</span>
@@ -75,7 +76,7 @@ export default function Gainers() {
       <div className="flex items-center gap-4">
         <span className="mono text-xl font-semibold">{list.length.toLocaleString()}</span><span className="sub">檔符合</span>
         {top && <span className="sub">領漲 <b className="text-text">{top.n}</b> <span className={`mono ${cls(val(top, p))}`}>{pct(val(top, p))}</span></span>}
-        <span className="ml-auto sub">{p === "d" ? "漲幅以昨收為基準" : `對比 ${p} 個交易日前收盤 · 未還原除權息`}</span>
+        <span className="ml-auto sub">只列上漲的股票 · {p === "d" ? "漲幅以昨收為基準" : `對比 ${p} 個交易日前收盤 · 未還原除權息`}</span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">

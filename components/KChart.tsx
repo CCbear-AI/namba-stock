@@ -6,7 +6,7 @@ import {
   type IChartApi, type ISeriesApi, type SeriesType, type IPriceLine, type UTCTimestamp, type MouseEventParams, type Logical,
 } from "lightweight-charts";
 import { usePoll } from "./hooks";
-import { price as fp, num } from "./fmt";
+import { price as fp, num, cls } from "./fmt";
 import { superLevels } from "@/lib/levels";
 import { IND, DEFAULT_INDS, type IndSetting, type Line } from "@/lib/indicators";
 import DrawLayer, { TOOLS, type Tool } from "./chart/DrawLayer";
@@ -217,6 +217,8 @@ export default function KChart({
 
   const i = hover != null && hover >= 0 && hover < bars.length ? hover : bars.length - 1;
   const b = bars[i];
+  // 開高低收的顏色跟前一根收盤比（台股：比前一根高是紅、低是綠）；分時跟昨收比
+  const pc = tf === "1m" ? prev ?? bars[0]?.open ?? 0 : i > 0 ? bars[i - 1].close : b?.open ?? 0;
   const dateLabel = b ? new Date(b.time * 1000).toISOString().slice(0, intraday ? 16 : 10).replace("T", " ") : "";
   const val = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? "—" : Math.abs(v) >= 1e5 ? num(v) : fp(v));
   const drawable = !compact && tf !== "1m";
@@ -258,11 +260,11 @@ export default function KChart({
         <div className="px-4 pt-2 text-[12px] mono flex flex-wrap gap-x-3 text-text-2">
           <span>{dateLabel}</span>
           {tf !== "1m" && <>
-            <span>開 <span className="text-text">{fp(b.open)}</span></span>
-            <span>高 <span className="up">{fp(b.high)}</span></span>
-            <span>低 <span className="down">{fp(b.low)}</span></span>
+            <span>開 <span className={cls(b.open - pc)}>{fp(b.open)}</span></span>
+            <span>高 <span className={cls(b.high - pc)}>{fp(b.high)}</span></span>
+            <span>低 <span className={cls(b.low - pc)}>{fp(b.low)}</span></span>
           </>}
-          <span>收 <span className="text-text">{fp(b.close)}</span></span>
+          <span>收 <span className={cls(b.close - pc)}>{fp(b.close)}</span></span>
           {b.volume > 0 && <span>量 <span className="text-text">{num(b.volume)}</span></span>}
           {!line && computed.filter((x) => x.ind.overlay).flatMap((x) => x.lines.filter((l) => l.type !== "dots").map((l) => <span key={x.s.id + l.name} style={{ color: l.color }}>{l.name} {val(l.data[i])}</span>))}
         </div>
