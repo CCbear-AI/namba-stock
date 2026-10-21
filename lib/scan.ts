@@ -10,7 +10,8 @@ export type ScanRow = Row & {
   ma5: number; ma20: number; ma60: number;
   d5: number; d20: number; d60: number; // 近 N 日漲跌幅（對比 N 個交易日前收盤）
   hi20: number; hi60: number; hi120: number; // 前 N 日最高價（不含今天）
-  lo20: number; lo60: number; lo120: number;
+  lo20: number; lo60: number; lo120: number; // 前 N 日最低「收盤」（不含今天）
+  move20: number; // 近 20 日平均每日漲跌幅（%，絕對值）
   ath: number; atl: number; // 上市以來最高／最低（到昨天）
   rng20: number; // 近 20 日平均日波幅（高−低，元）
   fDays: number; tDays: number; // 外資／投信連買天數（負數＝連賣）
@@ -68,7 +69,6 @@ export function scan(m: Market): ScanRow[] {
     const closes = h && e >= 0 ? tail(h.c, e, 119) : [];
     const vols = h && e >= 0 ? tail(h.v, e, 20) : [];
     const highs = h && e >= 0 ? tail(h.h, e, 120) : [];
-    const lows = h && e >= 0 ? tail(h.l, e, 120) : [];
     const rngs = h && e >= 0 ? tail(h.h.map((x, i) => x - h.l[i]), e, 20) : [];
     const px = r.vol > 0 ? r.price : r.prev;
     const withToday = [...closes, px];
@@ -93,7 +93,8 @@ export function scan(m: Market): ScanRow[] {
       ma5: r2(maN(5)), ma20: r2(maN(20)), ma60: r2(maN(60)),
       d5: r2((px / ago(5) - 1) * 100), d20: r2((px / ago(20) - 1) * 100), d60: r2((px / ago(60) - 1) * 100),
       hi20: r2(max(highs.slice(-20))), hi60: r2(max(highs.slice(-60))), hi120: r2(max(highs)),
-      lo20: r2(min(lows.slice(-20))), lo60: r2(min(lows.slice(-60))), lo120: r2(min(lows)),
+      lo20: r2(min(closes.slice(-20))), lo60: r2(min(closes.slice(-60))), lo120: r2(min(closes.slice(-120))),
+      move20: r2(avg(closes.slice(-21).map((c, i, a) => (i ? Math.abs(c / a[i - 1] - 1) * 100 : NaN)))),
       ath: a?.[0] ?? 0, atl: a?.[2] ?? 0,
       rng20: r2(avg(rngs)),
       fDays: streak(fs), tDays: streak(ts),
