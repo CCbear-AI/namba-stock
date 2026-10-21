@@ -38,7 +38,10 @@ export default function Home() {
     .sort((a, z) => z.s.pct - a.s.pct || z.s.rvol - a.s.rvol)
     .slice(0, 30), [stocks]);
   const byCode = useMemo(() => new Map((scan?.rows ?? []).map((r) => [r.c, r])), [scan]);
-  const watch = wl.list.map((c) => byCode.get(c)).filter(Boolean) as ScanRow[];
+  // 自選股裡不在掃描清單的（ETF 等）另外查報價
+  const missing = scan ? wl.list.filter((c) => !byCode.has(c)) : [];
+  const { data: extra } = usePoll<Record<string, { c: string; n: string; price: number; prev: number; chg: number; pct: number }>>(missing.length ? `/api/quotes?codes=${missing.join(",")}` : null, 20_000);
+  const watch = wl.list.map((c) => byCode.get(c) ?? (extra?.[c] as ScanRow | undefined)).filter(Boolean) as ScanRow[];
   const sparks = useSparks(watch.slice(0, 40).map((r) => r.c), "day");
 
   return (
@@ -90,7 +93,8 @@ export default function Home() {
                 {value.slice(0, 8).map((r) => (
                   <div key={r.c} className="flex items-center gap-3 px-2 py-1.5">
                     <span className="mono text-text-2 w-12">{r.c}</span><span className="flex-1 truncate">{r.n}</span>
-                    <span className={`mono ${cls(r.pct)}`}>{pct(r.pct)}</span>
+                    <span className={`mono w-16 text-right ${cls(r.chg)}`}>{price(r.price)}</span>
+                    <span className={`mono w-16 text-right ${cls(r.pct)}`}>{pct(r.pct)}</span>
                     <button className="btn !py-0.5" onClick={() => wl.toggle(r.c)}>＋ 加入</button>
                   </div>
                 ))}
@@ -102,10 +106,10 @@ export default function Home() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Rank title="漲幅排行" rows={gainers.map((r) => ({ c: r.c, n: r.n, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} />
-        <Rank title="跌幅排行" rows={losers.map((r) => ({ c: r.c, n: r.n, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} />
-        <Rank title="成交值排行" sub="億" rows={value.map((r) => ({ c: r.c, n: r.n, v: r.value.toFixed(1) }))} />
-        <Rank title="外資買超" sub={ch ? `張 · ${md(ch.date)}` : "張"} rows={(ch?.rank.f.buy ?? []).slice(0, 30).map((r) => ({ c: r.c, n: r.n, v: <span className="up">+{num(r.lots)}</span> }))} />
+        <Rank title="漲幅排行" rows={gainers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} />
+        <Rank title="跌幅排行" rows={losers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} />
+        <Rank title="成交值排行" sub="股價 · 成交值(億)" rows={value.map((r) => ({ c: r.c, n: r.n, p: r, v: r.value.toFixed(1) }))} />
+        <Rank title="外資買超" sub={ch ? `股價 · 買超(張) · ${md(ch.date)}` : "張"} rows={(ch?.rank.f.buy ?? []).slice(0, 30).map((r) => ({ c: r.c, n: r.n, p: byCode.get(r.c), v: <span className="up">+{num(r.lots)}</span> }))} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
@@ -113,12 +117,13 @@ export default function Home() {
           <div className="card-h">飆股訊號 <Link href="/screener" className="text-[13px] text-[var(--gold)]">開啟選股器</Link></div>
           <div className="scroll-y max-h-[420px] px-2 pb-2">
             <table className="tbl">
-              <thead><tr><th>股票</th><th className="!text-left">符合的訊號</th><th>漲跌幅</th><th>RVOL</th></tr></thead>
+              <thead><tr><th>股票</th><th className="!text-left">符合的訊號</th><th>股價</th><th>漲跌幅</th><th>RVOL</th></tr></thead>
               <tbody>
                 {signals.map(({ s, tags }) => (
                   <tr key={s.c} className="click" onClick={() => router.push(`/stock/${s.c}`)}>
                     <td><span className="mono text-text-2 mr-2">{s.c}</span>{s.n}</td>
                     <td className="!text-left"><span className="flex gap-1 flex-wrap">{tags.map((t) => <span key={t} className={`chip ${t.includes("漲停") ? "!bg-[#3a1518] !text-[var(--up)]" : ""}`}>{t}</span>)}</span></td>
+                    <td className={`mono ${cls(s.chg)}`}>{price(s.price)}</td>
                     <td className={`mono ${cls(s.pct)}`}>{pct(s.pct)}</td>
                     <td className="mono">{s.rvol.toFixed(1)}x</td>
                   </tr>
@@ -145,14 +150,16 @@ export default function Home() {
   );
 }
 
-function Rank({ title, rows, sub }: { title: string; rows: { c: string; n: string; v: React.ReactNode }[]; sub?: string }) {
+function Rank({ title, rows, sub }: { title: string; rows: { c: string; n: string; p?: ScanRow; v: React.ReactNode }[]; sub?: string }) {
   return (
     <div className="card flex flex-col min-h-0">
       <div className="card-h">{title}{sub && <span className="sub">{sub}</span>}</div>
       <div className="scroll-y max-h-[260px] px-2 pb-2">
         {rows.map((r) => (
           <Link key={r.c} href={`/stock/${r.c}`} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-panel-2">
-            <span className="mono text-text-2 w-12">{r.c}</span><span className="flex-1 truncate">{r.n}</span><span className="mono">{r.v}</span>
+            <span className="mono text-text-2 w-12">{r.c}</span><span className="flex-1 truncate">{r.n}</span>
+            {r.p && <span className={`mono w-16 text-right ${cls(r.p.chg)}`}>{price(r.p.price)}</span>}
+            <span className="mono w-20 text-right">{r.v}</span>
           </Link>
         ))}
         {!rows.length && <div className="sub px-2 py-6 text-center loading">載入中…</div>}

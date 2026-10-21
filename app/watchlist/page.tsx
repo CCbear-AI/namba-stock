@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BUILTIN, useGroups, useScan } from "@/components/hooks";
+import { BUILTIN, useGroups, usePoll, useScan } from "@/components/hooks";
 import { cls, pct, price, num } from "@/components/fmt";
 import Spark from "@/components/Spark";
 import Heatmap, { PERIODS, type Period } from "@/components/Heatmap";
@@ -44,7 +44,15 @@ function Watchlist() {
   const area = useRef<HTMLDivElement>(null);
   const drag = useRef<number | null>(null);
 
-  const rows = cur.codes.map((c) => byCode.get(c)).filter((r): r is ScanRow => !!r);
+  // 不在掃描清單的（ETF 等）另外查報價，其他欄位補 0
+  const missing = data ? cur.codes.filter((c) => !byCode.has(c)) : [];
+  const { data: extra } = usePoll<Record<string, { c: string; n: string; price: number; prev: number; chg: number; pct: number }>>(missing.length ? `/api/quotes?codes=${missing.join(",")}` : null, 20_000);
+  const fill = (c: string): ScanRow | undefined => {
+    const x = extra?.[c];
+    if (!x) return undefined;
+    return { ...x, m: "tse", ind: "ETF", open: x.price, high: x.price, low: x.price, vol: 0, value: 0, cap: 0, up: 0, down: 0, bid1: 0, ask1: 0, bv: 0, av: 0, vr: 0, rvol: 0, ma5: 0, ma20: 0, ma60: 0, d5: 0, d20: 0, d60: 0, hi20: 0, hi60: 0, hi120: 0, lo20: 0, lo60: 0, lo120: 0, ath: 0, atl: 0, rng20: 0, fDays: 0, tDays: 0, f1: 0, t1: 0, d1: 0, chipDate: "", limStreak: 0, lockBid: 0, c20: [] };
+  };
+  const rows = cur.codes.map((c) => byCode.get(c) ?? fill(c)).filter((r): r is ScanRow => !!r);
   const sorted = sort === "custom" ? rows : [...rows].sort((a, b) => (sort === "pct" ? b.pct - a.pct : b.vol - a.vol));
   const sparks = useSparks(view === "list" ? sorted.slice(0, 60).map((r) => r.c) : [], "day");
   const move = (from: number, to: number) => {
