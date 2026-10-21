@@ -97,7 +97,7 @@ function Screener() {
         <div className="px-4 pb-4 sub leading-relaxed">
           篩選結果不構成投資建議 · 量比 = 今日成交量 ÷ 近 5 日均量<br />
           RVOL = 同時段相對成交量，依加權指數盤中量能曲線估算到此刻該有的量；收盤後即今日量 ÷ 20 日均量<br />
-          創新高＝今天盤中最高 ≥ 前 N 日最高 · 創新低＝收盤 ≤ 前 N 日最低收盤 · 均線多頭排列＝5 日線 ＞ 20 日線 ＞ 60 日線<br />量價齊揚 = RVOL ≥ 1.5、漲 2% 以上且收在當日高檔 · 爆量沒推進 = RVOL ≥ 2 但漲跌不到近 20 日平均每日漲跌幅的三成 · <Link href="/alerts" className="text-[var(--gold)]">管理提醒</Link>
+          創新高＝收盤 ≥ 前 N 日最高收盤 · 創新低＝收盤 ≤ 前 N 日最低收盤 · 均線多頭排列＝5 日線 ＞ 20 日線 ＞ 60 日線<br />量價齊揚 = RVOL ≥ 1.5、推進效率 ≥ 1、今日上漲（推進效率＝今日漲跌幅 ÷ 近 20 日平均日漲跌幅 ÷ RVOL） · 爆量沒推進 = RVOL ≥ 2 但漲跌不到近 20 日平均每日漲跌幅的三成 · <Link href="/alerts" className="text-[var(--gold)]">管理提醒</Link>
         </div>
       </div>
     </div>

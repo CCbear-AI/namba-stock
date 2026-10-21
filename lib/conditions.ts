@@ -9,12 +9,14 @@ export const lockedDown = (r: ScanRow) => isLimitDown(r) && !r.bid1;
 /** 曾觸及漲停後打開 */
 export const openedUp = (r: ScanRow) => r.up > 0 && r.high >= r.up && r.price < r.up && r.vol > 0;
 export const openedDown = (r: ScanRow) => r.down > 0 && r.low <= r.down && r.price > r.down && r.vol > 0;
-/** 量價齊揚：RVOL ≥ 1.5、漲 2% 以上、收在當日區間上緣 */
-export const volPriceUp = (r: ScanRow) => r.rvol >= 1.5 && r.pct >= 2 && r.high > r.low && (r.price - r.low) / (r.high - r.low) >= 0.7;
+/** 推進效率＝結果 ÷ 努力；結果＝今日漲跌幅 ÷ 近 20 日平均日漲跌幅，努力＝同時段 RVOL */
+export const efficiency = (r: ScanRow) => (r.move20 > 0 && r.rvol > 0 ? Math.abs(r.pct) / r.move20 / r.rvol : 0);
+/** 量價齊揚：RVOL ≥ 1.5、推進效率 ≥ 1、今日上漲（放量而且價格確實被推上去） */
+export const volPriceUp = (r: ScanRow) => r.rvol >= 1.5 && r.pct > 0 && efficiency(r) >= 1;
 /** 爆量卡關（爆量沒推進）：RVOL ≥ 2，但漲跌不到平常日波幅（近 20 日平均每日漲跌幅）的三成 */
 export const volStall = (r: ScanRow) => r.rvol >= 2 && r.move20 > 0 && Math.abs(r.pct) < r.move20 * 0.3;
-// 新高：今天盤中最高 ≥ 前 N 日最高；新低：收盤 ≤ 前 N 日最低收盤（跟里長伯的算法一致）
-const newHigh = (r: ScanRow, hi: number) => hi > 0 && r.vol > 0 && r.high >= hi;
+// 新高：收盤 ≥ 前 N 日最高收盤；新低：收盤 ≤ 前 N 日最低收盤（跟里長伯的算法一致）
+const newHigh = (r: ScanRow, hi: number) => hi > 0 && r.vol > 0 && r.price >= hi;
 const newLow = (r: ScanRow, lo: number) => lo > 0 && r.vol > 0 && r.price <= lo;
 const above = (p: number, ma: number) => ma > 0 && p > ma;
 
@@ -48,7 +50,7 @@ export const CONDS: Cond[] = [
 export const COND = Object.fromEntries(CONDS.map((c) => [c.id, c]));
 
 export const STRATEGIES: { id: string; label: string; conds: string[] }[] = [
-  { id: "rocket", label: "飆股起漲", conds: ["pct5", "vr2"] },
+  { id: "rocket", label: "飆股起漲", conds: ["pct5", "vr2", "ma20"] },
   { id: "insti", label: "法人連買", conds: ["f3", "t3"] },
   { id: "limit", label: "漲停續強", conds: ["hi60", "limup"] },
   { id: "volbrk", label: "量增突破", conds: ["vr2", "ma20", "hi60", "vol3k"] },

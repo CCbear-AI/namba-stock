@@ -91,10 +91,12 @@ export default function Home() {
               <>
                 <div className="sub px-2 py-3">還沒有自選股。從下面成交最熱的股票加入，或在個股頁按「加入自選」。</div>
                 {value.slice(0, 8).map((r) => (
-                  <div key={r.c} className="flex items-center gap-3 px-2 py-1.5">
-                    <span className="mono text-text-2 w-12">{r.c}</span><span className="flex-1 truncate">{r.n}</span>
-                    <span className={`mono w-16 text-right ${cls(r.chg)}`}>{price(r.price)}</span>
-                    <span className={`mono w-16 text-right ${cls(r.pct)}`}>{pct(r.pct)}</span>
+                  <div key={r.c} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-panel-2">
+                    <Link href={`/stock/${r.c}`} className="flex flex-1 items-center gap-3 min-w-0">
+                      <span className="mono text-text-2 w-12">{r.c}</span><span className="flex-1 truncate">{r.n}</span>
+                      <span className={`mono w-16 text-right ${cls(r.chg)}`}>{price(r.price)}</span>
+                      <span className={`mono w-16 text-right ${cls(r.pct)}`}>{pct(r.pct)}</span>
+                    </Link>
                     <button className="btn !py-0.5" onClick={() => wl.toggle(r.c)}>＋ 加入</button>
                   </div>
                 ))}
