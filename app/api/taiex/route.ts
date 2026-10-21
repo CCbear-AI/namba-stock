@@ -53,7 +53,7 @@ export async function GET() {
     futures: f ? { ...(f as object), basis: t00 ? r2((f as { price: number }).price - t00.price) : 0 } : null,
     orders: { tse: tse.orders, otc: otc.orders },
     ordersLine: day?.date === today ? (day.orders ?? []) : [],
-    contrib: { up: contrib.slice(0, 5), down: contrib.slice(-5).reverse(), upSum: r2(contrib.filter((x) => x.pt > 0).reduce((a, x) => a + x.pt, 0)), downSum: r2(contrib.filter((x) => x.pt < 0).reduce((a, x) => a + x.pt, 0)) },
+    contrib: { up: contrib.slice(0, 5), down: contrib.slice(-5).reverse(), upSum: r2(contrib.slice(0, 5).reduce((a, x) => a + Math.max(0, x.pt), 0)), downSum: r2(contrib.slice(-5).reduce((a, x) => a + Math.min(0, x.pt), 0)) },
     world,
   });
 }
