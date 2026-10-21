@@ -64,14 +64,21 @@ async function fetchBatch(chs: string[], timeout = 3000): Promise<Quote[] | null
 }
 
 /** chs 形如 "tse_2330.tw"、"otc_6488.tw"、"tse_t00.tw" */
-export async function getQuotes(chs: string[], budgetMs = 25_000): Promise<Quote[]> {
+export async function getQuotes(chs: string[], budgetMs = 35_000): Promise<Quote[]> {
   const out: Quote[] = [];
+  const failed: string[][] = [];
   const deadline = Date.now() + budgetMs;
   for (let i = 0; i < chs.length; i += 100) {
     const part = chs.slice(i, i + 100);
     let res: Quote[] | null = null;
-    // 超過時間預算就不再重試，避免一輪拖太久（漏掉的下一輪會補上成交量差）
-    for (let k = 0; k < 4 && !res && (k === 0 || Date.now() < deadline); k++) res = await fetchBatch(part);
+    // 超過時間預算就不再重試，避免一輪拖太久
+    for (let k = 0; k < 3 && !res && (k === 0 || Date.now() < deadline); k++) res = await fetchBatch(part, 4000);
+    if (res) out.push(...res); else failed.push(part);
+  }
+  // 失敗的批次最後再補抓一次（證交所偶爾某一批回得很慢）
+  for (const part of failed) {
+    if (Date.now() > deadline + 10_000) break;
+    const res = await fetchBatch(part, 6000);
     if (res) out.push(...res);
   }
   return out;
