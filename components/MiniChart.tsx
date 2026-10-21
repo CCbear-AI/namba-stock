@@ -7,7 +7,7 @@ import type { Bar } from "@/lib/types";
 
 export type Span = "day" | 20 | 60 | 180;
 
-export default function MiniChart({ code, span = "day", prev, height = 240, onRange }: { code: string; span?: Span; prev?: number; height?: number; onRange?: (pct: number) => void }) {
+export default function MiniChart({ code, span = "day", prev, height = 240, onRange }: { code: string; span?: Span; prev?: number; height?: number; onRange?: (pct: number, code: string, span: Span) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const day = span === "day";
@@ -41,8 +41,8 @@ export default function MiniChart({ code, span = "day", prev, height = 240, onRa
     s.setData(bars.map((b) => ({ time: b.time as UTCTimestamp, value: b.close })));
     s.createPriceLine({ price: base, color: "#646a73", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: day ? "昨收" : "區間起點" });
     c.timeScale().fitContent();
-    onRange?.(base ? ((last - base) / base) * 100 : 0);
-  }, [bars, base, day, onRange]);
+    onRange?.(base ? ((last - base) / base) * 100 : 0, code, span);
+  }, [bars, base, day, onRange, code, span]);
 
   return (
     <div className="relative">

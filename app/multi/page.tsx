@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import MiniChart, { type Span } from "@/components/MiniChart";
 import ExportBtn from "@/components/ExportBtn";
@@ -28,6 +28,12 @@ function Multi() {
   const { data: scan } = useScan();
   const rows = useMemo(() => new Map((scan?.rows ?? []).map((r) => [r.c, r])), [scan]);
   const grid = useRef<HTMLDivElement>(null);
+  // 近 180 日漲跌：scan 沒有，改用圖表區間起點到最後一根收盤計算
+  const [ranges, setRanges] = useState<Record<string, number>>({});
+  const onRange = useCallback((v: number, code: string, sp: Span) => {
+    const k = `${code}:${sp}`;
+    setRanges((o) => (o[k] === v ? o : { ...o, [k]: v }));
+  }, []);
   const cols = n <= 4 ? "md:grid-cols-2" : "md:grid-cols-3";
   const [editing, setEditing] = useState<number | null>(null);
   const replace = (i: number, c: string) => {
@@ -62,7 +68,7 @@ function Multi() {
       <div ref={grid} className={`grid gap-4 ${cols}`}>
         {codes.slice(0, n).map((c, i) => {
           const r = rows.get(c);
-          const rangePct = span === 20 ? r?.d20 : span === 60 ? r?.d60 : null;
+          const rangePct = span === 20 ? r?.d20 : span === 60 ? r?.d60 : span === 180 ? ranges[`${c}:180`] ?? null : null;
           return (
             <div key={`${c}-${i}`} className="card overflow-hidden">
               <div className="px-4 pt-3 flex items-start gap-2">
@@ -83,7 +89,7 @@ function Multi() {
                   {r && <div className="mono text-[12px] text-text-2">RVOL {r.rvol.toFixed(1)}x</div>}
                 </div>
               </div>
-              <MiniChart code={c} span={span} prev={r?.prev} height={n >= 6 ? 190 : 250} />
+              <MiniChart code={c} span={span} prev={r?.prev} height={n >= 6 ? 190 : 250} onRange={onRange} />
             </div>
           );
         })}
