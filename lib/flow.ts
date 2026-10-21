@@ -1,5 +1,6 @@
 // 即時資金流：用相鄰兩次快照的成交量差，判斷這段成交是外盤（主動買）還是內盤（主動賣）
 import type { Quote } from "./mis";
+import { THEMES_OF } from "./themes";
 
 /** 每檔股票的累積狀態 */
 export type StockFlow = {
@@ -13,7 +14,8 @@ export type StockFlow = {
 };
 
 /** 一個時間點：每個板塊 [主動買賣淨額(億), 成交值(億), 漲跌幅%] */
-export type FlowPoint = { t: string; s: Record<string, [number, number, number]> };
+/** 一個時間點：每個板塊 [主動買賣淨額(億), 成交值(億), 漲跌幅%]；g 是族群（概念股）同樣格式 */
+export type FlowPoint = { t: string; s: Record<string, [number, number, number]>; g?: Record<string, [number, number, number]> };
 
 /** 一天的完整紀錄 */
 export type FlowDay = {
@@ -65,6 +67,7 @@ export function makePoint(
   meta: Map<string, { ind: string; sh: number }>,
 ): { point: FlowPoint; stocks: FlowDay["stocks"] } {
   const agg: Record<string, { net: number; value: number; cap: number; capChg: number }> = {};
+  const tagg: typeof agg = {};
   const stocks: FlowDay["stocks"] = {};
   for (const [c, st] of state) {
     const m = meta.get(c);
@@ -78,10 +81,16 @@ export function makePoint(
     a.cap += cap;
     a.capChg += cap * pct;
     stocks[c] = [yi(st.buy - st.sell), yi(st.value), Math.round(pct * 100) / 100];
+    for (const t of THEMES_OF.get(c) ?? []) {
+      const g = (tagg[t] ??= { net: 0, value: 0, cap: 0, capChg: 0 });
+      g.net += st.buy - st.sell; g.value += st.value; g.cap += cap; g.capChg += cap * pct;
+    }
   }
   const s: FlowPoint["s"] = {};
   for (const [ind, a] of Object.entries(agg)) {
     s[ind] = [yi(a.net), yi(a.value), a.cap ? Math.round((a.capChg / a.cap) * 100) / 100 : 0];
   }
-  return { point: { t, s }, stocks };
+  const g: FlowPoint["s"] = {};
+  for (const [k, a] of Object.entries(tagg)) g[k] = [yi(a.net), yi(a.value), a.cap ? Math.round((a.capChg / a.cap) * 100) / 100 : 0];
+  return { point: { t, s, g }, stocks };
 }

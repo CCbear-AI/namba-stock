@@ -35,6 +35,7 @@ async function main() {
     ? JSON.parse(readFileSync(file, "utf8"))
     : { date, points: [], stocks: {}, updated: 0 };
   const state = new Map<string, StockFlow>();
+  const lastQ = new Map<string, Quote>();
   // 近 20 日均量（張），給「同時段量能」判斷
   const { s: hist } = getDaily();
   const avg20 = new Map<string, number>();
@@ -60,7 +61,9 @@ async function main() {
       const d = new Date(list[0].time + 8 * 3600e3).toISOString().slice(0, 10);
       if (d !== date) { console.log(`今天沒開盤（報價日期 ${d}），結束`); return; }
     }
-    const quotes = new Map<string, Quote>(list.map((q) => [q.c, q]));
+    // 這一輪沒抓到的股票沿用上一輪報價，避免板塊成交值忽大忽小
+    for (const q of list) lastQ.set(q.c, q);
+    const quotes = new Map<string, Quote>(lastQ);
     for (const q of list) state.set(q.c, updateStock(state.get(q.c), q));
     const { point, stocks } = makePoint(hms(now), state, quotes, meta);
     tracker.update(list, hms(now).slice(0, 5), minutes(now));
