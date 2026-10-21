@@ -28,9 +28,11 @@ export async function GET(req: Request) {
     const cur = last.s[code], pv = prev?.s[code];
     const tdcc = getTdcc();
     const t1 = tdcc.at(-1), t0 = tdcc.at(-2);
-    // 大戶持股歷史：先用神秘金字塔（有多年每週資料），抓不到才用集保開放資料
+    // 大戶持股歷史：用存好的每週集保資料（一次性從神秘金字塔回補 26 週，之後每週累積）；
+    // 不夠的時候才直接問神秘金字塔（它會擋雲端機房，線上通常抓不到）
     let holdersError: string | null = null;
-    const hist = await holderHistory(code).catch((e) => { holdersError = (e as Error).message; return []; });
+    let hist = tdcc.filter((w) => w.s[code]).map((w) => ({ date: w.date, big: w.s[code][0], holders: w.s[code][1], big400: 0, close: 0 }));
+    if (hist.length < 3) hist = await holderHistory(code).catch((e) => { holdersError = (e as Error).message; return hist; });
     const h1 = hist.at(-1), h0 = hist.at(-2);
     return Response.json({
       code, date: last.date,
@@ -40,7 +42,7 @@ export async function GET(req: Request) {
       margin: cur ? { bal: cur[3], chg: pv ? cur[3] - pv[3] : 0, use: cur[5] ? r2((cur[3] / cur[5]) * 100) : null, short: cur[4], shortChg: pv ? cur[4] - pv[4] : 0, ratio: cur[3] ? r2((cur[4] / cur[3]) * 100) : 0 } : null,
       dayTrade: cur && cur[8] >= 0 ? cur[8] : null,
       sbl: cur && cur[7] >= 0 ? { bal: cur[7], chg: pv && pv[7] >= 0 ? cur[7] - pv[7] : null } : null,
-      tdcc: h1 ? { date: h1.date, big: h1.big, holders: h1.holders, bigChg: h0 ? r2(h1.big - h0.big) : null, holdersChg: h0 ? h1.holders - h0.holders : null, big400: h1.big400 }
+      tdcc: h1 ? { date: h1.date, big: h1.big, holders: h1.holders, bigChg: h0 ? r2(h1.big - h0.big) : null, holdersChg: h0 ? h1.holders - h0.holders : null, big400: h1.big400 || undefined }
         : t1?.s[code] ? { date: t1.date, big: t1.s[code][0], holders: t1.s[code][1], bigChg: t0?.s[code] ? r2(t1.s[code][0] - t0.s[code][0]) : null, holdersChg: t0?.s[code] ? t1.s[code][1] - t0.s[code][1] : null } : null,
       holders: hist.slice(-26).map((w) => [w.date, w.big, w.holders, w.close]),
       holdersError,
