@@ -1,5 +1,6 @@
 import { getChips, getDaily, getFutures, getTdcc, lastIdx } from "@/lib/history";
 import { BY_CODE } from "@/lib/universe";
+import { holderHistory } from "@/lib/pyramid";
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
@@ -27,6 +28,9 @@ export async function GET(req: Request) {
     const cur = last.s[code], pv = prev?.s[code];
     const tdcc = getTdcc();
     const t1 = tdcc.at(-1), t0 = tdcc.at(-2);
+    // 大戶持股歷史：先用神秘金字塔（有多年每週資料），抓不到才用集保開放資料
+    const hist = await holderHistory(code).catch(() => []);
+    const h1 = hist.at(-1), h0 = hist.at(-2);
     return Response.json({
       code, date: last.date,
       days: rows.slice(-20).map((x) => [x.date, x.v?.[0] ?? 0, x.v?.[1] ?? 0, x.v?.[2] ?? 0]),
@@ -35,7 +39,9 @@ export async function GET(req: Request) {
       margin: cur ? { bal: cur[3], chg: pv ? cur[3] - pv[3] : 0, use: cur[5] ? r2((cur[3] / cur[5]) * 100) : null, short: cur[4], shortChg: pv ? cur[4] - pv[4] : 0, ratio: cur[3] ? r2((cur[4] / cur[3]) * 100) : 0 } : null,
       dayTrade: cur && cur[8] >= 0 ? cur[8] : null,
       sbl: cur && cur[7] >= 0 ? { bal: cur[7], chg: pv && pv[7] >= 0 ? cur[7] - pv[7] : null } : null,
-      tdcc: t1?.s[code] ? { date: t1.date, big: t1.s[code][0], holders: t1.s[code][1], bigChg: t0?.s[code] ? r2(t1.s[code][0] - t0.s[code][0]) : null, holdersChg: t0?.s[code] ? t1.s[code][1] - t0.s[code][1] : null } : null,
+      tdcc: h1 ? { date: h1.date, big: h1.big, holders: h1.holders, bigChg: h0 ? r2(h1.big - h0.big) : null, holdersChg: h0 ? h1.holders - h0.holders : null, big400: h1.big400 }
+        : t1?.s[code] ? { date: t1.date, big: t1.s[code][0], holders: t1.s[code][1], bigChg: t0?.s[code] ? r2(t1.s[code][0] - t0.s[code][0]) : null, holdersChg: t0?.s[code] ? t1.s[code][1] - t0.s[code][1] : null } : null,
+      holders: hist.slice(-26).map((w) => [w.date, w.big, w.holders, w.close]),
     });
   }
 

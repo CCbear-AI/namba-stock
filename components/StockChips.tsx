@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { usePoll } from "./hooks";
 import { cls, num } from "./fmt";
+import Spark from "./Spark";
 
 type C = {
   error?: string; date: string; days: [string, number, number, number][]; fDays: number; tDays: number;
   qfii: { pct: number; chg: number | null } | null;
   margin: { bal: number; chg: number; use: number | null; short: number; shortChg: number; ratio: number } | null;
   dayTrade: number | null; sbl: { bal: number; chg: number | null } | null;
-  tdcc: { date: string; big: number; holders: number; bigChg: number | null; holdersChg: number | null } | null;
+  tdcc: { date: string; big: number; holders: number; bigChg: number | null; holdersChg: number | null; big400?: number } | null;
+  holders?: [string, number, number, number][];
 };
 type B = { error?: string; from: string; to: string; buy: { n: string; lots: number; pct: number }[]; sell: { n: string; lots: number; pct: number }[]; buySum: number; sellSum: number; conc: number | null };
 const sg = (v: number) => `${v > 0 ? "+" : ""}${num(v)}`;
@@ -45,7 +47,13 @@ export function ChipsSummary({ code }: { code: string }) {
         <Stat l="股東人數" v={c.tdcc ? `${num(c.tdcc.holders)} 人` : "—"} s={c.tdcc?.holdersChg != null ? sg(c.tdcc.holdersChg) : ""} sc={-(c.tdcc?.holdersChg ?? 0)} />
         <Stat l={`借券賣出餘額 · ${md(c.date)}`} v={c.sbl ? `${num(c.sbl.bal)} 張` : "—"} s={c.sbl?.chg != null ? sg(c.sbl.chg) : "上櫃股不提供"} sc={-(c.sbl?.chg ?? 0)} />
       </div>
-      <div className="sub leading-relaxed">融資券為 {md(c.date)} 餘額，增減是跟前一個交易日比。當沖比＝當沖成交量 ÷ 當日成交量。千張大戶、股東人數為集保每週資料，增減是跟前一週比。</div>
+      {c.holders && c.holders.length > 2 && (
+        <div className="grid grid-cols-2 gap-3 text-[13px]">
+          <div className="rounded-lg bg-panel-2 px-3 py-2"><div className="sub">千張大戶持股 · 近 {c.holders.length} 週</div><Spark data={c.holders.map((x) => x[1])} w={220} h={40} color="var(--gold)" /><div className="sub mono">{c.holders[0][1].toFixed(2)}% → {c.holders.at(-1)![1].toFixed(2)}%</div></div>
+          <div className="rounded-lg bg-panel-2 px-3 py-2"><div className="sub">股東人數 · 近 {c.holders.length} 週</div><Spark data={c.holders.map((x) => x[2])} w={220} h={40} color="#5aa9ff" /><div className="sub mono">{num(c.holders[0][2])} → {num(c.holders.at(-1)![2])}</div></div>
+        </div>
+      )}
+      <div className="sub leading-relaxed">融資券為 {md(c.date)} 餘額，增減是跟前一個交易日比。當沖比＝當沖成交量 ÷ 當日成交量。千張大戶、股東人數為集保每週資料（歷史取自神秘金字塔），增減是跟前一週比；大戶增加、股東人數減少代表籌碼集中。</div>
     </div>
   );
 }
