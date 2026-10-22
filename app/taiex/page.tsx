@@ -8,6 +8,7 @@ import Spark from "@/components/Spark";
 import { usePoll, useScan } from "@/components/hooks";
 import { cls, pct, price, num, hm } from "@/components/fmt";
 import type { Market } from "@/lib/types";
+import Help from "@/components/Help";
 
 type Orders = { bidLots: number; bidCnt: number; askLots: number; askCnt: number; vol: number; trades: number; value: number };
 type T = {
@@ -84,7 +85,7 @@ export default function Taiex() {
           </div>
           {t && (
             <div className="card">
-              <div className="card-h">權值股貢獻點數 <span className="sub">加權指數 · 估算</span><ExportBtn icon name="權值股貢獻點數" /></div>
+              <div className="card-h"><span>權值股貢獻點數<Help>估算方式：個股市值變動 ÷ 上市總市值 × 加權指數昨收。拉抬、拖累各列前五名，長條共用同一個比例。</Help></span><span className="sub">加權指數 · 估算</span><ExportBtn icon name="權值股貢獻點數" /></div>
               <div className="grid grid-cols-2 gap-4 px-4 pb-4 text-[13px]">
                 {[{ t: "拉抬", s: t.contrib.upSum, l: t.contrib.up }, { t: "拖累", s: t.contrib.downSum, l: t.contrib.down }].map((x) => (
                   <div key={x.t}>

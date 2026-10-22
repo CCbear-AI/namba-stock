@@ -9,6 +9,7 @@ import MiniChart from "@/components/MiniChart";
 import { useSparks } from "@/components/useSparks";
 import { scopes } from "@/components/scopes";
 import type { ScanRow } from "@/lib/scan";
+import Help from "@/components/Help";
 
 type P = "d" | 5 | 20 | 60;
 const PL: Record<string, string> = { d: "當日", 5: "近5日", 20: "近20日", 60: "近60日" };
@@ -76,7 +77,7 @@ export default function Gainers() {
       <div className="flex items-center gap-4">
         <span className="mono text-xl font-semibold">{list.length.toLocaleString()}</span><span className="sub">檔符合</span>
         {top && <span className="sub">領漲 <b className="text-text">{top.n}</b> <span className={`mono ${cls(val(top, p))}`}>{pct(val(top, p))}</span></span>}
-        <span className="ml-auto sub">只列上漲的股票 · {p === "d" ? "漲幅以昨收為基準" : `對比 ${p} 個交易日前收盤 · 未還原除權息`}</span>
+        <span className="ml-auto sub inline-flex items-center">計算方式<Help align="right">只列上漲的股票；{p === "d" ? "漲幅以昨收為基準。" : `對比 ${p} 個交易日前收盤，未還原除權息。`}</Help></span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">

@@ -7,6 +7,7 @@ import ExportBtn from "@/components/ExportBtn";
 import Distribution from "@/components/Distribution";
 import { isLimitUp, isLimitDown, lockedUp, openedUp, openedDown } from "@/lib/conditions";
 import type { ScanRow } from "@/lib/scan";
+import Help from "@/components/Help";
 
 type Scan = { time: number; open: boolean; rows: ScanRow[] };
 type Ev = { limits: Record<string, { up?: string; upOpen?: number; dn?: string; dnOpen?: number }>; today?: boolean };
@@ -76,7 +77,7 @@ export default function Limits() {
       <div className="card">
         <div className="card-h">
           <div className="seg">{(Object.keys(TAB_L) as Tab[]).map((t) => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{TAB_L[t]} {({ up: ups, dn: dns, upOpen, dnOpen }[t]).length}</button>)}</div>
-          <span className="sub">{ind && <button className="chip mr-2" onClick={() => setInd(null)}>{ind} ✕</button>}{tab === "up" ? "依漲停委買張數排序 · 由大到小" : tab === "dn" ? "依跌停委賣張數排序" : "依成交量排序"}</span>
+          <span className="sub">{ind && <button className="chip mr-2" onClick={() => setInd(null)}>{ind} ✕</button>}{tab === "up" ? "依漲停委買張數排序 · 由大到小" : tab === "dn" ? "依跌停委賣張數排序" : "依成交量排序"}<Help align="right">首次漲停時間與打開次數來自盤中資金流記錄器（每 30 秒比對一次）。</Help></span>
         </div>
         <div className="overflow-x-auto px-2 pb-2">
           <table className="tbl">
@@ -96,7 +97,6 @@ export default function Limits() {
             ))}</tbody>
           </table>
           {!list.length && <div className="sub text-center py-8">{data ? "目前沒有" : "載入中…"}</div>}
-          <div className="sub px-2 pt-2">首次漲停時間與打開次數來自盤中資金流記錄器（每 30 秒比對一次）。</div>
         </div>
       </div>
     </div>

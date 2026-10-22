@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { usePoll } from "@/components/hooks";
 import { cls, num, sign } from "@/components/fmt";
 import ExportBtn from "@/components/ExportBtn";
+import Help from "@/components/Help";
 import { ChipsInst, ChipsBig, Branches, StockSelect } from "@/components/StockChips";
 
 type RankRow = { c: string; n: string; lots: number; amt: number; streak: number };
@@ -35,7 +36,7 @@ function Chips() {
   return (
     <div className="grid gap-4" id="chips-area">
       <div className="flex items-center gap-3">
-        <h1 className="text-[16px] font-semibold">籌碼分析</h1><span className="sub">大盤法人動向 · 資料日期 {data.date.replace(/-/g, "/")}（盤後公布）</span>
+        <h1 className="text-[16px] font-semibold">籌碼分析<Help>法人買賣超與融資券每日盤後公布；排行只列個股（不含 ETF），金額（億）以買賣超張數 × 成交價估算。點排行的一列，個股籌碼、大戶與主力分點會換成那一檔。</Help></h1><span className="sub">大盤法人動向 · 資料日期 {data.date.replace(/-/g, "/")}（盤後公布）</span>
         <span className="ml-auto"><ExportBtn name="籌碼分析" target={() => document.getElementById("chips-area")} /></span>
       </div>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
@@ -69,7 +70,6 @@ function Chips() {
           <Branches code={code} head={<>主力分點<StockSelect code={code} onPick={setCode} /></>} />
         </div>
       </div>
-      <div className="sub">法人買賣超與融資券每日盤後公布；排行只列個股（不含 ETF），金額（億）以買賣超張數 × 成交價估算。點排行的一列，個股籌碼、大戶與主力分點會換成那一檔。</div>
     </div>
   );
 }
@@ -94,7 +94,7 @@ function InstChart({ series }: { series: M["series"] }) {
   const W = 100 / series.length;
   return (
     <div className="card">
-      <div className="card-h">法人買賣超 · 近 {series.length} 個交易日
+      <div className="card-h"><span>法人買賣超 · 近 {series.length} 個交易日<Help>單位：億元 · 紅色買超、綠色賣超 · 滑鼠移到長條上看當日數值。</Help></span>
         <div className="seg">{([["sum", "合計"], ["f", "外資"], ["t", "投信"], ["d", "自營商"]] as const).map(([id, l]) => <button key={id} className={k === id ? "on" : ""} onClick={() => setK(id)}>{l}</button>)}</div>
       </div>
       {cur && <div className="px-4 text-[13px] mono flex flex-wrap gap-3">
@@ -115,7 +115,7 @@ function InstChart({ series }: { series: M["series"] }) {
         })}
       </div>
       <div className="px-4 pb-3 flex justify-between sub mono">{series.filter((_, i) => i % 4 === 0 || i === series.length - 1).map((x) => <span key={x.date}>{md(x.date)}</span>)}</div>
-      <div className="px-4 pb-4 sub">單位：億元 · 紅色買超、綠色賣超 · 滑過長條看當日數值</div>
+      <div className="pb-2" />
     </div>
   );
 }
@@ -126,25 +126,21 @@ function Futures({ f }: { f: NonNullable<M["futures"]> }) {
     <div className="card">
       <div className="card-h">期貨與選擇權籌碼 <span className="sub">資料日期 {md(f.date)}</span></div>
       <div className="px-4 pb-4 text-[13px]">
-        <table className="tbl"><thead><tr><th>台指期淨未平倉</th><th>口數</th><th>較前一日</th></tr></thead>
+        <table className="tbl"><thead><tr><th>台指期淨未平倉<Help align="right">淨未平倉為正是淨多單、為負是淨空單。</Help></th><th>口數</th><th>較前一日</th></tr></thead>
           <tbody>{(["外資", "投信", "自營商"] as const).map((w, k) => <tr key={w}><td>{w}</td><td className={`mono ${cls(f.tx[k])}`}>{sg(f.tx[k])} 口</td><td className={`mono ${cls(f.tx[k] - (f.prev?.tx[k] ?? f.tx[k]))}`}>{d(f.tx[k], f.prev?.tx[k])} 口</td></tr>)}</tbody>
         </table>
-        <div className="sub my-2">淨未平倉為正是淨多單、為負是淨空單。</div>
-        <Row l="前十大交易人淨部位" v={`${sg(f.top10)} 口`} c={f.top10} />
-        <Row l="選擇權 Put/Call 未平倉比" v={f.pcr ? `${f.pcr.toFixed(2)}%` : "—"} extra={f.pcr && f.prev?.pcr ? `${(f.pcr - f.prev.pcr) >= 0 ? "+" : ""}${(f.pcr - f.prev.pcr).toFixed(2)}` : ""} />
-        <div className="sub mb-2">Put/Call 比後面是跟前一日{f.prev ? `（${f.prev.pcr.toFixed(2)}%）` : ""}相比的增減。</div>
-        <Row l="小台散戶多空比" v={`${f.retail >= 0 ? "+" : ""}${f.retail.toFixed(2)}%`} c={f.retail} extra={f.prev ? `較前一日 ${(f.retail - f.prev.retail) >= 0 ? "+" : ""}${(f.retail - f.prev.retail).toFixed(2)}` : ""} />
-        <div className="sub mb-2">（散戶多單 − 散戶空單）÷ 小台全市場未平倉，散戶＝全市場扣掉三大法人。正值偏多、負值偏空。</div>
-        <div className="mt-3 font-semibold">外資選擇權未平倉淨金額 <span className="sub">多方 − 空方</span></div>
+        <Row l="前十大交易人淨部位" help="台指期（所有月份）前十大交易人的多單減空單口數。" v={`${sg(f.top10)} 口`} c={f.top10} />
+        <Row l="選擇權 Put/Call 未平倉比" help={`賣權未平倉量 ÷ 買權未平倉量。後面是跟前一日${f.prev?.pcr ? `（${f.prev.pcr.toFixed(2)}%）` : ""}相比的增減。`} v={f.pcr ? `${f.pcr.toFixed(2)}%` : "—"} extra={f.pcr && f.prev?.pcr ? `${(f.pcr - f.prev.pcr) >= 0 ? "+" : ""}${(f.pcr - f.prev.pcr).toFixed(2)}` : ""} />
+        <Row l="小台散戶多空比" help="（散戶多單 − 散戶空單）÷ 小台全市場未平倉，散戶＝全市場扣掉三大法人。正值偏多、負值偏空。" v={`${f.retail >= 0 ? "+" : ""}${f.retail.toFixed(2)}%`} c={f.retail} extra={f.prev ? `較前一日 ${(f.retail - f.prev.retail) >= 0 ? "+" : ""}${(f.retail - f.prev.retail).toFixed(2)}` : ""} />
+        <div className="mt-3 font-semibold">外資選擇權未平倉淨金額 <span className="sub">多方 − 空方</span><Help align="right">買權、賣權各自用多方未平倉金額減空方；正值是買進的部位較多，負值是賣出的較多。</Help></div>
         <Row l="買權（Call）" v={`${yi(f.fOpt[0])} 億`} c={f.fOpt[0]} />
         <Row l="賣權（Put）" v={`${yi(f.fOpt[1])} 億`} c={f.fOpt[1]} />
-        <div className="sub">買權、賣權各自用多方未平倉金額減空方；正值是買進的部位較多，負值是賣出的較多。</div>
       </div>
     </div>
   );
 }
-function Row({ l, v, c = 0, extra }: { l: string; v: string; c?: number; extra?: string }) {
-  return <div className="flex py-1.5 border-t border-[#1c1f24]"><span>{l}</span><span className={`ml-auto mono ${cls(c)}`}>{v}</span>{extra && <span className="mono sub ml-2">{extra}</span>}</div>;
+function Row({ l, v, c = 0, extra, help }: { l: string; v: string; c?: number; extra?: string; help?: string }) {
+  return <div className="flex items-center py-1.5 border-t border-[#1c1f24]"><span>{l}{help && <Help align="right">{help}</Help>}</span><span className={`ml-auto mono ${cls(c)}`}>{v}</span>{extra && <span className="mono sub ml-2">{extra}</span>}</div>;
 }
 
 // 版面照里長伯：標題紅（買超）／綠（賣超）、切換緊跟標題、日期靠右；每列後面一條依張數比例的橫條；

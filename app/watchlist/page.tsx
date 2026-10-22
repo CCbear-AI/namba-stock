@@ -12,6 +12,7 @@ import StockPicker from "@/components/StockPicker";
 import { useSparks } from "@/components/useSparks";
 import { builtinCodes } from "@/components/scopes";
 import type { ScanRow } from "@/lib/scan";
+import Help from "@/components/Help";
 
 type View = "list" | "heat" | "river";
 const DESC: Record<string, string> = {
@@ -82,7 +83,7 @@ function Watchlist() {
           <div className="flex items-center gap-2">
             {renaming ? <input autoFocus defaultValue={cur.name} className="bg-panel-2 border border-[var(--gold)] rounded px-2 py-1 text-[15px]"
               onKeyDown={(e) => { if (e.key === "Enter") { g.rename(cur.id, e.currentTarget.value.trim() || cur.name); setRenaming(false); } }} onBlur={(e) => { g.rename(cur.id, e.currentTarget.value.trim() || cur.name); setRenaming(false); }} />
-              : <span className="text-[17px]">{cur.name}</span>}
+              : <span className="text-[17px] inline-flex items-center">{cur.name}{isBuiltin && <Help>{DESC[cur.id]}</Help>}</span>}
             <span className="sub">{cur.codes.length} 檔</span>
             {!isBuiltin && <button data-noexport className="btn !py-0.5" onClick={() => setRenaming(true)}>✎ 改名</button>}
             {cur.id !== "my" && <button data-noexport className="btn !py-0.5" onClick={() => { g.remove(cur.id); setGid("my"); }}>🗑 刪除群組</button>}
@@ -95,7 +96,6 @@ function Watchlist() {
             {!isBuiltin && <button className="btn" onClick={() => setAdding(!adding)}>加入股票</button>}
           </div>
         </div>
-        {isBuiltin && <div className="px-4 pb-2 sub">{DESC[cur.id]}</div>}
         {adding && !isBuiltin && <div className="px-4 pb-3" data-noexport><StockPicker autoFocus onPick={(c) => g.add(cur.id, [c])} placeholder="輸入代號或名稱，按 Enter 加入" /></div>}
 
         {view === "list" && (

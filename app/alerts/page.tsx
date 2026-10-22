@@ -10,6 +10,7 @@ import { resolveRules } from "@/components/AlertWatcher";
 import { BUILTIN } from "@/components/hooks";
 import { describe, KIND_LABEL, type Rule } from "@/lib/alertRules";
 import { STRATEGIES, COND } from "@/lib/conditions";
+import Help from "@/components/Help";
 
 type Kind = Rule["kind"];
 const KINDS: Kind[] = ["price", "pct", "limit", "insti", "strategy", "rvol", "stall"];
@@ -136,9 +137,8 @@ function Alerts() {
 
       <div className="grid gap-4 content-start">
         <div className="card p-4">
-          <div className="flex items-center font-semibold">背景推播 <span className={`ml-auto sub ${push ? "text-[var(--gold-2)]" : ""}`}>{push ? "已開啟" : "未開啟"}</span></div>
+          <div className="flex items-center font-semibold">背景推播<Help>開啟時，提醒規則會傳到伺服器（不含任何個人資料、沒有帳號）；關閉後伺服器會刪除。iPhone 要先把網站「加入主畫面」，從主畫面打開才能收推播。</Help> <span className={`ml-auto sub ${push ? "text-[var(--gold-2)]" : ""}`}>{push ? "已開啟" : "未開啟"}</span></div>
           <p className="text-[13px] mt-2 leading-relaxed">{push ? "網頁關掉也會收到通知：盤中 09:00–13:30 由資金流記錄器每 30 秒檢查一次規則。" : "現在只有這個網頁開著時才會檢查提醒。開啟後，網頁關掉也會收到通知（盤中由資金流記錄器檢查）。"}</p>
-          <p className="sub mt-2 leading-relaxed">開啟時，提醒規則會傳到伺服器（不含任何個人資料、沒有帳號）；關閉後伺服器會刪除。iPhone 要先把網站「加入主畫面」，從主畫面打開才能收推播。</p>
           <button className={`btn w-full justify-center mt-3 py-2 ${push ? "" : "gold"}`} disabled={!pushSupported() && !push} onClick={togglePush}>{push ? "關閉背景推播" : "開啟背景推播"}</button>
           {pushMsg && <div className="sub mt-2">{pushMsg}</div>}
           {!pushSupported() && <div className="sub mt-2">這個瀏覽器不支援背景推播。</div>}

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { usePoll, useRecent, useScan, useWatchlist } from "@/components/hooks";
 import StockPicker, { NAME } from "@/components/StockPicker";
 import { cls, pct, price } from "@/components/fmt";
+import Help from "@/components/Help";
 
 type Item = { c: string; n: string; sim: number; pct?: number; last: number; spark: number[]; from?: string; to?: string; after?: (number | null)[] };
 type Res = {
@@ -48,11 +49,10 @@ function Pattern() {
             <Link href={`/stock/${code}`} className="btn ml-auto">看個股</Link>
           </div>
           <div className="flex items-center gap-3 mt-4">
-            <span className="sub">比對最近</span>
+            <span className="sub inline-flex items-center">比對最近<Help>也可以在圖上按住拖曳，自己選一段（5–120 根），放開就重新比對。</Help></span>
             <div className="seg">{SPANS.map((k) => <button key={k} className={!custom && n === k ? "on" : ""} onClick={() => { setN(k); setCustom(null); }}>{k} 日</button>)}</div>
           </div>
           {ok ? <SelectChart res={data} onSelect={(from, to) => setCustom({ from, to })} /> : <div className="h-[340px] flex items-center justify-center sub">{data?.error ?? <span className="loading">載入中…</span>}</div>}
-          <div className="sub mt-2">在圖上按住拖曳可以自己選一段（5–120 根），放開就重新比對</div>
         </div>
 
         <div className="card self-start">

@@ -7,6 +7,7 @@ import { cls, pct, price } from "@/components/fmt";
 import { industryGroup } from "@/lib/industries";
 import type { SectorQuote } from "@/lib/sector";
 import type { Market } from "@/lib/types";
+import Help from "@/components/Help";
 
 /** 類股指數名稱 → 對應的產業別（成分股用） */
 function members(short: string): (ind: string) => boolean {
@@ -42,7 +43,7 @@ export default function SectorPage() {
           <button className={market === "tse" ? "on" : ""} onClick={() => { setMarket("tse"); setId("t24"); setStock(null); }}>上市</button>
           <button className={market === "otc" ? "on" : ""} onClick={() => { setMarket("otc"); setId("o24"); setStock(null); }}>上櫃</button>
         </div>
-        <span className="sub">證交所／櫃買中心官方類股指數，點右邊成分股可看個股並判讀超級支撐壓力</span>
+        <Help>證交所／櫃買中心官方類股指數；類股成交量是成分股成交量加總。點右邊成分股可看個股並判讀超級支撐壓力。</Help>
       </div>
       {/* 類股按鈕依視窗寬度自動換行，全部都看得到 */}
       <div className="flex flex-wrap gap-2">

@@ -6,6 +6,7 @@ import { cls, pct } from "@/components/fmt";
 import ExportBtn from "@/components/ExportBtn";
 import Heatmap, { PERIODS, periodPct, heat, type Period } from "@/components/Heatmap";
 import { industryGroup } from "@/lib/industries";
+import Help from "@/components/Help";
 
 export default function HeatmapPage() {
   const { data } = useScan();
@@ -39,7 +40,7 @@ export default function HeatmapPage() {
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-bold">大盤熱力圖</h1>
+        <h1 className="text-lg font-bold">大盤熱力圖<Help>紅色上漲、綠色下跌，面積越大代表{sizeBy === "cap" ? "市值" : "成交值"}越大。顯示 {indCount} 個產業中{sizeBy === "cap" ? "市值" : "成交值"}最大的 {shown.length} 檔（佔全體個股{sizeBy === "cap" ? "市值" : "成交值"} {share}%）；產業標題是整個產業的市值加權漲跌幅。{period !== "d" && "近 N 日是對比 N 個交易日前收盤，未還原除權息。"}</Help></h1>
         <span className="sub">漲跌週期</span>
         <div className="seg">{PERIODS.map((p) => <button key={p.k} className={period === p.k ? "on" : ""} onClick={() => setPeriod(p.k)}>{p.l}</button>)}</div>
         <span className="sub">面積依據</span>
@@ -51,10 +52,6 @@ export default function HeatmapPage() {
       </div>
       <div id="heatmap-area" className="grid gap-4 lg:grid-cols-[1fr_260px]">
         <div className="card p-2 overflow-hidden">
-          <div className="sub px-1 pb-2">
-            紅色上漲 · 綠色下跌 · 面積越大代表{sizeBy === "cap" ? "市值" : "成交值"}越大 · 顯示 {indCount} 個產業中{sizeBy === "cap" ? "市值" : "成交值"}最大的 {shown.length} 檔（佔全體個股{sizeBy === "cap" ? "市值" : "成交值"} {share}%）
-            {period !== "d" && " · 對比 N 個交易日前收盤，未還原除權息"}
-          </div>
           <Heatmap rows={shown} period={period} sizeBy={sizeBy} perGroup={TOP} groupPct={groupPct} />
         </div>
         <div className="grid gap-4 content-start">

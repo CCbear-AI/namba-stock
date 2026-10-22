@@ -8,6 +8,7 @@ import { THEMES } from "@/lib/themes";
 import { cls, pct } from "@/components/fmt";
 import { industryGroup } from "@/lib/industries";
 import type { FlowDay, FlowPoint } from "@/lib/flow";
+import Help from "@/components/Help";
 
 type Resp = { day: FlowDay | null; names?: Record<string, [string, string]>; fresh?: boolean };
 type G = "電子" | "金融" | "傳產";
@@ -228,7 +229,7 @@ export default function FlowLive() {
 
           <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
             <div className="card">
-              <div className="card-h">資金河道 <span className="sub">{winLabel}的主動買賣淨額 · 河道越粗成交越大 · 點一條看明細</span></div>
+              <div className="card-h"><span>資金河道<Help>{mode === "theme" && "族群是整理的概念股清單（一檔可屬於多個族群，合計會重複計算）。"}主動買賣淨額＝外盤成交金額 − 內盤成交金額，依每 30 秒兩次快照之間的成交量與五檔推算（估計值）。河道越粗代表成交越大，點一條看明細。</Help></span><span className="sub">{winLabel}的主動買賣淨額</span></div>
               <div className="grid grid-cols-[120px_1fr_90px] px-5 text-[12px]"><span /><span className="flex justify-center gap-3"><span className="down">流出</span><span className="up">流入</span></span><span /></div>
               <div className="px-3 pb-4">
                 {ins.map(riverRow)}
@@ -236,7 +237,6 @@ export default function FlowLive() {
                 {outs.map(riverRow)}
               </div>
               {themeSnapshotOnly && <div className="px-5 pb-2 text-[12px] text-[var(--gold-2)]">今天的紀錄還沒有每 30 秒的族群加總，先用個股全天累計計算；明天開始可以用 5／15／30 分與時間軸回放。</div>}
-              <div className="px-5 pb-4 sub">{mode === "theme" && "族群是整理的概念股清單（一檔可屬於多個族群，合計會重複計算）。"}主動買賣淨額＝外盤成交金額 − 內盤成交金額，依每 30 秒兩次快照之間的成交量與五檔推算（估計值）。</div>
             </div>
 
             {sel && (

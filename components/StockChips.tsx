@@ -5,6 +5,7 @@ import { usePoll } from "./hooks";
 import { cls, num } from "./fmt";
 import Spark from "./Spark";
 import StockPicker, { NAME } from "./StockPicker";
+import Help from "./Help";
 
 type C = {
   error?: string; date: string; days: [string, number, number, number][]; fDays: number; tDays: number;
@@ -73,14 +74,13 @@ export function ChipsInst({ code }: { code: string }) {
         <div className="sub mt-1">外資{c.fDays > 0 ? `連買 ${c.fDays} 日` : c.fDays < 0 ? `連賣 ${-c.fDays} 日` : "—"} · 投信{c.tDays > 0 ? `連買 ${c.tDays} 日` : c.tDays < 0 ? `連賣 ${-c.tDays} 日` : "—"}</div>
       </div>
       <div>
-        <b className="text-[13px]">外資持股與信用交易</b>
+        <b className="text-[13px]">外資持股與信用交易<Help>融資券為 {md(c.date)} 餘額，增減是跟前一個交易日比。券資比＝融券餘額 ÷ 融資餘額。</Help></b>
         <div className="flex items-baseline mt-2 text-[13px]"><span className="text-text-2">外資持股比例 · {md(c.date)}</span><span className="ml-auto mono">{c.qfii ? `${c.qfii.pct.toFixed(2)}%` : "上櫃股不提供"}</span>{c.qfii?.chg != null && <span className={`mono ml-2 text-[12px] ${cls(c.qfii.chg)}`}>{pctChg(c.qfii.chg)}</span>}</div>
         {c.qfii && <Bar pct={c.qfii.pct} />}
         <KV l="融資餘額" v={c.margin ? `${num(c.margin.bal)} 張` : "—"} chg={chgText(c.margin?.chg)} c={c.margin?.chg ?? 0} />
         <KV l="融資使用率" v={c.margin?.use != null ? `${c.margin.use.toFixed(2)}%` : "—"} />
         <KV l="融券餘額" v={c.margin ? `${num(c.margin.short)} 張` : "—"} chg={chgText(c.margin?.shortChg)} c={c.margin?.shortChg ?? 0} />
         <KV l="券資比" v={c.margin ? `${c.margin.ratio.toFixed(2)}%` : "—"} />
-        <div className="sub mt-2 leading-relaxed">融資券為 {md(c.date)} 餘額，增減是跟前一個交易日比。</div>
       </div>
     </div></div>
   );
@@ -94,10 +94,9 @@ export function ChipsBig({ code }: { code: string }) {
   return (
     <div className="@container px-4 pb-4"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
       <div>
-        <div className="flex items-baseline text-[13px]"><span className="text-text-2">千張大戶持股比例</span><span className="ml-auto mono">{c.tdcc ? `${c.tdcc.big.toFixed(2)}%` : "—"}</span>{c.tdcc?.bigChg != null && <span className={`mono ml-2 text-[12px] ${cls(c.tdcc.bigChg)}`}>{pctChg(c.tdcc.bigChg)}</span>}</div>
+        <div className="flex items-baseline text-[13px]"><span className="text-text-2">千張大戶持股比例<Help>集保每週公布{c.tdcc ? `（資料日期 ${md(c.tdcc.date)}）` : ""}，增減是跟前一週比；大戶增加、股東人數減少代表籌碼集中。</Help></span><span className="ml-auto mono">{c.tdcc ? `${c.tdcc.big.toFixed(2)}%` : "—"}</span>{c.tdcc?.bigChg != null && <span className={`mono ml-2 text-[12px] ${cls(c.tdcc.bigChg)}`}>{pctChg(c.tdcc.bigChg)}</span>}</div>
         {c.tdcc && <Bar pct={c.tdcc.big} />}
         <KV l="股東人數" v={c.tdcc ? `${num(c.tdcc.holders)} 人` : "—"} chg={chgText(c.tdcc?.holdersChg)} c={-(c.tdcc?.holdersChg ?? 0)} />
-        <div className="sub mt-2 leading-relaxed">集保每週公布{c.tdcc ? ` · 資料日期 ${md(c.tdcc.date)}` : ""} · 增減是跟前一週比；大戶增加、股東人數減少代表籌碼集中。</div>
         {c.holders && c.holders.length > 2 && (
           <div className="grid grid-cols-2 gap-3 mt-3">
             <div className="min-w-0 overflow-hidden"><div className="sub">大戶 · 近 {c.holders.length} 週</div><Spark data={c.holders.map((x) => x[1])} w={110} h={34} color="var(--gold)" /></div>
@@ -106,9 +105,8 @@ export function ChipsBig({ code }: { code: string }) {
         )}
       </div>
       <div>
-        <KV l={`當沖比 · ${md(c.date)}`} v={c.dayTrade != null ? `${c.dayTrade.toFixed(2)}%` : "—"} />
-        <KV l={`借券賣出餘額 · ${md(c.date)}`} v={c.sbl ? `${num(c.sbl.bal)} 張` : "上櫃股不提供"} chg={chgText(c.sbl?.chg)} c={-(c.sbl?.chg ?? 0)} />
-        <div className="sub mt-2 leading-relaxed">當沖比＝當沖成交量 ÷ 當日成交量；借券賣出餘額後面是日增減（張）。</div>
+        <KV l={<>當沖比 · {md(c.date)}<Help>當沖比＝當沖成交量 ÷ 當日成交量。</Help></>} v={c.dayTrade != null ? `${c.dayTrade.toFixed(2)}%` : "—"} />
+        <KV l={<>借券賣出餘額 · {md(c.date)}<Help>借券賣出還沒回補的張數；後面是跟前一天比的增減。</Help></>} v={c.sbl ? `${num(c.sbl.bal)} 張` : "上櫃股不提供"} chg={chgText(c.sbl?.chg)} c={-(c.sbl?.chg ?? 0)} />
       </div>
     </div></div>
   );
@@ -119,7 +117,7 @@ export function ChipsSummary({ code }: { code: string }) {
   return <div className="grid gap-2"><ChipsInst code={code} /><ChipsBig code={code} /></div>;
 }
 
-function Stat({ l, v, s, sc = 0, vc }: { l: string; v: string; s?: string; sc?: number; vc?: number }) {
+function Stat({ l, v, s, sc = 0, vc }: { l: React.ReactNode; v: string; s?: string; sc?: number; vc?: number }) {
   return <div className="rounded-lg bg-panel-2 px-3 py-2"><div className="sub">{l}</div><div className={`mono text-[15px] ${vc != null ? `font-semibold ${cls(vc)}` : ""}`}>{v}</div>{s && <div className={`mono text-[12px] ${s.includes("不提供") || s.includes("公布") ? "sub" : cls(sc)}`}>{s}</div>}</div>;
 }
 
@@ -139,7 +137,7 @@ export function Branches({ code, head }: { code: string; head?: React.ReactNode 
           <div className="grid grid-cols-3 gap-2 text-[13px] mb-3">
             <Stat l="買超前 15 合計" v={`${sg(b.buySum)} 張`} vc={b.buySum} />
             <Stat l="賣超前 15 合計" v={`${sg(b.sellSum)} 張`} vc={b.sellSum} />
-            <Stat l="籌碼集中度" v={b.conc != null ? `${b.conc > 0 ? "+" : ""}${b.conc.toFixed(2)}%` : "—"} vc={b.conc ?? 0} />
+            <Stat l={<>籌碼集中度<Help align="right">（前 15 名買超 − 前 15 名賣超）÷ 區間成交量；正值代表籌碼往少數券商集中。資料來源：券商公開資訊頁（非正式 API）。</Help></>} v={b.conc != null ? `${b.conc > 0 ? "+" : ""}${b.conc.toFixed(2)}%` : "—"} vc={b.conc ?? 0} />
           </div>
           <div className="@container"><div className="grid gap-3 @[460px]:grid-cols-2 [&>*]:min-w-0">
             {[{ t: "買超券商", l: b.buy, c: "up" }, { t: "賣超券商", l: b.sell, c: "down" }].map((x) => (
@@ -155,7 +153,7 @@ export function Branches({ code, head }: { code: string; head?: React.ReactNode 
               </table>
             ))}
           </div></div>
-          <div className="sub mt-2 leading-relaxed">統計區間 {md(b.from)}{b.from !== b.to ? ` – ${md(b.to)}` : ""}（近 {days} 個交易日）· 資料來源：券商公開資訊頁，非正式 API<br />籌碼集中度＝（前 15 名買超 − 前 15 名賣超）÷ 區間成交量；正值代表籌碼往少數券商集中。</div>
+          <div className="sub mt-2 leading-relaxed">統計區間 {md(b.from)}{b.from !== b.to ? ` – ${md(b.to)}` : ""}（近 {days} 個交易日）</div>
         </>
       )}
     </div>
