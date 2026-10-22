@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# Supabase 準時觸發＋GitHub 自己的排程（備援）可能各跑一次，排隊依序跑
+concurrency:
+  group: daily-data
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -26,7 +31,7 @@ jobs:
         if: github.event.schedule != '0 1 * * 6'
         run: |
           npm run market-history
-          npm run futures
+          npm run futures || echo "::warning::期貨資料抓取失敗，沿用舊資料"
           npm run sector-history
           npm run ath -- update
           npm run volcurve

@@ -9,7 +9,18 @@ const FILE = "data/futures.json";
 const n = (s?: string) => Number(String(s ?? "").replace(/,/g, "").trim()) || 0;
 const slash = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "/");
 
+// 期交所偶爾回錯誤頁（雲端主機較常見），隔幾秒重試
 async function csv(path: string, body: Record<string, string>) {
+  for (let i = 1; ; i++) {
+    try { return await csvOnce(path, body); } catch (e) {
+      if (i >= 4) throw e;
+      console.log(`${path} 第 ${i} 次失敗，${i * 10} 秒後重試`);
+      await new Promise((r) => setTimeout(r, i * 10e3));
+    }
+  }
+}
+
+async function csvOnce(path: string, body: Record<string, string>) {
   const r = await fetch(`https://www.taifex.com.tw/cht/3/${path}`, {
     method: "POST",
     headers: { "User-Agent": "Mozilla/5.0", "Content-Type": "application/x-www-form-urlencoded" },
