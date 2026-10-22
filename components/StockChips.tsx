@@ -60,10 +60,10 @@ export function ChipsInst({ code }: { code: string }) {
   const last5 = c.days.slice(-5).reverse();
   const sum = [1, 2, 3].map((k) => last5.reduce((a, d) => a + (d[k] as number), 0));
   return (
-    <div className="px-4 pb-4 grid gap-5 md:grid-cols-2">
+    <div className="@container px-4 pb-4"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
       <div>
         <div className="flex items-baseline mb-1"><b className="text-[13px]">法人近 5 日買賣超</b><span className="sub ml-auto">單位：張</span></div>
-        <table className="tbl text-[13px]">
+        <table className="tbl text-[13px] [&_td]:px-1.5! [&_th]:px-1.5!">
           <thead><tr><th>日期</th><th>外資</th><th>投信</th><th>自營商</th></tr></thead>
           <tbody>
             {last5.map((d) => <tr key={d[0]}><td className="mono text-text-2">{md(d[0])}</td>{[1, 2, 3].map((k) => <td key={k} className={`mono ${cls(d[k] as number)}`}>{sg(d[k] as number)}</td>)}</tr>)}
@@ -82,7 +82,7 @@ export function ChipsInst({ code }: { code: string }) {
         <KV l="券資比" v={c.margin ? `${c.margin.ratio.toFixed(2)}%` : "—"} />
         <div className="sub mt-2 leading-relaxed">融資券為 {md(c.date)} 餘額，增減是跟前一個交易日比。</div>
       </div>
-    </div>
+    </div></div>
   );
 }
 
@@ -92,7 +92,7 @@ export function ChipsBig({ code }: { code: string }) {
   if (!c) return <div className="sub px-4 pb-4 loading">籌碼載入中…</div>;
   if (c.error) return <div className="sub px-4 pb-4">{c.error}</div>;
   return (
-    <div className="px-4 pb-4 grid gap-5 md:grid-cols-2">
+    <div className="@container px-4 pb-4"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
       <div>
         <div className="flex items-baseline text-[13px]"><span className="text-text-2">千張大戶持股比例</span><span className="ml-auto mono">{c.tdcc ? `${c.tdcc.big.toFixed(2)}%` : "—"}</span>{c.tdcc?.bigChg != null && <span className={`mono ml-2 text-[12px] ${cls(c.tdcc.bigChg)}`}>{pctChg(c.tdcc.bigChg)}</span>}</div>
         {c.tdcc && <Bar pct={c.tdcc.big} />}
@@ -110,7 +110,7 @@ export function ChipsBig({ code }: { code: string }) {
         <KV l={`借券賣出餘額 · ${md(c.date)}`} v={c.sbl ? `${num(c.sbl.bal)} 張` : "上櫃股不提供"} chg={chgText(c.sbl?.chg)} c={-(c.sbl?.chg ?? 0)} />
         <div className="sub mt-2 leading-relaxed">當沖比＝當沖成交量 ÷ 當日成交量；借券賣出餘額後面是日增減（張）。</div>
       </div>
-    </div>
+    </div></div>
   );
 }
 
@@ -141,9 +141,9 @@ export function Branches({ code, head }: { code: string; head?: React.ReactNode 
             <Stat l="賣超前 15 合計" v={`${sg(b.sellSum)} 張`} vc={b.sellSum} />
             <Stat l="籌碼集中度" v={b.conc != null ? `${b.conc > 0 ? "+" : ""}${b.conc.toFixed(2)}%` : "—"} vc={b.conc ?? 0} />
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="@container"><div className="grid gap-3 @[460px]:grid-cols-2 [&>*]:min-w-0">
             {[{ t: "買超券商", l: b.buy, c: "up" }, { t: "賣超券商", l: b.sell, c: "down" }].map((x) => (
-              <table key={x.t} className="tbl text-[13px]">
+              <table key={x.t} className="tbl text-[13px] [&_td]:px-1.5! [&_th]:px-1.5! [&_th]:whitespace-nowrap!">
                 <thead><tr><th className={x.c}>{x.t}</th><th>{x.c === "up" ? "買超" : "賣超"} (張)</th><th>佔成交</th></tr></thead>
                 <tbody>{x.l.map((y) => (
                   <tr key={y.n}>
@@ -154,7 +154,7 @@ export function Branches({ code, head }: { code: string; head?: React.ReactNode 
                 ))}</tbody>
               </table>
             ))}
-          </div>
+          </div></div>
           <div className="sub mt-2 leading-relaxed">統計區間 {md(b.from)}{b.from !== b.to ? ` – ${md(b.to)}` : ""}（近 {days} 個交易日）· 資料來源：券商公開資訊頁，非正式 API<br />籌碼集中度＝（前 15 名買超 − 前 15 名賣超）÷ 區間成交量；正值代表籌碼往少數券商集中。</div>
         </>
       )}
