@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import KChart from "@/components/KChart";
 import ExportBtn from "@/components/ExportBtn";
 import Distribution from "@/components/Distribution";
+import Spark from "@/components/Spark";
 import { usePoll, useScan } from "@/components/hooks";
 import { cls, pct, price, num, hm } from "@/components/fmt";
 import type { Market } from "@/lib/types";
@@ -13,9 +14,9 @@ type T = {
   futures: { name: string; price: number; chg: number; pct: number; basis: number } | null;
   orders: { tse: Orders | null; otc: Orders | null }; ordersLine: [string, number, number][];
   contrib: { up: { c: string; n: string; pct: number; pt: number }[]; down: { c: string; n: string; pct: number; pt: number }[]; upSum: number; downSum: number };
-  world: { s: string; n: string; g: string; price: number; chg: number; pct: number }[];
+  world: { s: string; n: string; g: string; price: number; prev: number; chg: number; pct: number; spark: number[] }[];
 };
-type Ch = { date: string; market: { f: number; t: number; d: number; total: number; marginAmt: number; marginChg: number | null; shortLots: number; shortChg: number | null }; futures: { tx: [number, number, number]; pcr: number; prev: { tx: [number, number, number]; pcr: number } | null } | null };
+type Ch = { date: string; market: { f: number; t: number; d: number; total: number; marginAmt: number; marginChg: number | null; shortLots: number; shortChg: number | null }; futures: { date?: string; tx: [number, number, number]; pcr: number; prev: { tx: [number, number, number]; pcr: number } | null } | null };
 const yi = (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(2)}`;
 const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
 
@@ -34,6 +35,8 @@ export default function Taiex() {
     for (const r of scan?.rows ?? []) { if (!r.vol) continue; const x = (g[r.ind] ??= { cap: 0, w: 0, up: 0, dn: 0 }); x.cap += r.cap; x.w += r.cap * r.pct; if (r.pct > 0) x.up++; else if (r.pct < 0) x.dn++; }
     return Object.entries(g).map(([k, v]) => ({ k, ...v, pct: v.cap ? v.w / v.cap : 0 })).sort((a, z) => z.pct - a.pct);
   }, [scan]);
+  // 權值股貢獻點數：拉抬、拖累共用同一個比例尺（最大的那檔滿格），長短才比得出來
+  const ptMax = Math.max(1, ...[...(t?.contrib.up ?? []), ...(t?.contrib.down ?? [])].map((r) => Math.abs(r.pt)));
   const o = t?.orders.tse;
   const ratio = o && o.askLots ? o.bidLots / o.askLots : 0;
 
@@ -89,7 +92,7 @@ export default function Taiex() {
                     {x.l.map((r) => (
                       <Link key={r.c} href={`/stock/${r.c}`} className="block py-1 hover:text-[var(--gold-2)]">
                         <div className="flex"><span className="truncate">{r.n} <span className="sub mono">{r.c}</span></span><span className={`ml-auto mono ${cls(r.pt)}`}>{yi(r.pt)}</span></div>
-                        <div className="flex items-center gap-2"><div className="flex-1 h-1 bg-panel-2 rounded"><div className="h-full rounded" style={{ width: `${Math.min(100, (Math.abs(r.pt) / Math.max(1, Math.abs(x.l[0]?.pt ?? 1))) * 100)}%`, background: r.pt >= 0 ? "var(--up)" : "var(--down)" }} /></div><span className={`mono text-[11px] ${cls(r.pct)}`}>{pct(r.pct)}</span></div>
+                        <div className="flex items-center gap-2"><div className="flex-1 h-1 bg-panel-2 rounded"><div className="h-full rounded" style={{ width: `${Math.min(100, (Math.abs(r.pt) / ptMax) * 100)}%`, background: r.pt >= 0 ? "var(--up)" : "var(--down)" }} /></div><span className={`mono text-[11px] ${cls(r.pct)}`}>{pct(r.pct)}</span></div>
                       </Link>
                     ))}
                   </div>
@@ -121,7 +124,7 @@ export default function Taiex() {
               <div className="flex py-1.5 border-t border-[#1c1f24]"><span>融券餘額</span><span className="ml-auto mono">{num(ch.market.shortLots)} 張</span><span className={`mono w-16 text-right ${cls(ch.market.shortChg ?? 0)}`}>{ch.market.shortChg != null ? `${ch.market.shortChg > 0 ? "+" : ""}${num(ch.market.shortChg)}` : ""}</span></div>
               {ch.futures && <>
                 <div className="flex py-1.5 border-t border-[#1c1f24]"><span>外資台指期淨未平倉</span><span className={`ml-auto mono ${cls(ch.futures.tx[0])}`}>{num(ch.futures.tx[0])} 口</span><span className="mono w-16 text-right text-text-2">{ch.futures.prev ? `${ch.futures.tx[0] - ch.futures.prev.tx[0] > 0 ? "+" : ""}${num(ch.futures.tx[0] - ch.futures.prev.tx[0])}` : ""}</span></div>
-                <div className="flex py-1.5 border-t border-[#1c1f24]"><span>選擇權 Put/Call 比</span><span className="ml-auto mono">{ch.futures.pcr ? `${ch.futures.pcr.toFixed(2)}%` : "—"}</span></div>
+                <div className="flex py-1.5 border-t border-[#1c1f24]"><span>選擇權 Put/Call 比{ch.futures.date ? <span className="sub">（{md(ch.futures.date)}）</span> : null}</span><span className="ml-auto mono">{ch.futures.pcr ? `${ch.futures.pcr.toFixed(2)}%` : "—"}</span><span className="mono w-16 text-right text-text-2">{ch.futures.pcr && ch.futures.prev?.pcr ? `${ch.futures.pcr - ch.futures.prev.pcr > 0 ? "+" : ""}${(ch.futures.pcr - ch.futures.prev.pcr).toFixed(2)}` : ""}</span></div>
               </>}
             </div>
           ) : <div className="sub px-4 pb-4">載入中…</div>}
@@ -143,13 +146,21 @@ export default function Taiex() {
       {t && (
         <div className="card">
           <div className="card-h">國際行情 <span className="sub">延遲報價</span></div>
-          <div className="grid gap-4 px-4 pb-4 sm:grid-cols-2 lg:grid-cols-4 text-[13px]">
+          <div className="grid gap-3 px-4 pb-4">
             {["美股", "美股期貨", "亞洲", "匯率與利率"].map((g) => (
               <div key={g}>
-                <div className="sub mb-1">{g}</div>
-                {t.world.filter((w) => w.g === g).map((w) => (
-                  <div key={w.s} className="flex py-1 border-t border-[#1c1f24]"><span>{w.n}</span><span className="ml-auto mono">{w.price ? price(w.price) : "—"}</span><span className={`mono w-16 text-right ${cls(w.chg)}`}>{w.price ? pct(w.pct) : ""}</span></div>
-                ))}
+                <div className="sub mb-1.5">{g}</div>
+                <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+                  {t.world.filter((w) => w.g === g).map((w) => (
+                    <div key={w.s} className="rounded-xl bg-panel-2 px-3 py-2">
+                      <div className="flex items-center text-[13px]"><span className="truncate">{w.n}</span><span className={`ml-auto mono text-[12px] ${cls(w.chg)}`}>{w.price ? pct(w.pct) : ""}</span></div>
+                      <div className="flex items-end gap-2">
+                        <span className="mono text-[17px] font-semibold">{w.price ? num(w.price, 2) : "—"}</span>
+                        <span className="ml-auto"><Spark data={w.spark} base={w.prev} w={80} h={24} /></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

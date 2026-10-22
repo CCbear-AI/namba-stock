@@ -16,14 +16,19 @@ const INTL: { s: string; n: string; g: string }[] = [
 ];
 let intl: { at: number; v: unknown[] } | null = null;
 async function international() {
-  if (intl && Date.now() - intl.at < 5 * 60_000) return intl.v;
+  if (intl && Date.now() - intl.at < 2 * 60_000) return intl.v;
   const v = await Promise.all(INTL.map(async (x) => {
     try {
-      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(x.s)}?range=5d&interval=1d`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
-      const meta = (await r.json()).chart.result[0].meta;
+      // 用最近一個交易時段的 5 分 K：chartPreviousClose 才是「前一天收盤」（range=5d 會變成 5 天前，漲跌幅就錯了），順便畫小走勢
+      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(x.s)}?range=1d&interval=5m`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
+      const res = (await r.json()).chart.result[0];
+      const meta = res.meta;
       const price = meta.regularMarketPrice, prev = meta.chartPreviousClose ?? meta.previousClose;
-      return { ...x, price, chg: r2(price - prev), pct: r2(((price - prev) / prev) * 100) };
-    } catch { return { ...x, price: 0, chg: 0, pct: 0 }; }
+      const closes: number[] = (res.indicators?.quote?.[0]?.close ?? []).filter((v: number | null) => v != null);
+      const step = Math.max(1, Math.ceil(closes.length / 60));
+      const spark = closes.filter((_, i) => i % step === 0 || i === closes.length - 1).map((v) => Math.round(v * 1000) / 1000);
+      return { ...x, price, prev, chg: r2(price - prev), pct: r2(((price - prev) / prev) * 100), spark };
+    } catch { return { ...x, price: 0, prev: 0, chg: 0, pct: 0, spark: [] as number[] }; }
   }));
   intl = { at: Date.now(), v };
   return v;
