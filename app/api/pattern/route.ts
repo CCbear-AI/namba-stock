@@ -23,13 +23,13 @@ export async function GET(req: Request) {
   const mode = sp.get("mode") === "hist" ? "hist" : "now";
   const { dates, s } = getDaily();
   let me = s.get(code);
-  if (!me) {
-    // ETF 等不在日 K 檔裡的，用 Yahoo 日 K 對齊日期
+  // ETF 等不在日 K 檔裡（或 10/21 才開始收錄、前面都是空的）的，缺的日子用 Yahoo 日 K 對齊日期補
+  if (!me || me.c.slice(-120).some(Number.isNaN)) {
     try {
       const bars = await yahooBars(`${code}.TW`, "1d");
       const by = new Map(bars.map((b) => [new Date(b.time * 1000).toISOString().slice(0, 10), b.close]));
-      const c = dates.map((d) => by.get(d) ?? NaN);
-      if (c.some((v) => !Number.isNaN(v))) me = { o: c, h: c, l: c, c, v: c.map(() => NaN), val: c.map(() => NaN) };
+      const c = dates.map((d, i) => (me && !Number.isNaN(me.c[i]) ? me.c[i] : by.get(d) ?? NaN));
+      if (c.some((v) => !Number.isNaN(v))) me = { o: c, h: c, l: c, c, v: me?.v ?? c.map(() => NaN), val: me?.val ?? c.map(() => NaN) };
     } catch { /* 下面回錯誤 */ }
   }
   if (!me) return Response.json({ error: "找不到這檔的歷史資料" }, { status: 404 });

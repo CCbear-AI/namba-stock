@@ -13,12 +13,16 @@ export default function HeatmapPage() {
   const [sizeBy, setSizeBy] = useState<"cap" | "value">("cap");
   const [group, setGroup] = useState<"全部" | "電子" | "金融" | "傳產">("全部");
   const rows = useMemo(() => (data?.rows ?? []).filter((s) => (s.vol > 0 || period !== "d") && (group === "全部" || industryGroup(s.ind) === group)), [data, group, period]);
-  const per = 15;
+  // 跟里長伯一樣：取總市值（或成交值）前 15 大的產業，再從裡面挑最大的 150 檔
+  const IND = 15, TOP = 150;
   const shown = useMemo(() => {
     const by: Record<string, typeof rows> = {};
     for (const r of rows) (by[r.ind] ??= []).push(r);
-    return Object.values(by).flatMap((l) => [...l].sort((a, b) => b[sizeBy] - a[sizeBy]).slice(0, per));
+    const sum = (l: typeof rows) => l.reduce((s, r) => s + r[sizeBy], 0);
+    const inds = Object.values(by).sort((a, b) => sum(b) - sum(a)).slice(0, IND);
+    return inds.flat().sort((a, b) => b[sizeBy] - a[sizeBy]).slice(0, TOP);
   }, [rows, sizeBy]);
+  const indCount = useMemo(() => new Set(shown.map((r) => r.ind)).size, [shown]);
   const share = useMemo(() => {
     const all = rows.reduce((s, r) => s + r[sizeBy], 0);
     return all ? Math.round((shown.reduce((s, r) => s + r[sizeBy], 0) / all) * 100) : 0;
@@ -28,6 +32,7 @@ export default function HeatmapPage() {
     for (const r of rows) { const x = (g[r.ind] ??= { cap: 0, w: 0 }); x.cap += r.cap; x.w += r.cap * periodPct(r, period); }
     return Object.entries(g).map(([k, v]) => ({ k, pct: v.cap ? v.w / v.cap : 0 })).sort((a, b) => b.pct - a.pct);
   }, [rows, period]);
+  const groupPct = useMemo(() => Object.fromEntries(sectors.map((x) => [x.k, x.pct])), [sectors]);
   const ranked = useMemo(() => [...rows].sort((a, b) => periodPct(b, period) - periodPct(a, period)), [rows, period]);
   const pl = PERIODS.find((x) => x.k === period)!.l;
 
@@ -47,10 +52,10 @@ export default function HeatmapPage() {
       <div id="heatmap-area" className="grid gap-4 lg:grid-cols-[1fr_260px]">
         <div className="card p-2 overflow-hidden">
           <div className="sub px-1 pb-2">
-            紅色上漲 · 綠色下跌 · 面積越大代表{sizeBy === "cap" ? "市值" : "成交值"}越大 · 每個產業顯示{sizeBy === "cap" ? "市值" : "成交值"}最大的 {per} 檔（佔全體 {share}%）
+            紅色上漲 · 綠色下跌 · 面積越大代表{sizeBy === "cap" ? "市值" : "成交值"}越大 · 顯示 {indCount} 個產業中{sizeBy === "cap" ? "市值" : "成交值"}最大的 {shown.length} 檔（佔全體個股{sizeBy === "cap" ? "市值" : "成交值"} {share}%）
             {period !== "d" && " · 對比 N 個交易日前收盤，未還原除權息"}
           </div>
-          <Heatmap rows={shown} period={period} sizeBy={sizeBy} perGroup={per} />
+          <Heatmap rows={shown} period={period} sizeBy={sizeBy} perGroup={TOP} groupPct={groupPct} />
         </div>
         <div className="grid gap-4 content-start">
           <div className="card">

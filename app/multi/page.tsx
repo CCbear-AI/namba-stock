@@ -28,7 +28,7 @@ function Multi() {
   const { data: scan } = useScan();
   const rows = useMemo(() => new Map((scan?.rows ?? []).map((r) => [r.c, r])), [scan]);
   const grid = useRef<HTMLDivElement>(null);
-  // 近 180 日漲跌：scan 沒有，改用圖表區間起點到最後一根收盤計算
+  // 近 N 日漲跌：用圖表區間起點（第一根收盤）到最後一根收盤計算
   const [ranges, setRanges] = useState<Record<string, number>>({});
   const onRange = useCallback((v: number, code: string, sp: Span) => {
     const k = `${code}:${sp}`;
@@ -68,7 +68,7 @@ function Multi() {
       <div ref={grid} className={`grid gap-4 ${cols}`}>
         {codes.slice(0, n).map((c, i) => {
           const r = rows.get(c);
-          const rangePct = span === 20 ? r?.d20 : span === 60 ? r?.d60 : span === 180 ? ranges[`${c}:180`] ?? null : null;
+          const rangePct = span === "day" ? null : ranges[`${c}:${span}`] ?? null;
           return (
             <div key={`${c}-${i}`} className="card overflow-hidden">
               <div className="px-4 pt-3 flex items-start gap-2">

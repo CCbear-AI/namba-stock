@@ -18,8 +18,10 @@ export function heat(p: number, cap = 7) {
   return p > 0 ? `rgb(${Math.round(70 + 170 * t)},${Math.round(40 - 10 * t)},${Math.round(48 - 8 * t)})` : `rgb(20,${Math.round(70 + 110 * t)},${Math.round(55 + 40 * t)})`;
 }
 
-export default function Heatmap({ rows, period = "d", sizeBy = "cap", byIndustry = true, perGroup = 40, minH = 420 }: {
+export default function Heatmap({ rows, period = "d", sizeBy = "cap", byIndustry = true, perGroup = 40, minH = 420, groupPct }: {
   rows: ScanRow[]; period?: Period; sizeBy?: SizeBy; byIndustry?: boolean; perGroup?: number; minH?: number;
+  /** 產業標題的漲跌幅（整個產業市值加權）；沒給就用畫出來的這些股票算 */
+  groupPct?: Record<string, number>;
 }) {
   const [hover, setHover] = useState<ScanRow | null>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -45,12 +47,12 @@ export default function Heatmap({ rows, period = "d", sizeBy = "cap", byIndustry
       // 每個產業只畫前幾大，其他太小看不到
       const top = [...list].sort((a, b) => size(b) - size(a)).slice(0, perGroup);
       const cp = list.reduce((s, r) => s + r.cap, 0);
-      return { k, top, v: top.reduce((s, r) => s + size(r), 0), pct: cp ? list.reduce((s, r) => s + r.cap * periodPct(r, period), 0) / cp : 0 };
+      return { k, top, v: top.reduce((s, r) => s + size(r), 0), pct: groupPct?.[k] ?? (cp ? list.reduce((s, r) => s + r.cap * periodPct(r, period), 0) / cp : 0) };
     });
     const rects = squarify(sec.map((s) => ({ v: s.v, d: s })), { x: 0, y: 0, w: W, h: H });
     const cells = rects.flatMap((r) => squarify(r.d.top.map((s) => ({ v: size(s), d: s })), { x: r.x + 1, y: r.y + 18, w: r.w - 2, h: r.h - 19 }));
     return { sectors: rects, cells };
-  }, [rows, sizeBy, byIndustry, perGroup, W, H, period]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, sizeBy, byIndustry, perGroup, W, H, period, groupPct]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div ref={box} className="relative w-full" style={{ height: H }} onMouseLeave={() => setHover(null)}>

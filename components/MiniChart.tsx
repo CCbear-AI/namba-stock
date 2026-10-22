@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { createChart, AreaSeries, LineStyle, type IChartApi, type UTCTimestamp } from "lightweight-charts";
 import { usePoll } from "./hooks";
 import type { Bar } from "@/lib/types";
+import { price } from "./fmt";
 
 export type Span = "day" | 20 | 60 | 180;
 
@@ -14,7 +15,8 @@ export default function MiniChart({ code, span = "day", prev, height = 240, onRa
   const { data } = usePoll<{ bars: Bar[] }>(`/api/candles?code=${encodeURIComponent(code)}&tf=${day ? "1m" : "1d"}`, day ? 30_000 : 120_000);
   const bars = useMemo(() => {
     const b = data?.bars ?? [];
-    return day ? b.map((x) => ({ ...x, time: x.time + 8 * 3600 })) : b.slice(-(span as number) - 1);
+    // 近 N 日＝最近 N 根，起點是第一根的收盤（跟里長伯一致）
+    return day ? b.map((x) => ({ ...x, time: x.time + 8 * 3600 })) : b.slice(-(span as number));
   }, [data, day, span]);
   const base = day ? prev ?? bars[0]?.open : bars[0]?.close;
 
@@ -40,6 +42,13 @@ export default function MiniChart({ code, span = "day", prev, height = 240, onRa
     const s = c.addSeries(AreaSeries, { lineColor: col, topColor: col + "33", bottomColor: col + "02", lineWidth: 2, priceLineVisible: false, lineType: day ? 0 : 2 });
     s.setData(bars.map((b) => ({ time: b.time as UTCTimestamp, value: b.close })));
     s.createPriceLine({ price: base, color: "#646a73", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: day ? "昨收" : "區間起點" });
+    if (!day) {
+      // 前高／前低：區間內、不含最後一根（今天）的最高價、最低價
+      const past = bars.length > 1 ? bars.slice(0, -1) : bars;
+      const hi = Math.max(...past.map((b) => b.high)), lo = Math.min(...past.map((b) => b.low));
+      s.createPriceLine({ price: hi, color: "#f0505a88", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: `前高 ${price(hi)}` });
+      s.createPriceLine({ price: lo, color: "#22b57388", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: `前低 ${price(lo)}` });
+    }
     c.timeScale().fitContent();
     onRange?.(base ? ((last - base) / base) * 100 : 0, code, span);
   }, [bars, base, day, onRange, code, span]);

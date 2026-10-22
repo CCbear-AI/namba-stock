@@ -3,6 +3,9 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { getQuotes } from "./mis";
 import { misOhlc } from "./misStats";
+import { getDaily } from "./history";
+import { UNIVERSE } from "./universe";
+import { getMarket } from "./market";
 import type { Bar } from "./types";
 
 type Store = { bars: Record<string, [string, number, number, number, number][]> };
@@ -53,6 +56,26 @@ export async function sectorQuotes(): Promise<SectorQuote[]> {
   return list;
 }
 
+// 類股指數名稱 → 成分股的產業（個股清單裡的 ind）
+const ELEC = ["半導體", "電腦及週邊", "光電", "通信網路", "電子零組件", "電子通路", "資訊服務", "其他電子"];
+const IND_ALIAS: Record<string, string[]> = {
+  電子工: ELEC, 電子: ELEC, 化學生技醫療: ["化學", "生技醫療"], 電腦及週邊設備: ["電腦及週邊"],
+  紡纖: ["紡織纖維"], 機械: ["電機機械"], 營建: ["建材營造"], 化工: ["化學"],
+};
+/** 類股成交量（張）＝成分股官方日 K 成交量加總（跟里長伯一致）：日期 → 張 */
+function sectorVolume(short: string, market: "tse" | "otc") {
+  const inds = new Set(IND_ALIAS[short] ?? [short]);
+  const codes = UNIVERSE.filter((u) => u.m === market && inds.has(u.ind)).map((u) => u.c);
+  const { dates, s } = getDaily();
+  const out = new Map<string, number>();
+  dates.forEach((d, i) => {
+    let v = 0;
+    for (const c of codes) { const x = s.get(c)?.v[i]; if (x && x > 0) v += x; }
+    if (v) out.set(d, v);
+  });
+  return { codes, out };
+}
+
 /** 類股日 K；最後一天沒有的話用即時報價補一根 */
 export async function sectorDaily(id: string): Promise<Bar[]> {
   const list = await sectorQuotes();
@@ -60,12 +83,22 @@ export async function sectorDaily(id: string): Promise<Bar[]> {
   if (!q) return [];
   const key = historyKey(q.name, q.market);
   const raw = key ? load(q.market).bars[key] ?? [] : [];
-  const bars: Bar[] = raw.map(([d, o, h, l, c]) => ({ time: Date.parse(d) / 1000, open: o, high: h, low: l, close: c, volume: 0 }));
+  const vol = sectorVolume(q.short, q.market);
+  const bars: Bar[] = raw.map(([d, o, h, l, c]) => ({ time: Date.parse(d) / 1000, open: o, high: h, low: l, close: c, volume: vol.out.get(d) ?? 0 }));
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
   const t = Date.parse(today) / 1000;
   if (q.price && (!bars.length || bars[bars.length - 1].time < t)) {
     const wd = new Date(t * 1000).getUTCDay();
-    if (wd >= 1 && wd <= 5) bars.push({ time: t, open: q.prev, high: Math.max(q.prev, q.price), low: Math.min(q.prev, q.price), close: q.price, volume: 0 });
+    if (wd >= 1 && wd <= 5) {
+      // 今天還沒有官方日 K：用即時成交量加總
+      let v = vol.out.get(today) ?? 0;
+      if (!v) {
+        const m = await getMarket().catch(() => null);
+        const set = new Set(vol.codes);
+        v = m?.stocks.reduce((a, r) => a + (set.has(r.c) ? r.vol : 0), 0) ?? 0;
+      }
+      bars.push({ time: t, open: q.prev, high: Math.max(q.prev, q.price), low: Math.min(q.prev, q.price), close: q.price, volume: v });
+    }
   }
   return bars;
 }
