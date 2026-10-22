@@ -76,30 +76,29 @@ export default function Home() {
     watch: { span: "md:col-span-12 lg:col-span-4", node: (
       <div className="card flex flex-col min-h-0">
         <div className="card-h">我的自選股 <Link href="/watchlist" className="text-[13px] text-[var(--gold)]">管理</Link></div>
-        <div className="scroll-y max-h-[380px] px-2 pb-2">
+        {/* 一列：代號小字＋名稱、當日小走勢、股價／漲跌幅上下疊；卡片太窄就先藏走勢圖，✕ 滑過才出現 */}
+        <div className="@container scroll-y max-h-[380px] px-2 pb-2">
           {watch.map((r) => (
-            <div key={r.c} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-panel-2">
+            <div key={r.c} className="group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-panel-2">
               <Link href={`/stock/${r.c}`} className="flex flex-1 items-center gap-3 min-w-0">
-                <span className="mono text-text-2 w-12 shrink-0">{r.c}</span>
-                <span className="w-[6.5em] truncate shrink-0">{r.n}</span>
-                <Spark data={sparks[r.c] ?? []} base={r.prev} w={70} h={20} />
-                <span className={`mono w-16 text-right ${cls(r.chg)}`}>{price(r.price)}</span>
-                <span className={`mono w-16 text-right ${cls(r.pct)}`}>{pct(r.pct)}</span>
+                <span className="flex-1 min-w-0 truncate"><span className="mono text-[11px] text-text-2 mr-1.5">{r.c}</span>{r.n}</span>
+                <span className="hidden @[250px]:block shrink-0"><Spark data={sparks[r.c] ?? []} base={r.prev} w={76} h={24} /></span>
+                <PriceCell r={r} />
               </Link>
-              <button className="text-dim hover:text-text" onClick={() => wl.toggle(r.c)} aria-label={`移除 ${r.n}`}>✕</button>
+              <button className="w-4 shrink-0 text-dim hover:text-text opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" onClick={() => wl.toggle(r.c)} aria-label={`移除 ${r.n}`}>✕</button>
             </div>
           ))}
-          {!watch.length && (
+          {/* 自選股不到 5 檔：空白處補成交最熱的幾檔，可以直接加入 */}
+          {watch.length < 5 && (
             <>
-              <div className="sub px-2 py-3">還沒有自選股。從下面成交最熱的股票加入，或在個股頁按「加入自選」。</div>
-              {value.slice(0, 8).map((r) => (
-                <div key={r.c} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-panel-2">
+              <div className="sub px-2 pt-3 pb-1">{watch.length ? "成交最熱 · 可直接加入自選" : "還沒有自選股。從成交最熱的股票加入，或在個股頁按「加入自選」。"}</div>
+              {value.filter((r) => !wl.list.includes(r.c)).slice(0, 8 - watch.length).map((r) => (
+                <div key={r.c} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-panel-2">
                   <Link href={`/stock/${r.c}`} className="flex flex-1 items-center gap-3 min-w-0">
-                    <span className="mono text-text-2 w-12 shrink-0">{r.c}</span><span className="w-[6.5em] truncate shrink-0">{r.n}</span>
-                    <span className={`mono w-16 text-right ${cls(r.chg)}`}>{price(r.price)}</span>
-                    <span className={`mono w-16 text-right ${cls(r.pct)}`}>{pct(r.pct)}</span>
+                    <span className="flex-1 min-w-0 truncate"><span className="mono text-[11px] text-text-2 mr-1.5">{r.c}</span>{r.n}</span>
+                    <PriceCell r={r} />
                   </Link>
-                  <button className="btn !py-0.5" onClick={() => wl.toggle(r.c)}>＋ 加入</button>
+                  <button className="btn !py-0.5 !px-2 shrink-0" onClick={() => wl.toggle(r.c)} aria-label={`加入 ${r.n}`}>＋ 加入</button>
                 </div>
               ))}
             </>
@@ -169,5 +168,15 @@ function Rank({ title, rows, sub }: { title: string; rows: { c: string; n: strin
         {!rows.length && <div className="sub px-2 py-6 text-center loading">載入中…</div>}
       </div>
     </div>
+  );
+}
+
+/** 股價在上、漲跌幅在下（自選股列用） */
+function PriceCell({ r }: { r: { chg: number; pct: number; price: number } }) {
+  return (
+    <span className="w-[4.75rem] shrink-0 text-right leading-tight">
+      <span className={`block mono ${cls(r.chg)}`}>{price(r.price)}</span>
+      <span className={`block mono text-[11px] ${cls(r.pct)}`}>{pct(r.pct)}</span>
+    </span>
   );
 }
