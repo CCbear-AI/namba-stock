@@ -9,7 +9,8 @@ import MiniChart from "@/components/MiniChart";
 import { useSparks } from "@/components/useSparks";
 import { scopes } from "@/components/scopes";
 import type { ScanRow } from "@/lib/scan";
-import Help from "@/components/Help";
+import Help, { Term } from "@/components/Help";
+import { VR_HELP } from "@/components/glossary";
 
 type P = "d" | 5 | 20 | 60;
 const PL: Record<string, string> = { d: "當日", 5: "近5日", 20: "近20日", 60: "近60日" };
@@ -104,7 +105,7 @@ export default function Gainers() {
                         </div>
                       </td>
                       <td className="mono">{price(r.price)}</td>
-                      <td className="mono">{r.value.toFixed(1)} 億<div className="sub">量比 {r.vr.toFixed(1)}x</div></td>
+                      <td className="mono">{r.value.toFixed(1)} 億<div className="sub"><Term tip={VR_HELP}>量比</Term> {r.vr.toFixed(1)}x</div></td>
                       <td><Spark data={p === "d" ? sparks[r.c] ?? [] : sparks[r.c] ?? r.c20.slice(-(p as number) - 1)} base={p === "d" ? r.prev : undefined} /></td>
                     </tr>
                   );
@@ -136,7 +137,7 @@ export default function Gainers() {
             <MiniChart code={cur.c} span="day" prev={cur.prev} height={220} />
             <div className="grid grid-cols-2 gap-2 px-4 pb-4 text-[13px] mono">
               <div><span className="sub">成交值</span> {cur.value.toFixed(1)} 億</div>
-              <div><span className="sub">量比</span> {cur.vr.toFixed(1)}x</div>
+              <div><span className="sub"><Term tip={VR_HELP}>量比</Term></span> {cur.vr.toFixed(1)}x</div>
               <div><span className="sub">近5日</span> <span className={cls(cur.d5)}>{pct(cur.d5)}</span></div>
               <div><span className="sub">近20日</span> <span className={cls(cur.d20)}>{pct(cur.d20)}</span></div>
             </div>

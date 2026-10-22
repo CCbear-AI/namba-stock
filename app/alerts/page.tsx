@@ -10,7 +10,8 @@ import { resolveRules } from "@/components/AlertWatcher";
 import { BUILTIN } from "@/components/hooks";
 import { describe, KIND_LABEL, type Rule } from "@/lib/alertRules";
 import { STRATEGIES, COND } from "@/lib/conditions";
-import Help from "@/components/Help";
+import Help, { Term } from "@/components/Help";
+import { RVOL_HELP } from "@/components/glossary";
 
 type Kind = Rule["kind"];
 const KINDS: Kind[] = ["price", "pct", "limit", "insti", "strategy", "rvol", "stall"];
@@ -108,7 +109,7 @@ function Alerts() {
             <select value={scope} onChange={(e) => setScope(e.target.value)} className="w-full bg-panel-2 border border-line rounded-lg px-3 py-2 text-[13px]">
               {groupList.map((x) => <option key={x.id} value={x.id}>{x.name}{x.id.startsWith("b-") ? "（自動）" : `（${x.codes.length} 檔）`}</option>)}
             </select>
-            {kind === "rvol" && <div className="flex gap-2 mt-3 items-center"><span className="sub">同時段 RVOL 門檻</span><input type="number" step="0.5" value={value} onChange={(e) => setValue(e.target.value)} className="w-20 bg-panel-2 border border-line rounded-lg px-3 py-1 mono text-right" /><span className="sub">倍</span></div>}
+            {kind === "rvol" && <div className="flex gap-2 mt-3 items-center"><span className="sub">同時段 <Term tip={RVOL_HELP}>RVOL</Term> 門檻</span><input type="number" step="0.5" value={value} onChange={(e) => setValue(e.target.value)} className="w-20 bg-panel-2 border border-line rounded-lg px-3 py-1 mono text-right" /><span className="sub">倍</span></div>}
           </div>
         )}
         <div className="flex items-center gap-2 text-[13px]"><span className="sub">通知方式</span><b>{push ? "網頁通知 ＋ 背景推播" : "網頁通知"}</b></div>

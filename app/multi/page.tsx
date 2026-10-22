@@ -7,6 +7,8 @@ import ExportBtn from "@/components/ExportBtn";
 import { useGroups, useScan } from "@/components/hooks";
 import { cls, pct, price } from "@/components/fmt";
 import universe from "@/data/universe.json";
+import { Term } from "@/components/Help";
+import { RVOL_HELP } from "@/components/glossary";
 
 const DEFAULT = ["2330", "2317", "2454", "2308", "2382", "3231", "2303", "2881", "2603"];
 const SPANS: { k: Span; l: string }[] = [{ k: "day", l: "當日" }, { k: 20, l: "近20日" }, { k: 60, l: "近60日" }, { k: 180, l: "近180日" }];
@@ -86,7 +88,7 @@ function Multi() {
                       onBlur={(e) => (e.currentTarget.value ? replace(i, e.currentTarget.value) : setEditing(null))} />
                   ) : <button data-noexport className="w-7 h-7 rounded-lg bg-panel-2 text-text-2 hover:text-text" title="換一檔" aria-label="換一檔" onClick={() => setEditing(i)}>⇄</button>}
                   {rangePct != null && <div className={`mono text-[12px] ${cls(rangePct)}`}>{SPANS.find((s) => s.k === span)!.l} {pct(rangePct)}</div>}
-                  {r && <div className="mono text-[12px] text-text-2">RVOL {r.rvol.toFixed(1)}x</div>}
+                  {r && <div className="mono text-[12px] text-text-2"><Term tip={RVOL_HELP} align="right">RVOL</Term> {r.rvol.toFixed(1)}x</div>}
                 </div>
               </div>
               <MiniChart code={c} span={span} prev={r?.prev} height={n >= 6 ? 190 : 250} onRange={onRange} />

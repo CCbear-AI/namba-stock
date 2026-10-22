@@ -13,6 +13,8 @@ export const openedDown = (r: ScanRow) => r.down > 0 && r.low <= r.down && r.pri
 export const efficiency = (r: ScanRow) => (r.move20 > 0 && r.rvol > 0 ? Math.abs(r.pct) / r.move20 / r.rvol : 0);
 /** 量價齊揚：RVOL ≥ 1.5、推進效率 ≥ 1、今日上漲（放量而且價格確實被推上去） */
 export const volPriceUp = (r: ScanRow) => r.rvol >= 1.5 && r.pct > 0 && efficiency(r) >= 1;
+/** 爆量推進：RVOL ≥ 2、今日漲 ≥ 3%、而且量價齊揚（首頁飆股訊號標籤與選股器共用同一個定義） */
+export const volPush = (r: ScanRow) => r.rvol >= 2 && r.pct >= 3 && volPriceUp(r);
 /** 爆量卡關（爆量沒推進）：RVOL ≥ 2，但漲跌不到平常日波幅（近 20 日平均每日漲跌幅）的三成 */
 export const volStall = (r: ScanRow) => r.rvol >= 2 && r.move20 > 0 && Math.abs(r.pct) < r.move20 * 0.3;
 // 新高：收盤 ≥ 前 N 日最高收盤；新低：收盤 ≤ 前 N 日最低收盤（跟里長伯的算法一致）
@@ -27,6 +29,7 @@ export const CONDS: Cond[] = [
   { id: "rvol2", label: "RVOL ≥ 2（同時段）", test: (r) => r.rvol >= 2 },
   { id: "rvol3", label: "RVOL ≥ 3（同時段）", test: (r) => r.rvol >= 3 },
   { id: "vpu", label: "量價齊揚", test: volPriceUp },
+  { id: "push", label: "爆量推進", test: volPush },
   { id: "stall", label: "爆量沒推進", test: volStall },
   { id: "f3", label: "外資連買 ≥ 3 日", test: (r) => r.fDays >= 3 },
   { id: "t3", label: "投信連買 ≥ 3 日", test: (r) => r.tDays >= 3 },
@@ -80,7 +83,7 @@ export function signalTags(r: ScanRow): string[] {
   else if (r.up && r.price >= r.up * 0.985 && r.pct > 0) t.push("逼近漲停");
   if (r.tDays >= 3) t.push(`投信連買 ${r.tDays} 日`);
   else if (r.fDays >= 3) t.push(`外資連買 ${r.fDays} 日`);
-  if (r.rvol >= 2 && r.pct >= 3 && volPriceUp(r)) t.push("爆量推進");
+  if (volPush(r)) t.push("爆量推進");
   else if (r.vr >= 2) t.push(`量增 ${r.vr.toFixed(1)} 倍`);
   if (newHigh(r, r.hi60)) t.push("創 60 日新高");
   else if (r.ma20 > 0 && r.prev <= r.ma20 && r.price > r.ma20) t.push("突破 20 日線");

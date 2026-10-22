@@ -13,6 +13,8 @@ import { signalTags } from "@/lib/conditions";
 import type { Market } from "@/lib/types";
 import type { ScanRow } from "@/lib/scan";
 import type { FlowEvent } from "@/lib/flow";
+import { Term } from "@/components/Help";
+import { RVOL_HELP, tagHelp } from "@/components/glossary";
 
 type Chips = { date: string; market: { total: number }; rank: { f: { buy: { c: string; n: string; lots: number }[] } } };
 const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
@@ -116,12 +118,12 @@ export default function Home() {
         <div className="card-h">飆股訊號 <Link href="/screener" className="text-[13px] text-[var(--gold)]">開啟選股器</Link></div>
         <div className="scroll-y max-h-[240px] px-2 pb-2">
           <table className="tbl">
-            <thead><tr><th>股票</th><th className="!text-left">符合的訊號</th><th>股價</th><th>漲跌幅</th><th>RVOL</th></tr></thead>
+            <thead><tr><th>股票</th><th className="!text-left">符合的訊號</th><th>股價</th><th>漲跌幅</th><th><Term tip={RVOL_HELP} align="right">RVOL</Term></th></tr></thead>
             <tbody>
               {signals.map(({ s, tags }) => (
                 <tr key={s.c} className="click" onClick={() => router.push(`/stock/${s.c}`)}>
                   <td><span className="mono text-text-2 mr-2">{s.c}</span>{s.n}</td>
-                  <td className="!text-left"><span className="flex gap-1 flex-wrap">{tags.map((t) => <span key={t} className={`chip ${t.includes("漲停") ? "!bg-[#3a1518] !text-[var(--up)]" : ""}`}>{t}</span>)}</span></td>
+                  <td className="!text-left"><span className="flex gap-1 flex-wrap">{tags.map((t) => { const chip = <span key={t} className={`chip ${t.includes("漲停") ? "!bg-[#3a1518] !text-[var(--up)]" : ""}`}>{t}</span>; const h = tagHelp(t); return h ? <Term key={t} tip={h} plain>{chip}</Term> : chip; })}</span></td>
                   <td className={`mono ${cls(s.chg)}`}>{price(s.price)}</td>
                   <td className={`mono ${cls(s.pct)}`}>{pct(s.pct)}</td>
                   <td className="mono">{s.rvol.toFixed(1)}x</td>

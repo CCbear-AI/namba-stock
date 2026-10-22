@@ -6,6 +6,8 @@ import { useScan, useWatchlist } from "@/components/hooks";
 import { useRules } from "@/components/alerts";
 import { cls, pct, price, num, hm } from "@/components/fmt";
 import { CONDS, COND, STRATEGIES, matchAll, hiTag } from "@/lib/conditions";
+import Help, { Term } from "@/components/Help";
+import { VR_HELP, SCREENER_HELP, COND_HELP } from "@/components/glossary";
 
 export default function Page() {
   return <Suspense><Screener /></Suspense>;
@@ -36,12 +38,12 @@ function Screener() {
         <div className="grid grid-cols-2 gap-2 p-4 pt-2">
           {STRATEGIES.map((s) => <button key={s.id} className={`btn justify-center ${strategy?.id === s.id ? "on" : ""}`} onClick={() => setConds(s.conds)}>{s.label}</button>)}
         </div>
-        <div className="px-4 flex items-center sub">篩選條件（全部符合）<button className="ml-auto text-[var(--gold)]" onClick={() => setConds([])}>清除</button></div>
+        <div className="px-4 flex items-center sub">篩選條件（全部符合）<Help>{SCREENER_HELP}</Help><button className="ml-auto text-[var(--gold)]" onClick={() => setConds([])}>清除</button></div>
         <div className="scroll-y flex-1 px-2 py-1">
           {CONDS.map((c) => (
             <label key={c.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-panel-2 cursor-pointer">
               <input type="checkbox" checked={conds.includes(c.id)} onChange={() => toggle(c.id)} className="accent-[var(--gold)] w-4 h-4" />
-              <span className="flex-1 text-[13px]">{c.label}</span>
+              <span className="flex-1 text-[13px]">{COND_HELP[c.id] ? <Term tip={COND_HELP[c.id]}>{c.label}</Term> : c.label}</span>
               <span className="sub mono">{counts[c.id]?.toLocaleString() ?? "—"} 檔</span>
             </label>
           ))}
@@ -71,7 +73,7 @@ function Screener() {
         )}
         <div className="overflow-x-auto px-2 pb-2">
           <table className="tbl">
-            <thead><tr>{multi && <th className="w-8"></th>}<th>股票</th><th>成交價</th><th>漲跌幅</th><th>量比</th><th>成交量 (張)</th><th>外資連買</th><th>投信連買</th><th>均線 / 新高</th><th>操作</th></tr></thead>
+            <thead><tr>{multi && <th className="w-8"></th>}<th>股票</th><th>成交價</th><th>漲跌幅</th><th><Term tip={VR_HELP}>量比</Term></th><th>成交量 (張)</th><th>外資連買</th><th>投信連買</th><th>均線 / 新高</th><th>操作</th></tr></thead>
             <tbody>
               {hits.map((r) => (
                 <tr key={r.c} className="click" onClick={() => (multi ? setSel((s) => (s.includes(r.c) ? s.filter((x) => x !== r.c) : [...s, r.c])) : router.push(`/stock/${r.c}`))}>
@@ -95,9 +97,7 @@ function Screener() {
           {!data && <div className="sub text-center py-10 loading">正在掃描上市櫃全部個股…</div>}
         </div>
         <div className="px-4 pb-4 sub leading-relaxed">
-          篩選結果不構成投資建議 · 量比 = 今日成交量 ÷ 近 5 日均量<br />
-          RVOL = 同時段相對成交量，依加權指數盤中量能曲線估算到此刻該有的量；收盤後即今日量 ÷ 20 日均量<br />
-          創新高＝收盤 ≥ 前 N 日最高收盤 · 創新低＝收盤 ≤ 前 N 日最低收盤 · 均線多頭排列＝5 日線 ＞ 20 日線 ＞ 60 日線<br />量價齊揚 = RVOL ≥ 1.5、推進效率 ≥ 1、今日上漲（推進效率＝今日漲跌幅 ÷ 近 20 日平均日漲跌幅 ÷ RVOL） · 爆量沒推進 = RVOL ≥ 2 但漲跌不到近 20 日平均每日漲跌幅的三成 · <Link href="/alerts" className="text-[var(--gold)]">管理提醒</Link>
+          篩選結果不構成投資建議 · 條件定義請看左邊「篩選條件」旁的問號 · <Link href="/alerts" className="text-[var(--gold)]">管理提醒</Link>
         </div>
       </div>
     </div>
