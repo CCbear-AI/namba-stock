@@ -7,6 +7,7 @@ import { updateStock, makePoint, type StockFlow, type FlowDay } from "../lib/flo
 import { hasSupabase, saveFlowDayRemote } from "../lib/store";
 import { Tracker } from "../lib/tracker";
 import { misOhlc } from "../lib/misStats";
+import { yahooInOut, type InOut } from "../lib/yahooFlow";
 import { getDaily, getAth } from "../lib/history";
 import { toRow } from "../lib/market";
 import { scan } from "../lib/scan";
@@ -36,6 +37,7 @@ async function main() {
     : { date, points: [], stocks: {}, updated: 0 };
   const state = new Map<string, StockFlow>();
   const lastQ = new Map<string, Quote>();
+  const lastIO = new Map<string, InOut>(); // Yahoo 外盤／內盤量，這一輪沒抓到的沿用上一輪
   // 近 20 日均量（張），給「同時段量能」判斷
   const { s: hist } = getDaily();
   const avg20 = new Map<string, number>();
@@ -57,7 +59,8 @@ async function main() {
     const now = tw();
     if (!testRounds && minutes(now) > 13 * 60 + 31) break;
     const started = Date.now();
-    const list = await getQuotes(chs);
+    const [list, io] = await Promise.all([getQuotes(chs), yahooInOut(universe).catch(() => new Map<string, InOut>())]);
+    for (const [c, v] of io) lastIO.set(c, v);
     // 假日：報價日期不是今天就結束
     if (round === 1 && list.length && !testRounds) {
       const d = new Date(list[0].time + 8 * 3600e3).toISOString().slice(0, 10);
@@ -67,7 +70,7 @@ async function main() {
     for (const q of list) lastQ.set(q.c, q);
     const quotes = new Map<string, Quote>(lastQ);
     for (const q of list) state.set(q.c, updateStock(state.get(q.c), q));
-    const { point, stocks } = makePoint(hms(now), state, quotes, meta);
+    const { point, stocks } = makePoint(hms(now), state, quotes, meta, lastIO);
     tracker.update(list, hms(now).slice(0, 5), minutes(now));
     // 背景推播：用這一輪的報價檢查大家的提醒（法人買超在盤後另外檢查）
     if (pushReady && !testRounds) {
@@ -83,12 +86,13 @@ async function main() {
     day.points.push(point);
     day.stocks = stocks;
     day.updated = Date.now();
-    writeFileSync(file, JSON.stringify(day));
-    if (hasSupabase) {
+    // 測試模式不存線上，免得蓋掉當天真正的紀錄
+    if (!testRounds) writeFileSync(file, JSON.stringify(day));
+    if (hasSupabase && !testRounds) {
       try { await saveFlowDayRemote(day); } catch (e) { console.error("Supabase 寫入失敗", (e as Error).message); }
     }
     const total = Object.values(point.s).reduce((a, v) => a + v[0], 0);
-    console.log(`${point.t} 第${round}輪 ${list.length}檔 ${Date.now() - started}ms 全市場淨額 ${total.toFixed(2)} 億`);
+    console.log(`${point.t} 第${round}輪 ${list.length}檔（Yahoo 內外盤 ${io.size} 檔） ${Date.now() - started}ms 全市場淨額 ${total.toFixed(2)} 億`);
     if (testRounds && round >= testRounds) break;
     await sleep(Math.max(1000, INTERVAL - (Date.now() - started)));
   }

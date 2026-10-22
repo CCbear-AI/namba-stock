@@ -1,5 +1,7 @@
-// 即時資金流：用相鄰兩次快照的成交量差，判斷這段成交是外盤（主動買）還是內盤（主動賣）
+// 即時資金流：主動買賣淨額＝（累積外盤量 − 累積內盤量）× 均價，外盤／內盤量來自 Yahoo（lib/yahooFlow）。
+// Yahoo 這一輪沒抓到的股票，才退回「用相鄰兩次快照的成交量差判斷外盤／內盤」的推算
 import type { Quote } from "./mis";
+import type { InOut } from "./yahooFlow";
 import { THEMES_OF } from "./themes";
 
 /** 每檔股票的累積狀態 */
@@ -68,6 +70,7 @@ export function makePoint(
   state: Map<string, StockFlow>,
   quotes: Map<string, Quote>,
   meta: Map<string, { ind: string; sh: number }>,
+  io?: Map<string, InOut>,
 ): { point: FlowPoint; stocks: FlowDay["stocks"] } {
   const agg: Record<string, { net: number; value: number; cap: number; capChg: number }> = {};
   const tagg: typeof agg = {};
@@ -79,14 +82,18 @@ export function makePoint(
     const pct = ((q.price - q.prev) / q.prev) * 100;
     const a = (agg[m.ind] ??= { net: 0, value: 0, cap: 0, capChg: 0 });
     const cap = m.sh * q.prev;
-    a.net += st.buy - st.sell;
-    a.value += st.value;
+    // 有 Yahoo 外盤／內盤量就用精確值（元），沒有才用推算
+    const y = io?.get(c);
+    const net = y && y.avg ? (y.outL - y.inL) * 1000 * y.avg : st.buy - st.sell;
+    const value = y && y.avg && q.vol ? q.vol * 1000 * y.avg : st.value;
+    a.net += net;
+    a.value += value;
     a.cap += cap;
     a.capChg += cap * pct;
-    stocks[c] = [yi(st.buy - st.sell), yi(st.value), Math.round(pct * 100) / 100];
+    stocks[c] = [yi(net), yi(value), Math.round(pct * 100) / 100];
     for (const t of THEMES_OF.get(c) ?? []) {
       const g = (tagg[t] ??= { net: 0, value: 0, cap: 0, capChg: 0 });
-      g.net += st.buy - st.sell; g.value += st.value; g.cap += cap; g.capChg += cap * pct;
+      g.net += net; g.value += value; g.cap += cap; g.capChg += cap * pct;
     }
   }
   const s: FlowPoint["s"] = {};
