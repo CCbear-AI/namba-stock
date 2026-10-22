@@ -30,8 +30,12 @@ export async function GET(req: Request) {
       if (cells[0]) buy.push({ n: cells[0], lots: num(cells[3]), pct: num(cells[4]) });
       if (cells[5]) sell.push({ n: cells[5], lots: -num(cells[8]), pct: num(cells[9]) });
     }
+    // 分母用分點頁自己的成交量（由各券商「佔成交比」反推，跟里長伯一致）；反推不出來才用官方日 K 成交量
+    const all = [...buy, ...sell].filter((y) => y.pct > 0);
+    const pctSum = all.reduce((a, y) => a + y.pct, 0);
+    const implied = pctSum ? (all.reduce((a, y) => a + Math.abs(y.lots), 0) / pctSum) * 100 : 0;
     const x = s.get(code);
-    const vol = x ? range.reduce((a, d) => { const i = dates.indexOf(d); return a + (Number.isNaN(x.v[i]) ? 0 : x.v[i]); }, 0) : 0;
+    const vol = implied || (x ? range.reduce((a, d) => { const i = dates.indexOf(d); return a + (Number.isNaN(x.v[i]) ? 0 : x.v[i]); }, 0) : 0);
     const b = buy.reduce((a, y) => a + y.lots, 0), se = sell.reduce((a, y) => a + y.lots, 0);
     const v = { code, from: range[0], to: range.at(-1), days, buy, sell, buySum: b, sellSum: se, conc: vol ? Math.round(((b + se) / vol) * 10000) / 100 : null };
     if (buy.length) cache.set(key, { at: Date.now(), v });

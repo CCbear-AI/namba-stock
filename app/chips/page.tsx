@@ -3,10 +3,9 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePoll } from "@/components/hooks";
-import { cls, num } from "@/components/fmt";
+import { cls, num, sign } from "@/components/fmt";
 import ExportBtn from "@/components/ExportBtn";
-import StockPicker, { NAME } from "@/components/StockPicker";
-import { ChipsSummary, Branches } from "@/components/StockChips";
+import { ChipsInst, ChipsBig, Branches, StockSelect } from "@/components/StockChips";
 
 type RankRow = { c: string; n: string; lots: number; amt: number; streak: number };
 type M = {
@@ -36,15 +35,15 @@ function Chips() {
   return (
     <div className="grid gap-4" id="chips-area">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold">籌碼分析</h1><span className="sub">大盤法人動向 · 資料日期 {data.date.replace(/-/g, "/")}（盤後公布）</span>
+        <h1 className="text-[16px] font-semibold">籌碼分析</h1><span className="sub">大盤法人動向 · 資料日期 {data.date.replace(/-/g, "/")}（盤後公布）</span>
         <span className="ml-auto"><ExportBtn name="籌碼分析" target={() => document.getElementById("chips-area")} /></span>
       </div>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <Card l="外資及陸資" v={`${yi(m.f)} 億`} c={m.f} s={streakText(m.fStreak)} />
         <Card l="投信" v={`${yi(m.t)} 億`} c={m.t} s={streakText(m.tStreak)} />
         <Card l="自營商" v={`${yi(m.d)} 億`} c={m.d} s={`自行買賣 ${yi(m.dSelf)} · 避險 ${yi(m.dHedge)}`} />
-        <Card l="三大法人合計" v={`${yi(m.total)} 億`} c={m.total} s={`近 20 日累計 ${yi(m.sum20)} 億`} />
-        <Card l="融資餘額" v={`${num(m.marginAmt, 1)} 億`} s={m.marginChg != null ? `${yi(m.marginChg)} 億` : ""} sc={m.marginChg ?? 0} />
+        <Card l="三大法人合計" v={`${yi(m.total)} 億`} c={m.total} s={`近 20 日累計 ${sign(m.sum20)}${num(m.sum20, 1)} 億`} />
+        <Card l="融資餘額" v={`${num(m.marginAmt, 1)} 億`} s={m.marginChg != null ? `${sign(m.marginChg)}${num(m.marginChg, 1)} 億` : ""} sc={m.marginChg ?? 0} />
         <Card l="融券餘額" v={`${(m.shortLots / 1e4).toFixed(1)} 萬張`} s={m.shortChg != null ? `${sg(m.shortChg)} 張` : ""} sc={m.shortChg ?? 0} />
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_440px]">
@@ -52,30 +51,36 @@ function Chips() {
         {data.futures && <Futures f={data.futures} />}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Rank title="買超排行" rank={data.rank} side="buy" date={data.date} />
-        <Rank title="賣超排行" rank={data.rank} side="sell" date={data.date} />
+        <Rank title="買超排行" rank={data.rank} side="buy" date={data.date} sel={code} onPick={setCode} />
+        <Rank title="賣超排行" rank={data.rank} side="sell" date={data.date} sel={code} onPick={setCode} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card">
-          <div className="card-h">個股籌碼 <span className="mono">{code} {NAME.get(code)}</span><Link href={`/stock/${code}`} className="sub hover:text-text">看個股 ›</Link></div>
-          <div className="px-4 pb-3"><StockPicker onPick={setCode} /></div>
-          <ChipsSummary code={code} />
+      <div className="grid gap-4 lg:grid-cols-2 items-start">
+        <div className="grid gap-4">
+          <div className="card">
+            <div className="card-h" style={{ justifyContent: "flex-start" }}>個股籌碼<StockSelect code={code} onPick={setCode} /><Link href={`/stock/${code}`} className="sub hover:text-text">看個股</Link></div>
+            <ChipsInst code={code} />
+          </div>
+          <div className="card">
+            <div className="card-h" style={{ justifyContent: "flex-start" }}>大戶持股、當沖與借券<StockSelect code={code} onPick={setCode} /></div>
+            <ChipsBig code={code} />
+          </div>
         </div>
         <div className="card">
-          <div className="card-h">主力分點 <span className="mono">{code} {NAME.get(code)}</span></div>
-          <Branches code={code} />
+          <Branches code={code} head={<>主力分點<StockSelect code={code} onPick={setCode} /></>} />
         </div>
       </div>
+      <div className="sub">法人買賣超與融資券每日盤後公布；排行只列個股（不含 ETF），金額（億）以買賣超張數 × 成交價估算。點排行的一列，個股籌碼、大戶與主力分點會換成那一檔。</div>
     </div>
   );
 }
 
 function Card({ l, v, c = 0, s, sc }: { l: string; v: string; c?: number; s?: string; sc?: number }) {
   return (
-    <div className="card px-4 py-3">
-      <div className="sub">{l}</div>
-      <div className={`mono text-2xl font-semibold mt-1 ${cls(c)}`}>{v}</div>
-      {s && <div className={`text-[12px] mt-1 ${sc != null ? cls(sc) : "text-text-2"}`}>{s}</div>}
+    // 版面照里長伯：內距 14×16、標籤／小字 12px、數字約 19px 不換行（單位跟數字同一行）
+    <div className="card px-4 py-[14px] min-w-0">
+      <div className="sub text-[12px]">{l}</div>
+      <div className={`mono text-[19px] leading-[1.4] font-semibold mt-1 whitespace-nowrap ${cls(c)}`}>{v}</div>
+      {s && <div className={`text-[12px] leading-[1.4] mt-1 ${sc != null ? cls(sc) : "text-text-2"}`}>{s}</div>}
     </div>
   );
 }
@@ -142,19 +147,29 @@ function Row({ l, v, c = 0, extra }: { l: string; v: string; c?: number; extra?:
   return <div className="flex py-1.5 border-t border-[#1c1f24]"><span>{l}</span><span className={`ml-auto mono ${cls(c)}`}>{v}</span>{extra && <span className="mono sub ml-2">{extra}</span>}</div>;
 }
 
-function Rank({ title, rank, side, date }: { title: string; rank: M["rank"]; side: "buy" | "sell"; date: string }) {
+// 版面照里長伯：標題紅（買超）／綠（賣超）、切換緊跟標題、日期靠右；每列後面一條依張數比例的橫條；
+// 點一列＝下面的個股籌碼、主力分點換成那一檔（目前選的那檔用金色左框標出）
+function Rank({ title, rank, side, date, sel, onPick }: { title: string; rank: M["rank"]; side: "buy" | "sell"; date: string; sel: string; onPick: (c: string) => void }) {
   const [w, setW] = useState<"f" | "t" | "d">("f");
   const rows = rank[w][side];
+  const max = Math.max(1, ...rows.map((r) => Math.abs(r.lots)));
+  const col = side === "buy" ? "var(--up)" : "var(--down)";
   return (
     <div className="card">
-      <div className="card-h">{title}<div className="seg">{(["f", "t", "d"] as const).map((x) => <button key={x} className={w === x ? "on" : ""} onClick={() => setW(x)}>{WHO[x]}</button>)}</div></div>
-      <div className="px-4 sub">資料日期 {md(date)} · 前 50 名</div>
-      <div className="scroll-y max-h-[460px] px-2 pb-2">
+      <div className="card-h" style={{ justifyContent: "flex-start" }}>
+        <span className={side === "buy" ? "up" : "down"}>{title}</span>
+        <div className="seg">{(["f", "t", "d"] as const).map((x) => <button key={x} className={w === x ? "on" : ""} onClick={() => setW(x)}>{WHO[x]}</button>)}</div>
+        <span className="sub ml-auto">資料日期 {md(date)} · 前 50 名</span>
+      </div>
+      <div className="scroll-y max-h-[260px] px-2 pb-2">
         <table className="tbl text-[13px]">
-          <thead><tr><th>股票</th><th>{side === "buy" ? "買超" : "賣超"} (張)</th><th>金額 (億)</th><th>{side === "buy" ? "連買" : "連賣"}</th></tr></thead>
+          <thead><tr><th>股票</th><th>{side === "buy" ? "買超" : "賣超"} (張)</th><th>金額 (億)</th><th>{side === "buy" ? "連買" : "連賣"}</th><th className="w-[120px]" /></tr></thead>
           <tbody>{rows.map((r) => (
-            <tr key={r.c}><td><Link href={`/stock/${r.c}`} className="hover:text-[var(--gold-2)]"><span className="mono text-text-2 mr-2">{r.c}</span>{r.n}</Link></td>
-              <td className={`mono ${cls(r.lots)}`}>{sg(r.lots)}</td><td className="mono">{Math.abs(r.amt).toFixed(2)}</td><td className="mono">{Math.abs(r.streak)} 日</td></tr>
+            <tr key={r.c} className={`click ${r.c === sel ? "[&>td]:bg-panel-2" : ""}`} onClick={() => onPick(r.c)} title="點一下看這檔的個股籌碼與主力分點">
+              <td style={r.c === sel ? { boxShadow: "inset 2px 0 0 var(--gold-2)" } : undefined}><span className="mono text-text-2 mr-2">{r.c}</span>{r.n}</td>
+              <td className={`mono ${cls(r.lots)}`}>{sg(r.lots)}</td><td className="mono">{Math.abs(r.amt).toFixed(2)}</td><td className="mono">{Math.abs(r.streak)} 日</td>
+              <td><div className="h-1.5 rounded bg-panel-2"><div className="h-full rounded" style={{ width: `${(Math.abs(r.lots) / max) * 100}%`, background: col }} /></div></td>
+            </tr>
           ))}</tbody>
         </table>
       </div>
