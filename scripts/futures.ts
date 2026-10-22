@@ -66,17 +66,13 @@ async function main() {
     if (who(r[3]) !== 0) continue;
     const x = d(r[0]); (x.fOpt ??= [0, 0])[r[2] === "CALL" ? 0 : 1] = Math.round(n(r[15]) / 1e3) / 100;
   }
-  // Put/Call 未平倉比
-  const pc = await (await fetch("https://openapi.taifex.com.tw/v1/PutCallRatio", { headers: { "User-Agent": "Mozilla/5.0" } })).json();
-  for (const x of pc as Record<string, string>[]) {
-    const k = `${x.Date.slice(0, 4)}-${x.Date.slice(4, 6)}-${x.Date.slice(6, 8)}`;
-    if (days[k]) days[k].pcr = n(x["PutCallOIRatio%"]);
-  }
+  // Put/Call 未平倉比（openapi 要隔天才更新，改用盤後 CSV，當天傍晚就有）
+  for (const r of await csv("pcRatioDown", range)) if (days[r[0].replace(/\//g, "-")]) d(r[0]).pcr = n(r[6]);
 
   for (const [k, x] of Object.entries(days)) {
     if (!x.tx) continue;
     store[k] = {
-      tx: x.tx as Day["tx"], top10: x.top10 ?? 0, pcr: x.pcr ?? store[k]?.pcr ?? 0,
+      tx: x.tx as Day["tx"], top10: x.top10 ?? 0, pcr: x.pcr || store[k]?.pcr || 0,
       // 散戶多空比 =（散戶多單 − 散戶空單）÷ 全市場未平倉；散戶 = 全市場 − 三大法人 → 等於 −法人淨部位 ÷ 未平倉
       retail: x.mtxOI ? Math.round((-(x.mtxInst ?? 0) / x.mtxOI) * 10000) / 100 : 0,
       fOpt: (x.fOpt ?? [0, 0]) as Day["fOpt"],

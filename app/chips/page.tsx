@@ -126,7 +126,7 @@ function Futures({ f }: { f: NonNullable<M["futures"]> }) {
         </table>
         <div className="sub my-2">淨未平倉為正是淨多單、為負是淨空單。</div>
         <Row l="前十大交易人淨部位" v={`${sg(f.top10)} 口`} c={f.top10} />
-        <Row l="選擇權 Put/Call 未平倉比" v={`${f.pcr.toFixed(2)}%`} extra={f.prev ? `${(f.pcr - f.prev.pcr) >= 0 ? "+" : ""}${(f.pcr - f.prev.pcr).toFixed(2)}` : ""} />
+        <Row l="選擇權 Put/Call 未平倉比" v={f.pcr ? `${f.pcr.toFixed(2)}%` : "—"} extra={f.pcr && f.prev?.pcr ? `${(f.pcr - f.prev.pcr) >= 0 ? "+" : ""}${(f.pcr - f.prev.pcr).toFixed(2)}` : ""} />
         <div className="sub mb-2">Put/Call 比後面是跟前一日{f.prev ? `（${f.prev.pcr.toFixed(2)}%）` : ""}相比的增減。</div>
         <Row l="小台散戶多空比" v={`${f.retail >= 0 ? "+" : ""}${f.retail.toFixed(2)}%`} c={f.retail} extra={f.prev ? `較前一日 ${(f.retail - f.prev.retail) >= 0 ? "+" : ""}${(f.retail - f.prev.retail).toFixed(2)}` : ""} />
         <div className="sub mb-2">（散戶多單 − 散戶空單）÷ 小台全市場未平倉，散戶＝全市場扣掉三大法人。正值偏多、負值偏空。</div>

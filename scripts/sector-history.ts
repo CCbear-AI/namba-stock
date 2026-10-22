@@ -63,6 +63,26 @@ async function main() {
   }
   save(s);
   console.log("完成，指數數量", Object.keys(s.bars).length);
+  await marketVolume();
+}
+
+// 大盤每日成交量（張）與成交金額（億）：證交所 FMTQIK，一次一個月；第一次從 2024-10 回補，之後只補最近兩個月
+const VOL_FILE = "data/taiex-vol.json";
+async function marketVolume() {
+  const v: Record<string, [number, number]> = existsSync(VOL_FILE) ? JSON.parse(readFileSync(VOL_FILE, "utf8")) : {};
+  const now = new Date(Date.now() + 8 * 3600e3);
+  const first = Object.keys(v).length ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)) : new Date("2024-10-01");
+  for (let d = first; d <= now; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
+    const r = await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date=${ymd(d).replace(/-/g, "")}&response=json`, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const j = (await r.json()) as { data?: string[][] };
+    for (const row of j.data ?? []) {
+      const [y, m, dd] = row[0].split("/").map(Number);
+      v[`${y + 1911}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`] = [Math.round(num(row[1]) / 1000), Math.round(num(row[2]) / 1e6) / 100];
+    }
+    await sleep(2500);
+  }
+  writeFileSync(VOL_FILE, JSON.stringify(Object.fromEntries(Object.entries(v).sort())));
+  console.log("大盤成交量", Object.keys(v).length, "天");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

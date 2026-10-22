@@ -153,7 +153,14 @@ async function main() {
     if (wd !== 0 && wd !== 6 && !noData.has(ymd(d))) days.push(ymd(d));
   }
   const have = new Set(readdirSync("data/daily").map((f) => f.slice(0, 10)));
-  const haveChips = new Set(readdirSync("data/chips").map((f) => f.slice(0, 10)));
+  // 融資券約 21:00 才公布、法人金額偶爾會修正：缺融資券的檔案、以及最近一個交易日，每次都重抓
+  const latest = [...have].filter((d) => /^\d{4}-/.test(d)).sort().pop();
+  const haveChips = new Set(
+    readdirSync("data/chips")
+      .filter((f) => f.endsWith(".json"))
+      .filter((f) => f.slice(0, 10) !== latest && JSON.parse(readFileSync(`data/chips/${f}`, "utf8")).m?.marginLots)
+      .map((f) => f.slice(0, 10)),
+  );
   // 籌碼只留最近 70 個交易日
   const tradingDays = [...new Set([...have, ...days])].filter((d) => !noData.has(d) && /^\d{4}-/.test(d)).sort();
   const chipFrom = tradingDays[Math.max(0, tradingDays.length - 70)] ?? start;

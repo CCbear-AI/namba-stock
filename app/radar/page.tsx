@@ -11,9 +11,10 @@ type Tab = "ath" | "near" | "atl";
 const SPIDERS = 32;
 const PATROL = 5; // 掃完後留下來巡邏的蜘蛛
 const NEAR = 0.03; // 離歷史高點 3% 以內算「即將破頂」
-const isAth = (r: ScanRow) => r.ath > 0 && r.vol > 0 && r.price > r.ath;
+// 平前高、平前低也算（跟里長伯一致）
+const isAth = (r: ScanRow) => r.ath > 0 && r.vol > 0 && r.price >= r.ath;
 const isNear = (r: ScanRow) => r.ath > 0 && r.vol > 0 && !isAth(r) && r.price >= r.ath * (1 - NEAR);
-const isAtl = (r: ScanRow) => r.atl > 0 && r.vol > 0 && r.price < r.atl;
+const isAtl = (r: ScanRow) => r.atl > 0 && r.vol > 0 && r.price <= r.atl;
 const FIRST_KEY = "namba.radar.first";
 
 export default function Radar() {

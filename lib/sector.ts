@@ -2,6 +2,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { getQuotes } from "./mis";
+import { misOhlc } from "./misStats";
 import type { Bar } from "./types";
 
 type Store = { bars: Record<string, [string, number, number, number, number][]> };
@@ -94,4 +95,51 @@ export async function sectorIntraday(id: string): Promise<Bar[]> {
     else out.push({ time, open: v, high: v, low: v, close: v, volume: 0 });
   }
   return out;
+}
+
+/**
+ * 加權指數日 K：證交所官方指數（data/sector-tse.json）＋官方成交量（data/taiex-vol.json，張）。
+ * Yahoo 的 ^TWII 會整天漏資料、成交量也不對，所以不用。今天的成交量收盤後抓 FMTQIK，盤中先用 MIS 估算。
+ */
+let fmtqik: { at: number; v: Record<string, [number, number]> } | null = null;
+async function monthVolume(): Promise<Record<string, [number, number]>> {
+  if (fmtqik && Date.now() - fmtqik.at < 10 * 60_000) return fmtqik.v;
+  const v: Record<string, [number, number]> = {};
+  try {
+    const d8 = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
+    const r = await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date=${d8}&response=json`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
+    const j = (await r.json()) as { data?: string[][] };
+    const num = (s: string) => Number(String(s).replace(/,/g, ""));
+    for (const row of j.data ?? []) {
+      const [y, m, dd] = row[0].split("/").map(Number);
+      v[`${y + 1911}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`] = [Math.round(num(row[1]) / 1000), Math.round(num(row[2]) / 1e6) / 100];
+    }
+  } catch {}
+  fmtqik = { at: Date.now(), v };
+  return v;
+}
+let volStore: { at: number; v: Record<string, [number, number]> } | null = null;
+function storedVolume() {
+  if (volStore && Date.now() - volStore.at < 10 * 60_000) return volStore.v;
+  const f = path.join(process.cwd(), "data", "taiex-vol.json");
+  volStore = { at: Date.now(), v: existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : {} };
+  return volStore.v;
+}
+
+export async function taiexDaily(): Promise<Bar[]> {
+  const raw = load("tse").bars["發行量加權股價指數"] ?? [];
+  const vol = { ...storedVolume(), ...(await monthVolume()) };
+  const bars: Bar[] = raw.map(([d, o, h, l, c]) => ({ time: Date.parse(d) / 1000, open: o, high: h, low: l, close: c, volume: vol[d]?.[0] ?? 0 }));
+  const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+  const t = Date.parse(today) / 1000;
+  if (!bars.length || bars[bars.length - 1].time < t) {
+    const [q] = await getQuotes(["tse_t00.tw"]);
+    const day = q ? new Date(q.time + 8 * 3600e3).toISOString().slice(0, 10) : "";
+    if (q?.price && day === today) {
+      const o = await misOhlc("TSE");
+      // MIS 的 tv 單位是萬股，只含一般交易（收盤後會被官方數字取代）
+      bars.push({ time: t, open: q.open || q.prev, high: q.high || q.price, low: q.low || q.price, close: q.price, volume: vol[today]?.[0] ?? Math.round((o.orders?.vol ?? 0) * 10) });
+    }
+  }
+  return bars;
 }

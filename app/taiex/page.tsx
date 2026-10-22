@@ -121,7 +121,7 @@ export default function Taiex() {
               <div className="flex py-1.5 border-t border-[#1c1f24]"><span>融券餘額</span><span className="ml-auto mono">{num(ch.market.shortLots)} 張</span><span className={`mono w-16 text-right ${cls(ch.market.shortChg ?? 0)}`}>{ch.market.shortChg != null ? `${ch.market.shortChg > 0 ? "+" : ""}${num(ch.market.shortChg)}` : ""}</span></div>
               {ch.futures && <>
                 <div className="flex py-1.5 border-t border-[#1c1f24]"><span>外資台指期淨未平倉</span><span className={`ml-auto mono ${cls(ch.futures.tx[0])}`}>{num(ch.futures.tx[0])} 口</span><span className="mono w-16 text-right text-text-2">{ch.futures.prev ? `${ch.futures.tx[0] - ch.futures.prev.tx[0] > 0 ? "+" : ""}${num(ch.futures.tx[0] - ch.futures.prev.tx[0])}` : ""}</span></div>
-                <div className="flex py-1.5 border-t border-[#1c1f24]"><span>選擇權 Put/Call 比</span><span className="ml-auto mono">{ch.futures.pcr.toFixed(2)}%</span></div>
+                <div className="flex py-1.5 border-t border-[#1c1f24]"><span>選擇權 Put/Call 比</span><span className="ml-auto mono">{ch.futures.pcr ? `${ch.futures.pcr.toFixed(2)}%` : "—"}</span></div>
               </>}
             </div>
           ) : <div className="sub px-4 pb-4">載入中…</div>}

@@ -25,7 +25,9 @@ export default function Limits() {
   const ups = rows.filter(isLimitUp), dns = rows.filter(isLimitDown), upOpen = rows.filter(openedUp), dnOpen = rows.filter(openedDown);
   const lockedN = ups.filter(lockedUp).length;
   const sealRate = ups.length + upOpen.length ? (ups.length / (ups.length + upOpen.length)) * 100 : 0;
-  const openLimit = ups.filter((r) => r.open >= r.up).length;
+  // 開盤即漲停／跌停：開盤價就在漲跌停價（之後打開也算，跟里長伯一致）
+  const openLimit = rows.filter((r) => r.up > 0 && r.open >= r.up).length;
+  const openLimitDn = rows.filter((r) => r.down > 0 && r.open <= r.down).length;
   const yUp = rows.filter((r) => ydayLimit(r, 1)).length, yDn = rows.filter((r) => ydayLimit(r, -1)).length;
   const best = [...ups].sort((a, b) => b.limStreak - a.limStreak)[0];
   const indCount: Record<string, number> = {};
@@ -49,7 +51,7 @@ export default function Limits() {
       </div>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
         <Card l="漲停家數" v={ups.length} c="up" s={`較昨日 ${ups.length - yUp >= 0 ? "+" : ""}${ups.length - yUp} · 開盤即漲停 ${openLimit} 檔`} />
-        <Card l="跌停家數" v={dns.length} c="down" s={`較昨日 ${dns.length - yDn >= 0 ? "+" : ""}${dns.length - yDn}`} />
+        <Card l="跌停家數" v={dns.length} c="down" s={`較昨日 ${dns.length - yDn >= 0 ? "+" : ""}${dns.length - yDn} · 開盤即跌停 ${openLimitDn} 檔`} />
         <Card l="漲停打開" v={upOpen.length} c="text-[var(--gold-2)]" s="曾觸及漲停後回落" />
         <div className="card px-4 py-3"><div className="sub">封板率</div><div className="mono text-3xl font-semibold mt-1">{sealRate.toFixed(1)}%</div>
           <div className="h-1.5 bg-panel-2 rounded mt-2"><div className="h-full bg-[var(--up)] rounded" style={{ width: `${sealRate}%` }} /></div><div className="sub mt-1">鎖住 {lockedN} 檔</div></div>
