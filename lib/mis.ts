@@ -1,4 +1,5 @@
 // 證交所基本市況報導（MIS）即時報價。一次最多查 100 檔，依序查才不會被限速。
+import { getDaily } from "./history";
 export type Quote = {
   c: string; // 代號
   n: string; // 名稱
@@ -26,12 +27,27 @@ const n = (s?: string) => {
 };
 const arr = (s?: string) => (s ? s.split("_").map(Number).filter((v) => Number.isFinite(v) && v > 0) : []);
 
+// 這一刻沒有成交（z 是 "-"，冷門股收盤常見）時，不能拿買賣價中間值當成交價，否則漲平跌會判錯：
+// 依序用 當天盤後日 K 收盤價 → 這台主機之前抓到的最後成交價 → 只成交一種價格時的最高價
+const lastTrade = new Map<string, number>();
+function noTradePrice(c: string, time: number, high: number, low: number) {
+  const { dates, s } = getDaily();
+  const i = dates.length - 1;
+  if (dates[i] === new Date(time + 8 * 3600e3).toISOString().slice(0, 10)) {
+    const close = s.get(c)?.c[i];
+    if (close) return close;
+  }
+  return lastTrade.get(c) || (high && high === low ? high : 0);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parse(x: any): Quote {
   const bid = arr(x.b), ask = arr(x.a);
   const prev = n(x.y);
-  let price = n(x.z);
-  if (!price) price = n(x.pz) || (bid[0] && ask[0] ? (bid[0] + ask[0]) / 2 : bid[0] || ask[0] || prev);
+  const time = n(x.tlong) || Date.now();
+  let price = n(x.z) || n(x.pz);
+  if (price) lastTrade.set(x.c, price);
+  else price = noTradePrice(x.c, time, n(x.h), n(x.l)) || (bid[0] && ask[0] ? (bid[0] + ask[0]) / 2 : bid[0] || ask[0] || prev);
   return {
     c: x.c, n: x.n, m: x.ex === "otc" ? "otc" : "tse",
     price, prev,
@@ -40,7 +56,7 @@ function parse(x: any): Quote {
     tickVol: n(x.tv),
     ask, askV: arr(x.f), bid, bidV: arr(x.g),
     up: n(x.u), down: n(x.w),
-    time: n(x.tlong) || Date.now(),
+    time,
   };
 }
 
