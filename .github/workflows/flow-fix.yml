@@ -1,0 +1,27 @@
+# 把修補過的資金流紀錄（data/flow/日期.json）寫進 Supabase；網站優先讀 Supabase，只改 repo 檔案不會生效
+# 修補方式見 scripts/flow-fix.ts，本機改好檔案 push 之後手動執行這個 workflow
+name: flow-fix
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "要上傳的日期（例如 2026-10-22）"
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: 上傳到 Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: npm run flow-fix -- "${{ inputs.date }}"

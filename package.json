@@ -10,6 +10,7 @@
     "universe": "tsx scripts/build-universe.ts",
     "sector-history": "tsx scripts/sector-history.ts",
     "flow-recorder": "tsx scripts/flow-recorder.ts",
+    "flow-fix": "tsx scripts/flow-fix.ts",
     "market-history": "tsx scripts/market-history.ts",
     "futures": "tsx scripts/futures.ts",
     "ath": "tsx scripts/ath.ts",

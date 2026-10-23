@@ -35,6 +35,8 @@ export type FlowDay = {
   /** 第一次突破上市以來最高／跌破最低的時間：代號 → [時間, 前高或前低] */
   ath?: Record<string, [string, number]>;
   atl?: Record<string, [string, number]>;
+  /** 這天紀錄的說明（例如記錄器晚開始、收盤數字事後校正），頁面會顯示 */
+  note?: string;
 };
 
 export type FlowEvent = { t: string; c: string; n: string; k: "lockUp" | "openUp" | "lockDn" | "openDn" | "rvol" | "ath"; msg: string };

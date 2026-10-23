@@ -207,6 +207,7 @@ export default function FlowLive() {
         <ExportBtn name="即時資金流" target={() => document.querySelector("main")} />
         <button className="btn" disabled={pts.length < 2 || vprog != null} onClick={exportVideo}>🎬 {vprog != null ? `${Math.round(vprog * 100)}%` : "匯出影片"}</button>
       </div>
+      {day?.note && <div className="rounded-xl border border-[#5a4a24] bg-[#1f1a10] px-3 py-2 text-[13px] text-[var(--gold-2)]">⚠ {day.note}</div>}
 
       {!day ? (
         <div className="card p-8 text-center text-text-2">{daysResp && (!days.length || data) ? "還沒有任何一天的盤中紀錄。記錄程式會在交易日 09:00–13:30 每 30 秒記一筆，每天存檔。" : <span className="loading">資料載入中…</span>}</div>
