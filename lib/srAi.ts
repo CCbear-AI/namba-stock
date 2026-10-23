@@ -108,10 +108,9 @@ export async function aiLevels(bars: Bar[], tf: string, model = AI_MODEL): Promi
   for (const x of j.levels ?? []) {
     const p = Number(x.price);
     if (!Number.isFinite(p) || p <= 0 || Math.abs(p / last - 1) > 0.3) continue;
-    const kind: Level["kind"] = p > last ? "resistance" : "support"; // 方向以實際價位為準
-    if (p === last) continue;
     const price = toTick(p);
-    if (seen.has(price)) continue;
+    if (price === last || seen.has(price)) continue; // 對齊升降單位後等於現價的不算
+    const kind: Level["kind"] = price > last ? "resistance" : "support"; // 方向以實際價位為準
     seen.add(price);
     const s = Math.round(Number(x.strength));
     levels.push({ kind, price, strength: (s >= 3 ? 3 : s <= 1 ? 1 : 2) as Level["strength"], note: String(x.note ?? "").slice(0, 40) });
