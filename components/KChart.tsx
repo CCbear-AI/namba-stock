@@ -21,8 +21,13 @@ const RANGES = [{ k: 66, l: "3 個月" }, { k: 130, l: "6 個月" }, { k: 250, l
 const UP = "#f0505a", DOWN = "#22b573";
 const SR_COLOR = { support: "#5aa9ff", resistance: "#f2994a" };
 const PAT_COLOR = "#e0c27a";
-// 價格軸：千分位、依價位決定小數（4,010／245.5／18.35）
-const PRICE_FMT = { type: "custom" as const, formatter: (v: number) => fp(v), minMove: 0.01 };
+// 價格軸：千分位、小數位數依商品固定（指數 2 位；個股依升降單位 4,010／245.5／18.35），
+// 位數固定，滑鼠移動時價格軸寬度才不會伸縮
+function priceFmt(code: string, last: number) {
+  const index = code === "TAIEX" || code === "OTC" || code.startsWith("sector:");
+  const dec = index ? 2 : last >= 1000 ? 0 : last >= 50 ? 1 : 2;
+  return { type: "custom" as const, minMove: 10 ** -dec, formatter: (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) };
+}
 const PAT_NAME = { M: "M 頭", W: "W 底" } as const;
 type SrData = { levels: Level[]; summary: string; model: string; asOf: string; price: number; aiError?: string };
 const IND_KEY = "namba.inds";
@@ -134,7 +139,7 @@ export default function KChart({
       // 分時跟昨收比，其他週期跟第一根比
       const base = tf === "1m" && prev ? prev : bars[0].open, last = bars[bars.length - 1].close;
       const col = last >= base ? UP : DOWN;
-      const s = c.addSeries(AreaSeries, { lineColor: col, topColor: col + "40", bottomColor: col + "05", lineWidth: 2, priceLineVisible: false, priceFormat: PRICE_FMT });
+      const s = c.addSeries(AreaSeries, { lineColor: col, topColor: col + "40", bottomColor: col + "05", lineWidth: 2, priceLineVisible: false, priceFormat: priceFmt(code, last) });
       s.setData(data.map((d) => ({ time: d.time, value: d.close })));
       if (tf === "1m" && prev) s.createPriceLine({ price: prev, color: "#646a73", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "昨收" });
       mainSeries.current = s;
@@ -148,7 +153,7 @@ export default function KChart({
       // 現價：灰色細虛線橫貫整張圖
       const s = c.addSeries(CandlestickSeries, {
         upColor: UP, downColor: DOWN, borderUpColor: UP, borderDownColor: DOWN, wickUpColor: UP, wickDownColor: DOWN,
-        priceLineVisible: true, priceLineStyle: LineStyle.Dashed, priceLineWidth: 1, priceLineColor: "#646a73", priceFormat: PRICE_FMT,
+        priceLineVisible: true, priceLineStyle: LineStyle.Dashed, priceLineWidth: 1, priceLineColor: "#646a73", priceFormat: priceFmt(code, bars[bars.length - 1].close),
       });
       s.setData(data);
       mainSeries.current = s;
@@ -199,7 +204,7 @@ export default function KChart({
       const hs = c.panes().map((p) => p.getHeight());
       setPaneTops(hs.map((_, i) => hs.slice(0, i).reduce((a, b) => a + b, 0) + i));
     });
-  }, [bars, line, tf, range, hasVol, intraday, prev, computed, subs]);
+  }, [bars, line, tf, range, hasVol, intraday, prev, computed, subs, code]);
 
   // 支撐壓力線：一律虛線；右邊價格軸保留價位標籤，理由文字畫在圖的左邊（不塗底色）
   useEffect(() => {
@@ -321,7 +326,8 @@ export default function KChart({
         {compact && tf !== "1m" && <button className={`btn ${line ? "on" : ""}`} onClick={() => setLine(!line)}>折線</button>}
       </div>
       {b && (
-        <div className="px-4 pt-2 text-[12px] mono flex flex-wrap gap-x-3 text-text-2">
+        <div className="px-4 pt-2 text-[12px] mono flex flex-nowrap whitespace-nowrap scroll-x gap-x-3 text-text-2">
+          {/* 固定單行：滑鼠移到不同 K 線時數字長短會變，換行會把整張圖往下推（看起來在跳），太長就左右滑 */}
           <span>{dateLabel}</span>
           {tf !== "1m" && <>
             <span>開 <span className={cls(b.open - pc)}>{fp(b.open)}</span></span>
