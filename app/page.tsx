@@ -14,6 +14,7 @@ import type { Market } from "@/lib/types";
 import type { ScanRow } from "@/lib/scan";
 import type { FlowEvent } from "@/lib/flow";
 import Help, { Term } from "@/components/Help";
+import Highlight from "@/components/Highlight";
 import { RVOL_HELP, tagHelp } from "@/components/glossary";
 
 type Summary = { date: string; headline: string; points: string[]; watch: string; model: string };
@@ -119,9 +120,9 @@ export default function Home() {
         <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
           {sum && !sum.error ? (
             <>
-              <div className="font-semibold text-[15px] mb-1.5">{sum.headline}</div>
-              <ul className="list-disc pl-5 space-y-0.5">{sum.points.map((p, i) => <li key={i}>{p}</li>)}</ul>
-              {sum.watch && <div className="mt-2 text-text-2"><span className="text-[var(--gold-2)]">明日留意</span>　{sum.watch}</div>}
+              <div className="font-semibold text-[15px] mb-1.5"><Highlight text={sum.headline} /></div>
+              <ul className="list-disc pl-5 space-y-0.5">{sum.points.map((p, i) => <li key={i}><Highlight text={p} /></li>)}</ul>
+              {sum.watch && <div className="mt-2 text-text-2"><span className="text-[var(--gold-2)]">明日留意</span>　<Highlight text={sum.watch} /></div>}
             </>
           ) : <div className="sub py-2">{sum?.error ?? "載入中…"}（每個交易日 16:30 後更新）</div>}
         </div>
