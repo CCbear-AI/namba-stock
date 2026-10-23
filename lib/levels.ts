@@ -15,7 +15,7 @@ function atr(bars: Bar[], n = 14) {
 }
 
 /** 依台股升降單位取整（指數留兩位小數） */
-function toTick(p: number) {
+export function toTick(p: number) {
   const t = p >= 10000 ? 0.01 : p >= 1000 ? 5 : p >= 500 ? 1 : p >= 100 ? 0.5 : p >= 50 ? 0.1 : p >= 10 ? 0.05 : 0.01;
   return Math.round(Math.round(p / t) * t * 100) / 100;
 }

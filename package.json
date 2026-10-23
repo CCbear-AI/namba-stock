@@ -16,7 +16,8 @@
     "tdcc": "tsx scripts/tdcc.ts",
     "push-insti": "tsx scripts/push-insti.ts",
     "volcurve": "tsx scripts/volcurve.ts",
-    "tdcc-backfill": "tsx scripts/tdcc-backfill.ts"
+    "tdcc-backfill": "tsx scripts/tdcc-backfill.ts",
+    "ai-summary": "tsx scripts/ai-summary.ts"
   },
   "dependencies": {
     "html-to-image": "^1.11.13",

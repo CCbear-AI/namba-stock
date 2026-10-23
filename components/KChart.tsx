@@ -7,7 +7,7 @@ import {
 } from "lightweight-charts";
 import { usePoll } from "./hooks";
 import { price as fp, num, cls } from "./fmt";
-import { superLevels } from "@/lib/levels";
+import { doublePatterns, type DoublePattern } from "@/lib/patterns";
 import { IND, DEFAULT_INDS, type IndSetting, type Line } from "@/lib/indicators";
 import DrawLayer, { TOOLS, type Tool } from "./chart/DrawLayer";
 import IndicatorMenu from "./chart/IndicatorMenu";
@@ -20,6 +20,9 @@ const MK_LABEL: Record<MK, string> = { "1m": "1 分", "5m": "5 分", "15m": "15 
 const RANGES = [{ k: 66, l: "3 個月" }, { k: 130, l: "6 個月" }, { k: 250, l: "1 年" }, { k: 500, l: "2 年" }];
 const UP = "#f0505a", DOWN = "#22b573";
 const SR_COLOR = { support: "#5aa9ff", resistance: "#f2994a" };
+const PAT_COLOR = "#e0c27a";
+const PAT_NAME = { M: "M 頭", W: "W 底" } as const;
+type SrData = { levels: Level[]; summary: string; model: string; asOf: string; price: number; aiError?: string };
 const IND_KEY = "namba.inds";
 
 function loadInds(): IndSetting[] {
@@ -70,7 +73,22 @@ export default function KChart({
   // 分時/分K：時間加 8 小時，讓圖上顯示台灣時間
   const bars = useMemo(() => (data?.bars ?? []).map((b) => (intraday ? { ...b, time: b.time + 8 * 3600 } : b)), [data, intraday]);
   const hasVol = showVolume && bars.some((b) => b.volume > 0);
-  const levels = useMemo(() => (sr && tf !== "1m" ? superLevels(bars, fp) : null), [sr, tf, bars]);
+  // 超級支撐壓力：伺服器端 AI 判讀（同一根 K 線只判讀一次）；M 頭／W 底在瀏覽器直接算
+  const srOn = sr && tf !== "1m";
+  const lastT = data?.bars?.length ? data.bars[data.bars.length - 1].time : 0;
+  const srKey = srOn && lastT ? `/api/levels?code=${encodeURIComponent(code)}&tf=${apiTf}&d=${intraday ? Math.floor(lastT / 1800) : lastT}` : null;
+  const [sres, setSres] = useState<{ key: string; r?: SrData; err?: string } | null>(null);
+  useEffect(() => {
+    if (!srKey) return;
+    let stop = false;
+    fetch(srKey).then((r) => r.json()).then((j: SrData & { error?: string }) => {
+      if (!stop) setSres(j.error ? { key: srKey, err: j.error } : { key: srKey, r: j });
+    }).catch((e) => { if (!stop) setSres({ key: srKey, err: (e as Error).message }); });
+    return () => { stop = true; };
+  }, [srKey]);
+  const srState = srKey && sres?.key === srKey ? sres : null;
+  const levels = srState?.r ?? null;
+  const patterns = useMemo(() => (srOn && bars.length >= 30 ? doublePatterns(bars).patterns : []), [srOn, bars]);
   const [extraSubs, setExtraSubs] = useState(0); // 副圖超過一個時，每多一個加高 90px
   const fullH = full && typeof window !== "undefined" ? window.innerHeight - 110 : height + extraSubs * 90;
 
@@ -174,15 +192,18 @@ export default function KChart({
     if (!s) return;
     for (const p of priceLines.current) s.removePriceLine(p);
     priceLines.current = [];
-    if (!levels) return;
-    for (const l of levels.levels) {
+    for (const l of levels?.levels ?? []) {
       priceLines.current.push(s.createPriceLine({
         price: l.price, color: SR_COLOR[l.kind], lineWidth: l.strength === 3 ? 2 : 1,
         lineStyle: l.strength === 1 ? LineStyle.Dashed : LineStyle.Solid, axisLabelVisible: true,
-        title: `${l.kind === "support" ? "支撐" : "壓力"}${"●".repeat(l.strength)}`,
+        title: `${l.kind === "support" ? "支撐" : "壓力"}${l.note ? ` · ${l.note.length > 16 ? l.note.slice(0, 16) + "…" : l.note}` : ""}`,
       }));
     }
-  }, [levels, bars, line, computed]);
+    for (const p of patterns) {
+      priceLines.current.push(s.createPriceLine({ price: p.neck, color: PAT_COLOR, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: `${PAT_NAME[p.kind]} 頸線` }));
+      if (p.broke >= 0) priceLines.current.push(s.createPriceLine({ price: p.target, color: PAT_COLOR, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: `${PAT_NAME[p.kind]} 滿足` }));
+    }
+  }, [levels, patterns, bars, line, computed]);
 
   // 十字線移動時顯示數值
   useEffect(() => {
@@ -298,7 +319,7 @@ export default function KChart({
         </div>
       </div>
       {menu && <IndicatorMenu value={inds} onChange={setInds} onClose={() => setMenu(false)} />}
-      {levels && <SRPanel levels={levels.levels} summary={levels.summary} tf={TF_LABEL[tf]} onClose={() => setSr(false)} />}
+      {srOn && <SRPanel data={levels} err={srState?.err} patterns={patterns} tf={TF_LABEL[tf]} onClose={() => setSr(false)} />}
     </div>
   );
 }
@@ -321,24 +342,42 @@ function SparkIcon() {
   );
 }
 
-function SRPanel({ levels, summary, tf, onClose }: { levels: Level[]; summary: string; tf: string; onClose: () => void }) {
+function SRPanel({ data, err, patterns, tf, onClose }: { data: SrData | null; err?: string; patterns: DoublePattern[]; tf: string; onClose: () => void }) {
+  const levels = data?.levels ?? [];
   return (
-    <div className="absolute left-12 top-24 z-10 w-[260px] max-w-[calc(100%-4rem)] rounded-xl border border-line bg-[#101215]/95 backdrop-blur p-3 shadow-xl">
+    <div className="absolute left-12 top-24 z-10 w-[300px] max-w-[calc(100%-4rem)] rounded-xl border border-line bg-[#101215]/95 backdrop-blur p-3 shadow-xl">
       <div className="flex items-center gap-2 font-semibold text-[13px] text-[var(--gold-2)]"><SparkIcon /> 超級支撐壓力 <span className="sub">依{tf}</span>
         <button onClick={onClose} className="ml-auto text-text-2 hover:text-text" aria-label="關閉">✕</button>
       </div>
-      {levels.length === 0 && <div className="sub mt-2">這次沒有判讀出明確的價位。</div>}
+      {patterns.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1">
+          {patterns.map((p) => (
+            <div key={p.kind} className="flex items-center gap-2 text-[12.5px]"
+              title={`${PAT_NAME[p.kind]}：兩個${p.kind === "M" ? "高點" : "低點"} ${fp(p.a.price)}／${fp(p.b.price)}，頸線 ${fp(p.neck)}；滿足點約 ${fp(p.target)}（依型態等幅推算，僅供參考）`}>
+              <span style={{ color: p.kind === "M" ? DOWN : UP }} className="w-10">{PAT_NAME[p.kind]}</span>
+              <span style={{ color: PAT_COLOR }}>頸線</span>
+              <span className="mono">{fp(p.neck)}</span>
+              <span className="sub">{p.broke >= 0 ? (p.kind === "M" ? "已跌破" : "已突破") : (p.kind === "M" ? "未跌破" : "未突破")}</span>
+              {p.broke >= 0 && <><span className="sub">滿足</span><span className="mono">{fp(p.target)}</span></>}
+            </div>
+          ))}
+        </div>
+      )}
+      {!data && !err && <div className="sub mt-2 loading">正在判讀{tf}的支撐與壓力，通常要十幾秒…</div>}
+      {err && <div className="sub mt-2">判讀失敗：{err}</div>}
+      {data && levels.length === 0 && <div className="sub mt-2">這次沒有判讀出明確的價位。</div>}
       <div className="mt-2 flex flex-col gap-1">
         {levels.map((l) => (
-          <div key={`${l.kind}${l.price}`} className="flex items-center gap-2 text-[12.5px]" title={l.note} style={{ ["--c" as string]: SR_COLOR[l.kind] }}>
-            <span style={{ color: SR_COLOR[l.kind] }} className="w-8">{l.kind === "support" ? "支撐" : "壓力"}</span>
-            <span className="mono w-16">{fp(l.price)}</span>
-            <span className="dots" aria-label={`強度 ${l.strength}／3`}>{[1, 2, 3].map((k) => <i key={k} className={k <= l.strength ? "on" : ""} />)}</span>
+          <div key={`${l.kind}${l.price}`} className="flex items-center gap-2 text-[12.5px]" title={l.note}>
+            <span style={{ color: SR_COLOR[l.kind] }} className="w-8 shrink-0">{l.kind === "support" ? "支撐" : "壓力"}</span>
+            <span className="mono w-16 shrink-0">{fp(l.price)}</span>
+            <span className="dots shrink-0" aria-label={`強度 ${l.strength}／3`}>{[1, 2, 3].map((k) => <i key={k} className={k <= l.strength ? "on" : ""} />)}</span>
             <span className="sub truncate flex-1">{l.note}</span>
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[12px] leading-relaxed text-text-2">{summary}</p>
+      {data?.summary && <p className="mt-2 text-[12px] leading-relaxed text-text-2">{data.summary}</p>}
+      {data?.model === "formula" && <p className="mt-1 text-[11px] text-text-2 opacity-70">AI 暫時無法使用（{data.aiError}），先顯示程式計算版。</p>}
     </div>
   );
 }

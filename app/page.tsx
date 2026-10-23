@@ -13,9 +13,10 @@ import { signalTags } from "@/lib/conditions";
 import type { Market } from "@/lib/types";
 import type { ScanRow } from "@/lib/scan";
 import type { FlowEvent } from "@/lib/flow";
-import { Term } from "@/components/Help";
+import Help, { Term } from "@/components/Help";
 import { RVOL_HELP, tagHelp } from "@/components/glossary";
 
+type Summary = { date: string; headline: string; points: string[]; watch: string; model: string };
 type Chips = { date: string; market: { total: number }; rank: { f: { buy: { c: string; n: string; lots: number }[] } } };
 const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
 
@@ -25,6 +26,7 @@ export default function Home() {
   const { data: scan } = useScan();
   const { data: ch } = usePoll<Chips>("/api/chips");
   const { data: ev } = usePoll<{ events: FlowEvent[]; today: boolean }>("/api/events", 30_000);
+  const { data: sum } = usePoll<Summary & { error?: string }>("/api/summary", 10 * 60_000);
   const wl = useWatchlist();
   const [idx, setIdx] = useState<"t00" | "o00">("t00");
   const [adding, setAdding] = useState(false);
@@ -107,6 +109,22 @@ export default function Home() {
           )}
         </div>
         <div className="px-4 pb-3">{adding ? <StockPicker autoFocus onPick={(c) => { wl.toggle(c); setAdding(false); }} placeholder="輸入代號或名稱，按 Enter 加入" /> : <button className="w-full rounded-lg border border-dashed border-line py-1.5 sub hover:text-text" onClick={() => setAdding(true)}>搜尋並加入更多</button>}</div>
+      </div>
+    ) },
+    summary: { span: "md:col-span-12", node: (
+      <div className="card">
+        <div className="card-h">盤後重點{sum?.date && <span className="sub mr-auto">{md(sum.date)}</span>}
+          <Help align="right">收盤後由 AI 依當天數字（大盤、漲跌家數、族群、法人、期貨、國際行情）整理的重點。數字都是程式算的，AI 只負責寫成白話；不構成買賣建議。</Help>
+        </div>
+        <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
+          {sum && !sum.error ? (
+            <>
+              <div className="font-semibold text-[15px] mb-1.5">{sum.headline}</div>
+              <ul className="list-disc pl-5 space-y-0.5">{sum.points.map((p, i) => <li key={i}>{p}</li>)}</ul>
+              {sum.watch && <div className="mt-2 text-text-2"><span className="text-[var(--gold-2)]">明日留意</span>　{sum.watch}</div>}
+            </>
+          ) : <div className="sub py-2">{sum?.error ?? "載入中…"}（每個交易日 16:30 後更新）</div>}
+        </div>
       </div>
     ) },
     gainers: { span: "md:col-span-6 lg:col-span-3", node: <Rank title="漲幅排行" rows={gainers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} /> },
