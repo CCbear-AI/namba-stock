@@ -2,6 +2,7 @@
 // 1) 用 ZigZag 找出轉折高低點（門檻依近期波動自動調整）
 // 2) 找最近一組「兩個差不多高的高點（M）／兩個差不多低的低點（W）」，中間那個反向轉折點就是頸線
 // 3) 收盤跌破（M）／突破（W）頸線算成立，滿足點＝頸線再走一個「頭到頸線」的距離
+// 4) M 和 W 共用同一段轉折（其實是同一波走勢）時只留比較新的那個，避免兩個形狀疊成一條鋸齒
 import type { Bar } from "./types";
 
 export type Pivot = { i: number; price: number; kind: "H" | "L" };
@@ -11,7 +12,11 @@ export type DoublePattern = {
   neck: number;
   /** 收盤破頸線那根的位置；還沒破是 -1 */
   broke: number;
+  /** 破頸線後最新收盤又回到頸線另一側（假突破／假跌破） */
+  back: boolean;
   target: number;
+  /** 畫形狀用的五個點（起漲／起跌點 → 頭 → 頸 → 頭 → 破頸或現價），i 為 K 棒位置 */
+  shape: { i: number; price: number }[];
 };
 
 /** 轉折門檻：近 60 根平均振幅 × 4，限制在 0.5%～25% */
@@ -79,11 +84,27 @@ export function doublePatterns(bars: Bar[], lookback = 250): { pivots: Pivot[]; 
         }
         if (failed) continue;
         const h = Math.abs(outer - mid.price);
-        return { kind, a, b, mid, neck: mid.price, broke, target: top ? mid.price - h : mid.price + h };
+        const lastClose = bars[bars.length - 1].close;
+        const back = broke >= 0 && (top ? lastClose > mid.price : lastClose < mid.price);
+        // 形狀起點：第一個頭前面的反向轉折點；太遠就截在「頭到頸」同樣的距離
+        const pre = pivots.filter((p) => p.kind === mid.kind && p.i < a.i).pop();
+        const span = Math.max(1, mid.i - a.i);
+        const start = !pre ? null : a.i - pre.i <= span ? { i: pre.i, price: pre.price }
+          : { i: a.i - span, price: a.price + (pre.price - a.price) * (span / (a.i - pre.i)) };
+        // 形狀終點：破頸那根（畫在頸線上）；還沒破就到下一個轉折點或最新一根收盤
+        const next = pivots.find((p) => p.kind === mid.kind && p.i > b.i);
+        const end = broke >= 0 ? { i: broke, price: mid.price } : next ? { i: next.i, price: next.price } : { i: bars.length - 1, price: lastClose };
+        const shape = [...(start ? [start] : []), a, mid, b, ...(end.i > b.i ? [end] : [])].map(({ i, price }) => ({ i, price }));
+        return { kind, a, b, mid, neck: mid.price, broke, back, target: top ? mid.price - h : mid.price + h, shape };
       }
     }
     return null;
   };
 
-  return { pivots, patterns: [find("M"), find("W")].filter((p): p is DoublePattern => !!p) };
+  let patterns = [find("M"), find("W")].filter((p): p is DoublePattern => !!p);
+  if (patterns.length === 2) {
+    const [m, w] = patterns;
+    if (m.a.i <= w.b.i && w.a.i <= m.b.i) patterns = [m.b.i >= w.b.i ? m : w];
+  }
+  return { pivots, patterns };
 }

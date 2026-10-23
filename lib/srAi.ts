@@ -83,7 +83,7 @@ export function srFacts(all: Bar[], tf: string) {
   };
 
   const { patterns } = doublePatterns(bars);
-  const pats = patterns.map((p) => `${p.kind === "M" ? "M頭" : "W底"}：兩個${p.kind === "M" ? "高點" : "低點"} ${p.a.price}(${d(p.a.i)})／${p.b.price}(${d(p.b.i)})，頸線 ${p.neck}，${p.broke >= 0 ? `已${p.kind === "M" ? "跌破" : "突破"}，滿足點約 ${r2(p.target)}` : `尚未${p.kind === "M" ? "跌破" : "突破"}`}`);
+  const pats = patterns.map((p) => `${p.kind === "M" ? "M頭" : "W底"}：兩個${p.kind === "M" ? "高點" : "低點"} ${p.a.price}(${d(p.a.i)})／${p.b.price}(${d(p.b.i)})，頸線 ${p.neck}，${p.back ? `${p.kind === "M" ? "跌破後又站回頸線（假跌破）" : "突破後又跌回頸線下（假突破）"}` : p.broke >= 0 ? `已${p.kind === "M" ? "跌破" : "突破"}，滿足點約 ${r2(p.target)}` : `尚未${p.kind === "M" ? "跌破" : "突破"}`}`);
 
   const recent = bars.slice(-25).map((b, k) => `${d(n - 25 + k)} 開${b.open} 高${b.high} 低${b.low} 收${b.close} 量${Math.round(b.volume)}`);
 
@@ -118,8 +118,9 @@ const SYSTEM = `你是台灣股市的技術分析師。根據使用者提供的K
 
 export async function aiLevels(bars: Bar[], tf: string, model = AI_MODEL): Promise<SrResult> {
   const f = srFacts(bars, tf);
-  const text = await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { model, timeout: 80_000 });
-  const j = parseJson<{ levels?: Partial<Level>[]; summary?: string }>(text);
+  const text = await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { model, timeout: 240_000 });
+  let j: { levels?: Partial<Level>[]; summary?: string };
+  try { j = parseJson(text); } catch (e) { console.error("[levels] AI JSON 解析失敗：", text.slice(-1500)); throw e; }
   const last = f.price;
   const seen = new Set<number>();
   const levels: Level[] = [];

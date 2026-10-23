@@ -31,7 +31,17 @@ function priceFmt(code: string, last: number) {
   return { type: "custom" as const, minMove: 10 ** -dec, formatter: (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) };
 }
 const PAT_NAME = { M: "M 頭", W: "W 底" } as const;
-type SrData = { levels: Level[]; summary: string; model: string; asOf: string; price: number; aiError?: string };
+// M 頭偏空用綠、W 底偏多用紅，跟面板上的字同色，兩個型態才分得出來
+const PAT_KIND_COLOR = { M: DOWN, W: UP } as const;
+
+/** 離現價最近的上下各 2 個價位：左側文字常駐、價格軸才標價，其他的滑鼠靠近才顯示 */
+function nearPrices(ls: Level[]) {
+  return new Set([
+    ...ls.filter((l) => l.kind === "resistance").sort((a, b) => a.price - b.price).slice(0, 2),
+    ...ls.filter((l) => l.kind === "support").sort((a, b) => b.price - a.price).slice(0, 2),
+  ].map((l) => l.price));
+}
+type SrData = { levels: Level[]; summary: string; model: string; asOf: string; price: number; aiError?: string; pending?: boolean };
 const IND_KEY = "namba.inds";
 
 function loadInds(): IndSetting[] {
@@ -90,11 +100,15 @@ export default function KChart({
   const [sres, setSres] = useState<{ key: string; r?: SrData; err?: string } | null>(null);
   useEffect(() => {
     if (!srKey) return;
-    let stop = false;
-    fetch(srKey).then((r) => r.json()).then((j: SrData & { error?: string }) => {
-      if (!stop) setSres(j.error ? { key: srKey, err: j.error } : { key: srKey, r: j });
+    let stop = false, timer: ReturnType<typeof setTimeout> | undefined;
+    // AI 還在背景算（pending）：先畫公式版，每 15 秒再問一次，最多約 4 分鐘
+    const load = (n: number) => fetch(srKey, { cache: "no-store" }).then((r) => r.json()).then((j: SrData & { error?: string }) => {
+      if (stop) return;
+      setSres(j.error ? { key: srKey, err: j.error } : { key: srKey, r: n >= 16 && j.pending ? { ...j, pending: false, aiError: "學校 AI 太久沒回應" } : j });
+      if (j.pending && n < 16) timer = setTimeout(() => load(n + 1), 15_000);
     }).catch((e) => { if (!stop) setSres({ key: srKey, err: (e as Error).message }); });
-    return () => { stop = true; };
+    load(0);
+    return () => { stop = true; clearTimeout(timer); };
   }, [srKey]);
   const srState = srKey && sres?.key === srKey ? sres : null;
   const levels = srState?.r ?? null;
@@ -216,25 +230,24 @@ export default function KChart({
     if (!s) return;
     for (const p of priceLines.current) s.removePriceLine(p);
     priceLines.current = [];
-    for (const l of levels?.levels ?? []) {
+    const ls = levels?.levels ?? [];
+    const near = nearPrices(ls);
+    for (const l of ls) {
       priceLines.current.push(s.createPriceLine({
         price: l.price, color: SR_COLOR[l.kind] + STRENGTH_ALPHA[l.strength], lineWidth: l.strength === 3 ? 2 : 1,
-        lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "",
+        lineStyle: LineStyle.Dashed, axisLabelVisible: near.has(l.price), title: "",
       }));
     }
     for (const p of patterns) {
-      priceLines.current.push(s.createPriceLine({ price: p.neck, color: PAT_COLOR, lineVisible: false, axisLabelVisible: true, title: "" }));
-      if (p.broke >= 0) priceLines.current.push(s.createPriceLine({ price: p.target, color: PAT_COLOR, lineVisible: false, axisLabelVisible: true, title: "" }));
+      priceLines.current.push(s.createPriceLine({ price: p.neck, color: PAT_KIND_COLOR[p.kind], lineVisible: false, axisLabelVisible: true, title: "" }));
+      if (p.broke >= 0 && !p.back) priceLines.current.push(s.createPriceLine({ price: p.target, color: PAT_KIND_COLOR[p.kind], lineVisible: false, axisLabelVisible: true, title: "" }));
     }
   }, [levels, patterns, bars, line, computed]);
 
   // 左側文字：離現價最近的上下各 2 個一直顯示，其他滑鼠移到線（區間）附近才出現
   const srTexts = useMemo(() => {
     const ls = levels?.levels ?? [];
-    const near = new Set([
-      ...ls.filter((l) => l.kind === "resistance").sort((a, b) => a.price - b.price).slice(0, 2),
-      ...ls.filter((l) => l.kind === "support").sort((a, b) => b.price - a.price).slice(0, 2),
-    ].map((l) => l.price));
+    const near = nearPrices(ls);
     return ls.map((l) => ({ l, primary: near.has(l.price), color: SR_COLOR[l.kind] + STRENGTH_ALPHA[l.strength], text: `${l.kind === "support" ? "支撐" : "壓力"} ${fp(l.price)}${l.note ? ` · ${l.note}` : ""}` }));
   }, [levels]);
 
@@ -242,7 +255,7 @@ export default function KChart({
   type Geo = {
     w: number;
     lv: { y: number | null; z?: [number, number] }[];
-    pat: { pts: [number, number][]; neck: [number, number, number]; tgt: [number, number, number] | null }[];
+    pat: { pts: [number, number][]; heads: [number, number][]; neck: [number, number, number]; tgt: [number, number, number] | null }[];
   };
   const [geo, setGeo] = useState<Geo | null>(null);
   useEffect(() => {
@@ -262,11 +275,12 @@ export default function KChart({
             return { y: y(l.price), ...(z && z[0] != null && z[1] != null ? { z: [Math.min(z[0], z[1]), Math.max(z[0], z[1])] as [number, number] } : {}) };
           }),
           pat: patterns.flatMap((p) => {
-            const xa = x(p.a.i), xm = x(p.mid.i), xb = x(p.b.i), ya = y(p.a.price), ym = y(p.mid.price), yb = y(p.b.price), yn = y(p.neck);
-            if (xa == null || xm == null || xb == null || ya == null || ym == null || yb == null || yn == null) return [];
+            const xa = x(p.a.i), xb = x(p.b.i), ya = y(p.a.price), yb = y(p.b.price), yn = y(p.neck);
+            if (xa == null || xb == null || ya == null || yb == null || yn == null) return [];
+            const pts = p.shape.map((q) => [x(q.i), y(q.price)]).filter((q): q is [number, number] => q[0] != null && q[1] != null);
             const end = p.broke >= 0 ? x(p.broke) ?? w : w;
-            const yt = p.broke >= 0 ? y(p.target) : null;
-            return [{ pts: [[xa, ya], [xm, ym], [xb, yb]] as [number, number][], neck: [xa, end, yn] as [number, number, number], tgt: yt != null && p.broke >= 0 ? [x(p.broke) ?? w, w, yt] as [number, number, number] : null }];
+            const yt = p.broke >= 0 && !p.back ? y(p.target) : null;
+            return [{ pts, heads: [[xa, ya], [xb, yb]] as [number, number][], neck: [xa, end, yn] as [number, number, number], tgt: yt != null ? [end, w, yt] as [number, number, number] : null }];
           }),
         };
         const key = JSON.stringify(g);
@@ -414,17 +428,19 @@ export default function KChart({
                 const p = patterns[k];
                 if (!p) return null;
                 const top = p.kind === "M";
-                const mx = (g.pts[0][0] + g.pts[2][0]) / 2, my = top ? Math.min(g.pts[0][1], g.pts[2][1]) - 10 : Math.max(g.pts[0][1], g.pts[2][1]) + 18;
+                const col = PAT_KIND_COLOR[p.kind];
+                const [h1, h2] = g.heads;
+                const mx = (h1[0] + h2[0]) / 2, my = top ? Math.min(h1[1], h2[1]) - 12 : Math.max(h1[1], h2[1]) + 20;
                 return (
-                  <g key={p.kind} fill="none" stroke={PAT_COLOR}>
-                    <polyline points={g.pts.map((q) => q.join(",")).join(" ")} strokeWidth={1.5} opacity={0.85} />
-                    {[g.pts[0], g.pts[2]].map((q, i) => <circle key={i} cx={q[0]} cy={q[1]} r={3} fill={PAT_COLOR} stroke="none" />)}
-                    <line x1={g.neck[0]} x2={g.neck[1]} y1={g.neck[2]} y2={g.neck[2]} strokeWidth={1} strokeDasharray="5 4" />
-                    <text x={mx} y={my} fill={PAT_COLOR} stroke="none" fontSize={11.5} textAnchor="middle">{PAT_NAME[p.kind]}</text>
-                    <text x={g.neck[1] - 4} y={g.neck[2] + (top ? 14 : -5)} fill={PAT_COLOR} stroke="none" fontSize={11} textAnchor="end">頸線 {fp(p.neck)}</text>
+                  <g key={p.kind} fill="none" stroke={col}>
+                    <polyline points={g.pts.map((q) => q.join(",")).join(" ")} strokeWidth={1.5} strokeLinejoin="round" opacity={0.75} />
+                    {g.heads.map((q, i) => <circle key={i} cx={q[0]} cy={q[1]} r={3.5} fill={col} stroke="#0b0d11" strokeWidth={1} />)}
+                    <line x1={g.neck[0]} x2={g.neck[1]} y1={g.neck[2]} y2={g.neck[2]} strokeWidth={1} strokeDasharray="5 4" opacity={0.85} />
+                    <text x={mx} y={my} fill={col} stroke="#0b0d11" strokeWidth={3} paintOrder="stroke" fontSize={12} fontWeight={600} textAnchor="middle">{PAT_NAME[p.kind]}</text>
+                    <text x={g.neck[1] - 4} y={g.neck[2] + (top ? 14 : -5)} fill={col} stroke="#0b0d11" strokeWidth={3} paintOrder="stroke" fontSize={11} textAnchor="end">頸線 {fp(p.neck)}</text>
                     {g.tgt && g.tgt[2] > 8 && g.tgt[2] < mainH - 4 && <>
                       <line x1={g.tgt[0]} x2={g.tgt[1]} y1={g.tgt[2]} y2={g.tgt[2]} strokeWidth={1} strokeDasharray="2 3" />
-                      <text x={g.tgt[1] - 4} y={g.tgt[2] - 5} fill={PAT_COLOR} stroke="none" fontSize={11} textAnchor="end">滿足 {fp(p.target)}</text>
+                      <text x={g.tgt[1] - 4} y={g.tgt[2] - 5} fill={col} stroke="#0b0d11" strokeWidth={3} paintOrder="stroke" fontSize={11} textAnchor="end">滿足 {fp(p.target)}</text>
                     </>}
                   </g>
                 );
@@ -473,8 +489,8 @@ function SRPanel({ data, err, patterns, tf, onClose }: { data: SrData | null; er
             title={`${PAT_NAME[p.kind]}：兩個${p.kind === "M" ? "高點" : "低點"} ${fp(p.a.price)}／${fp(p.b.price)}，頸線 ${fp(p.neck)}；滿足點約 ${fp(p.target)}（依型態等幅推算，僅供參考）`}>
             <span style={{ color: p.kind === "M" ? DOWN : UP }}>{PAT_NAME[p.kind]}</span>
             <span style={{ color: PAT_COLOR }}>頸線</span><span className="mono">{fp(p.neck)}</span>
-            <span className="sub">{p.broke >= 0 ? (p.kind === "M" ? "已跌破" : "已突破") : (p.kind === "M" ? "未跌破" : "未突破")}</span>
-            {p.broke >= 0 && <><span className="sub">滿足</span><span className="mono">{fp(p.target)}</span></>}
+            <span className="sub">{p.back ? (p.kind === "M" ? "跌破後站回" : "突破後跌回") : p.broke >= 0 ? (p.kind === "M" ? "已跌破" : "已突破") : (p.kind === "M" ? "未跌破" : "未突破")}</span>
+            {p.broke >= 0 && !p.back && <><span className="sub">滿足</span><span className="mono">{fp(p.target)}</span></>}
           </span>
         ))}
         {levels.map((l) => (
@@ -490,7 +506,8 @@ function SRPanel({ data, err, patterns, tf, onClose }: { data: SrData | null; er
       {err && <div className="sub mt-1.5">判讀失敗：{err}</div>}
       {data && levels.length === 0 && <div className="sub mt-1.5">這次沒有判讀出明確的價位。</div>}
       {data?.summary && <p className="mt-1.5 text-[12.5px] leading-relaxed text-text-2">{data.summary}</p>}
-      {data?.model === "formula" && <p className="mt-1 text-[11px] text-text-2 opacity-70">AI 暫時無法使用（{data.aiError}），先顯示程式計算版。</p>}
+      {data?.pending && <p className="mt-1 text-[11px] text-text-2 opacity-70 loading">AI 判讀中（學校主機較慢，約 1～2 分鐘），先顯示程式計算版，算好會自動換上。</p>}
+      {data?.model === "formula" && !data.pending && <p className="mt-1 text-[11px] text-text-2 opacity-70">AI 暫時無法使用（{data.aiError}），先顯示程式計算版。</p>}
     </div>
   );
 }

@@ -32,5 +32,36 @@ export function parseJson<T>(text: string): T {
   const body = fence ? fence[1] : t;
   const a = body.indexOf("{"), b = body.lastIndexOf("}");
   if (a < 0 || b < a) throw new Error("AI 回覆不是 JSON");
-  return JSON.parse(body.slice(a, b + 1)) as T;
+  const s = body.slice(a, b + 1);
+  try {
+    return JSON.parse(s) as T;
+  } catch (e) {
+    const fixed = closeArrays(s);
+    if (fixed === s) throw e;
+    return JSON.parse(fixed) as T;
+  }
+}
+
+/** 修常見手誤：陣列沒關就接下一個欄位，例如 {"levels":[{…},{…},"summary":"…"} → 在逗號前補 ] */
+function closeArrays(s: string): string {
+  const stack: string[] = [];
+  let out = "", inStr = false, esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      out += c;
+      if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"' && stack.at(-1) === "[" && /,\s*$/.test(out) && /^"[^"\\]*"\s*:/.test(s.slice(i))) {
+      // 陣列裡出現「"欄位":」→ 陣列其實已經結束
+      out = out.replace(/,\s*$/, "],");
+      stack.pop();
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{" || c === "[") stack.push(c);
+    else if (c === "}" || c === "]") stack.pop();
+    out += c;
+  }
+  return out;
 }
