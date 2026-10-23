@@ -16,6 +16,22 @@ function fmtDate(t: number, intraday: boolean) {
   return intraday ? `${s.slice(5, 10)} ${s.slice(11, 16)}` : s.slice(0, 10);
 }
 
+/** 給 AI 看的日期：10/15（不是今年的加年份 2025/10/15）；分 K 加時間 */
+function mdDate(t: number, intraday: boolean, year: number) {
+  const d = new Date((t + (intraday ? 8 * 3600 : 0)) * 1000);
+  const md = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  const day = d.getUTCFullYear() === year ? md : `${d.getUTCFullYear()}/${md}`;
+  return intraday ? `${day} ${d.toISOString().slice(11, 16)}` : day;
+}
+
+/** AI 偶爾還是寫 10-15、2026-10-15：統一改成 10/15（價格區間如 4360-4475 不動） */
+export function slashDates(s: string) {
+  return s
+    .replace(/(?<![\d.])20\d{2}[-/](\d{1,2})[-/](\d{1,2})(?![\d.])/g, (_, m, d) => `${Number(m)}/${Number(d)}`)
+    // 月-日 後面要接得像日期的字（低點、高點、缺口、收盤…），避免把 12-15 這種價格區間改掉
+    .replace(/(?<![\d.])(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])(?=\s?[低高缺收跳日的兩多前後開測與及、，/）)上下起止當])/g, (_, m, d) => `${Number(m)}/${Number(d)}`);
+}
+
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /** 整理給 AI 看的事實 */
@@ -24,7 +40,8 @@ export function srFacts(all: Bar[], tf: string) {
   const bars = all.slice(-250);
   const n = bars.length;
   const last = bars[n - 1];
-  const d = (i: number) => fmtDate(bars[i].time, intraday);
+  const year = new Date(last.time * 1000).getUTCFullYear();
+  const d = (i: number) => mdDate(bars[i].time, intraday, year);
   const closes = bars.map((b) => b.close);
 
   const ma: Record<string, number> = {};
@@ -82,7 +99,7 @@ export function srFacts(all: Bar[], tf: string) {
       `最近 25 根K線：\n${recent.join("\n")}`,
     ].join("\n"),
     price: last.close,
-    asOf: d(n - 1),
+    asOf: fmtDate(last.time, intraday),
   };
 }
 
@@ -92,11 +109,12 @@ const SYSTEM = `你是台灣股市的技術分析師。根據使用者提供的K
 - 以短中線操作為主：優先挑離現價最近、接下來最可能碰到的價位，再視情況補一個較遠的關鍵價。
 - 壓力必須高於現價、支撐必須低於現價；各挑 2～3 個。
 - 依據包含：均線位置、前波高低點、未回補缺口、近期收盤密集區、成交密集區、型態頸線；多種依據落在同一價位附近最重要。
-- 每個價位寫一句不超過 20 字的理由，具體說出依據與日期（例如「MA20與前高2490一帶」「10-15下跌缺口」「10-19低點，兩次測試」）。理由必須能從資料中直接驗證，例如說「缺口」就必須是資料列出的缺口。
+- 每個價位寫一句不超過 20 字的理由，具體說出依據與日期，日期一律寫成「10/15」這種格式（例如「MA20與前高2490一帶」「10/15下跌缺口」「10/19低點，兩次測試」）。理由必須能從資料中直接驗證，例如說「缺口」就必須是資料列出的缺口。
+- 依據是一段價格區間（缺口、成交密集區、多個低點形成的平台）時，加上 zone:[下緣,上緣]；單一價位就不要給 zone。
 - strength：1=單一依據、2=兩種依據、3=多重依據重疊或多次測試。
 - summary：用 1～2 句白話（60 字內）說明目前位置與關鍵價，繁體中文、台灣用語。
 只輸出 JSON，不要其他文字，格式：
-{"levels":[{"price":數字,"kind":"resistance"或"support","strength":1~3,"note":"理由"}],"summary":"總結"}`;
+{"levels":[{"price":數字,"kind":"resistance"或"support","strength":1~3,"note":"理由","zone":[下緣,上緣]（可省略）}],"summary":"總結"}`;
 
 export async function aiLevels(bars: Bar[], tf: string, model = AI_MODEL): Promise<SrResult> {
   const f = srFacts(bars, tf);
@@ -113,11 +131,18 @@ export async function aiLevels(bars: Bar[], tf: string, model = AI_MODEL): Promi
     const kind: Level["kind"] = price > last ? "resistance" : "support"; // 方向以實際價位為準
     seen.add(price);
     const s = Math.round(Number(x.strength));
-    levels.push({ kind, price, strength: (s >= 3 ? 3 : s <= 1 ? 1 : 2) as Level["strength"], note: String(x.note ?? "").slice(0, 40) });
+    // 區間：上下緣合理（包住價位附近、寬度不超過現價 6%、不跨過現價）才保留
+    let zone: Level["zone"];
+    const z = Array.isArray(x.zone) ? x.zone.map(Number) : [];
+    if (z.length === 2 && z.every((v) => Number.isFinite(v) && v > 0)) {
+      const lo = Math.min(z[0], z[1]), hi = Math.max(z[0], z[1]);
+      if (hi > lo && hi - lo <= last * 0.06 && price >= lo * 0.99 && price <= hi * 1.01 && (kind === "resistance" ? lo > last : hi < last)) zone = [lo, hi];
+    }
+    levels.push({ kind, price, strength: (s >= 3 ? 3 : s <= 1 ? 1 : 2) as Level["strength"], note: slashDates(String(x.note ?? "")).slice(0, 40), ...(zone ? { zone } : {}) });
   }
   if (!levels.length) throw new Error("AI 沒有給出可用的價位");
   levels.sort((a, b) => b.price - a.price);
-  return { levels, summary: String(j.summary ?? "").slice(0, 200), model, asOf: f.asOf, price: last };
+  return { levels, summary: slashDates(String(j.summary ?? "")).slice(0, 200), model, asOf: f.asOf, price: last };
 }
 
 /** AI 不能用時的退路：原本的程式計算版 */

@@ -21,6 +21,8 @@ const RANGES = [{ k: 66, l: "3 個月" }, { k: 130, l: "6 個月" }, { k: 250, l
 const UP = "#f0505a", DOWN = "#22b573";
 const SR_COLOR = { support: "#5aa9ff", resistance: "#f2994a" };
 const PAT_COLOR = "#e0c27a";
+/** 支撐壓力依強度調深淺（色碼後面加透明度） */
+const STRENGTH_ALPHA: Record<1 | 2 | 3, string> = { 1: "80", 2: "c0", 3: "ff" };
 // 價格軸：千分位、小數位數依商品固定（指數 2 位；個股依升降單位 4,010／245.5／18.35），
 // 位數固定，滑鼠移動時價格軸寬度才不會伸縮
 function priceFmt(code: string, last: number) {
@@ -51,6 +53,7 @@ export default function KChart({
   const [line, setLine] = useState(false);
   const [sr, setSr] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
+  const [hoverY, setHoverY] = useState<number | null>(null);
   const [inds, setIndsState] = useState<IndSetting[]>(DEFAULT_INDS);
   const [menu, setMenu] = useState(false);
   const [full, setFull] = useState(false);
@@ -83,7 +86,7 @@ export default function KChart({
   // 超級支撐壓力：伺服器端 AI 判讀（同一根 K 線只判讀一次）；M 頭／W 底在瀏覽器直接算
   const srOn = sr && tf !== "1m";
   const lastT = data?.bars?.length ? data.bars[data.bars.length - 1].time : 0;
-  const srKey = srOn && lastT ? `/api/levels?code=${encodeURIComponent(code)}&tf=${apiTf}&d=${intraday ? Math.floor(lastT / 1800) : lastT}` : null;
+  const srKey = srOn && lastT ? `/api/levels?v=2&code=${encodeURIComponent(code)}&tf=${apiTf}&d=${intraday ? Math.floor(lastT / 1800) : lastT}` : null;
   const [sres, setSres] = useState<{ key: string; r?: SrData; err?: string } | null>(null);
   useEffect(() => {
     if (!srKey) return;
@@ -206,7 +209,8 @@ export default function KChart({
     });
   }, [bars, line, tf, range, hasVol, intraday, prev, computed, subs, code]);
 
-  // 支撐壓力線：一律虛線；右邊價格軸保留價位標籤，理由文字畫在圖的左邊（不塗底色）
+  // 支撐壓力線：虛線，強度越高越粗越深；右邊價格軸保留價位標籤。
+  // 型態（M 頭／W 底）不畫橫貫整張圖的線，只在價格軸標頸線／滿足價，形狀畫在下面的 SVG
   useEffect(() => {
     const s = mainSeries.current;
     if (!s) return;
@@ -214,52 +218,84 @@ export default function KChart({
     priceLines.current = [];
     for (const l of levels?.levels ?? []) {
       priceLines.current.push(s.createPriceLine({
-        price: l.price, color: SR_COLOR[l.kind], lineWidth: l.strength === 3 ? 2 : 1,
+        price: l.price, color: SR_COLOR[l.kind] + STRENGTH_ALPHA[l.strength], lineWidth: l.strength === 3 ? 2 : 1,
         lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "",
       }));
     }
     for (const p of patterns) {
-      priceLines.current.push(s.createPriceLine({ price: p.neck, color: PAT_COLOR, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "" }));
-      if (p.broke >= 0) priceLines.current.push(s.createPriceLine({ price: p.target, color: PAT_COLOR, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: "" }));
+      priceLines.current.push(s.createPriceLine({ price: p.neck, color: PAT_COLOR, lineVisible: false, axisLabelVisible: true, title: "" }));
+      if (p.broke >= 0) priceLines.current.push(s.createPriceLine({ price: p.target, color: PAT_COLOR, lineVisible: false, axisLabelVisible: true, title: "" }));
     }
   }, [levels, patterns, bars, line, computed]);
 
-  // 左側文字：每一格畫面檢查線的位置（拖曳、縮放、改變價格軸都會跟著動），有變才更新
-  const srTexts = useMemo(() => [
-    ...(levels?.levels ?? []).map((l) => ({ price: l.price, color: SR_COLOR[l.kind], text: `${l.kind === "support" ? "支撐" : "壓力"}${l.note ? ` · ${l.note}` : ""}` })),
-    ...patterns.flatMap((p) => [
-      { price: p.neck, color: PAT_COLOR, text: `${PAT_NAME[p.kind]} 頸線` },
-      ...(p.broke >= 0 ? [{ price: p.target, color: PAT_COLOR, text: `${PAT_NAME[p.kind]} 滿足` }] : []),
-    ]),
-  ], [levels, patterns]);
-  const [srYs, setSrYs] = useState<(number | null)[]>([]);
+  // 左側文字：離現價最近的上下各 2 個一直顯示，其他滑鼠移到線（區間）附近才出現
+  const srTexts = useMemo(() => {
+    const ls = levels?.levels ?? [];
+    const near = new Set([
+      ...ls.filter((l) => l.kind === "resistance").sort((a, b) => a.price - b.price).slice(0, 2),
+      ...ls.filter((l) => l.kind === "support").sort((a, b) => b.price - a.price).slice(0, 2),
+    ].map((l) => l.price));
+    return ls.map((l) => ({ l, primary: near.has(l.price), color: SR_COLOR[l.kind] + STRENGTH_ALPHA[l.strength], text: `${l.kind === "support" ? "支撐" : "壓力"} ${fp(l.price)}${l.note ? ` · ${l.note}` : ""}` }));
+  }, [levels]);
+
+  // 每一格畫面重算座標（拖曳、縮放、改變價格軸都會跟著動），有變才更新畫面
+  type Geo = {
+    w: number;
+    lv: { y: number | null; z?: [number, number] }[];
+    pat: { pts: [number, number][]; neck: [number, number, number]; tgt: [number, number, number] | null }[];
+  };
+  const [geo, setGeo] = useState<Geo | null>(null);
   useEffect(() => {
-    if (!srTexts.length) return;
+    if (!srTexts.length && !patterns.length) return;
     let raf = 0, prevKey = "";
     const tick = () => {
-      const s = mainSeries.current;
-      const ys = srTexts.map((t) => { const y = s?.priceToCoordinate(t.price); return y == null ? null : Math.round(y); });
-      const key = ys.join(",");
-      if (key !== prevKey) { prevKey = key; setSrYs(ys); }
+      const s = mainSeries.current, c = chart.current;
+      if (s && c && bars.length) {
+        const ts = c.timeScale();
+        const y = (p: number) => { const v = s.priceToCoordinate(p); return v == null ? null : Math.round(v); };
+        const x = (i: number) => { const v = ts.timeToCoordinate(bars[Math.min(i, bars.length - 1)].time as UTCTimestamp); return v == null ? null : Math.round(v); };
+        const w = Math.round(ts.width());
+        const g: Geo = {
+          w,
+          lv: srTexts.map(({ l }) => {
+            const z = l.zone ? [y(l.zone[0]), y(l.zone[1])] : null;
+            return { y: y(l.price), ...(z && z[0] != null && z[1] != null ? { z: [Math.min(z[0], z[1]), Math.max(z[0], z[1])] as [number, number] } : {}) };
+          }),
+          pat: patterns.flatMap((p) => {
+            const xa = x(p.a.i), xm = x(p.mid.i), xb = x(p.b.i), ya = y(p.a.price), ym = y(p.mid.price), yb = y(p.b.price), yn = y(p.neck);
+            if (xa == null || xm == null || xb == null || ya == null || ym == null || yb == null || yn == null) return [];
+            const end = p.broke >= 0 ? x(p.broke) ?? w : w;
+            const yt = p.broke >= 0 ? y(p.target) : null;
+            return [{ pts: [[xa, ya], [xm, ym], [xb, yb]] as [number, number][], neck: [xa, end, yn] as [number, number, number], tgt: yt != null && p.broke >= 0 ? [x(p.broke) ?? w, w, yt] as [number, number, number] : null }];
+          }),
+        };
+        const key = JSON.stringify(g);
+        if (key !== prevKey) { prevKey = key; setGeo(g); }
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [srTexts]);
-  // 線太近時文字往上錯開，避免疊在一起（由下往上排）
-  const srTops = useMemo(() => {
-    const idx = srTexts.map((_, k) => k).filter((k) => srYs[k] != null).sort((a, b) => srYs[b]! - srYs[a]!);
-    const top: Record<number, number> = {};
+  }, [srTexts, patterns, bars]);
+
+  // 要顯示的文字與位置：線太近時往上錯開（由下往上排）
+  const srLabels = useMemo(() => {
+    if (!geo) return [];
+    const show = srTexts.map((t, k) => {
+      const g = geo.lv[k];
+      if (!g || g.y == null) return null;
+      const hit = hoverY != null && (Math.abs(hoverY - g.y) <= 8 || (g.z && hoverY >= g.z[0] - 4 && hoverY <= g.z[1] + 4));
+      return t.primary || hit ? { k, y: g.z ? g.z[0] : g.y } : null;
+    }).filter((v): v is { k: number; y: number } => !!v).sort((a, b) => b.y - a.y);
     let floor = Infinity;
-    for (const k of idx) { const t = Math.min(srYs[k]! - 16, floor - 14); top[k] = t; floor = t; }
-    return top;
-  }, [srTexts, srYs]);
+    return show.map(({ k, y }) => { const top = Math.min(y - 16, floor - 14); floor = top; return { k, top }; });
+  }, [geo, srTexts, hoverY]);
 
   // 十字線移動時顯示數值
   useEffect(() => {
     const c = chartApi;
     if (!c) return;
-    const f = (p: MouseEventParams) => setHover(p.logical == null ? null : Math.round(p.logical));
+    const f = (p: MouseEventParams) => { setHover(p.logical == null ? null : Math.round(p.logical)); setHoverY(p.point ? Math.round(p.point.y) : null); };
     c.subscribeCrosshairMove(f);
     return () => c.unsubscribeCrosshairMove(f);
   }, [chartApi]);
@@ -367,10 +403,37 @@ export default function KChart({
               {x.lines.map((l) => <span key={l.name} style={{ color: l.color || "#9aa0a8" }}>{l.name} {val(l.data[i])}</span>)}
             </div>
           ))}
-          {/* 超級支撐壓力的文字說明：線的左上方，跟線同色、不塗底 */}
-          {srTexts.map((t, k) => srTops[k] != null && srTops[k] > 0 && srYs[k]! < mainH && (
-            <div key={`${t.text}${t.price}`} className="absolute left-2 z-10 text-[11.5px] pointer-events-none whitespace-nowrap max-w-[70%] truncate"
-              style={{ top: srTops[k], color: t.color, textShadow: "0 0 3px #0b0d11, 0 0 3px #0b0d11" }}>{t.text}</div>
+          {/* 超級支撐壓力：區間畫半透明色帶、M 頭／W 底畫出形狀，文字放線的左上方（跟線同色、不塗底） */}
+          {geo && (srTexts.length > 0 || patterns.length > 0) && (
+            <svg className="absolute left-0 top-0 z-[5] pointer-events-none" width={geo.w} height={mainH} aria-hidden="true">
+              {srTexts.map((t, k) => {
+                const z = geo.lv[k]?.z;
+                return z ? <rect key={k} x={0} y={z[0]} width={geo.w} height={Math.max(2, z[1] - z[0])} fill={SR_COLOR[t.l.kind]} opacity={0.1 + 0.05 * t.l.strength} /> : null;
+              })}
+              {geo.pat.map((g, k) => {
+                const p = patterns[k];
+                if (!p) return null;
+                const top = p.kind === "M";
+                const mx = (g.pts[0][0] + g.pts[2][0]) / 2, my = top ? Math.min(g.pts[0][1], g.pts[2][1]) - 10 : Math.max(g.pts[0][1], g.pts[2][1]) + 18;
+                return (
+                  <g key={p.kind} fill="none" stroke={PAT_COLOR}>
+                    <polyline points={g.pts.map((q) => q.join(",")).join(" ")} strokeWidth={1.5} opacity={0.85} />
+                    {[g.pts[0], g.pts[2]].map((q, i) => <circle key={i} cx={q[0]} cy={q[1]} r={3} fill={PAT_COLOR} stroke="none" />)}
+                    <line x1={g.neck[0]} x2={g.neck[1]} y1={g.neck[2]} y2={g.neck[2]} strokeWidth={1} strokeDasharray="5 4" />
+                    <text x={mx} y={my} fill={PAT_COLOR} stroke="none" fontSize={11.5} textAnchor="middle">{PAT_NAME[p.kind]}</text>
+                    <text x={g.neck[1] - 4} y={g.neck[2] + (top ? 14 : -5)} fill={PAT_COLOR} stroke="none" fontSize={11} textAnchor="end">頸線 {fp(p.neck)}</text>
+                    {g.tgt && g.tgt[2] > 8 && g.tgt[2] < mainH - 4 && <>
+                      <line x1={g.tgt[0]} x2={g.tgt[1]} y1={g.tgt[2]} y2={g.tgt[2]} strokeWidth={1} strokeDasharray="2 3" />
+                      <text x={g.tgt[1] - 4} y={g.tgt[2] - 5} fill={PAT_COLOR} stroke="none" fontSize={11} textAnchor="end">滿足 {fp(p.target)}</text>
+                    </>}
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+          {srLabels.map(({ k, top }) => top > 0 && top < mainH - 12 && (
+            <div key={k} className="absolute left-2 z-10 text-[11.5px] pointer-events-none whitespace-nowrap max-w-[70%] truncate"
+              style={{ top, color: srTexts[k].color, textShadow: "0 0 3px #0b0d11, 0 0 3px #0b0d11" }}>{srTexts[k].text}</div>
           ))}
           {!bars.length && <div className="absolute inset-0 flex items-center justify-center text-text-2 pointer-events-none">{error ? `資料暫時無法取得：${error}` : <span className="loading">K 線載入中…</span>}</div>}
         </div>

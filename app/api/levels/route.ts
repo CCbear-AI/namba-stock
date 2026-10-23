@@ -32,7 +32,7 @@ export async function GET(req: Request) {
       return Response.json({ ...formulaLevels(bars, tf), aiError: aiError ?? "AI 未設定" }, { headers: { "Cache-Control": "no-store" } });
     }
     const intraday = tf.endsWith("m") && tf !== "1mo";
-    return Response.json(r, { headers: { "Cache-Control": `public, s-maxage=${intraday ? 900 : 3600}, stale-while-revalidate=86400` } });
+    return Response.json(r, { headers: { "Cache-Control": `public, max-age=0, s-maxage=${intraday ? 900 : 3600}, stale-while-revalidate=86400` } });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 502 });
   }

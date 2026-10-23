@@ -26,4 +26,4 @@ export type Market = {
 
 export type Bar = { time: number; open: number; high: number; low: number; close: number; volume: number };
 
-export type Level = { kind: "support" | "resistance"; price: number; strength: 1 | 2 | 3; note: string };
+export type Level = { kind: "support" | "resistance"; price: number; strength: 1 | 2 | 3; note: string; /** 區間型依據（缺口、成交密集區）的上下緣 */ zone?: [number, number] };
