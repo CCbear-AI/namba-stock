@@ -55,6 +55,7 @@ jobs:
           IAI_MODEL: ${{ vars.IAI_MODEL }}
         run: npm run ai-summary
       - name: 存檔
+        id: save
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -63,3 +64,12 @@ jobs:
           git commit -m "每日資料 $(TZ=Asia/Taipei date +%F)"
           git pull --rebase
           git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+      - name: 通知 Vercel 部署
+        # GitHub 推送偶爾沒觸發 Vercel 自動部署（10/27 盤後摘要沒上線），推送後主動打部署鉤子
+        if: ${{ steps.save.outputs.pushed == 'true' }}
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
+          curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
