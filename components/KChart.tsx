@@ -113,6 +113,7 @@ export default function KChart({
   const srState = srKey && sres?.key === srKey ? sres : null;
   const levels = srState?.r ?? null;
   const patterns = useMemo(() => (srOn && bars.length >= 30 ? doublePatterns(bars).patterns : []), [srOn, bars]);
+  const drawn = useMemo(() => patterns.filter((p) => !p.hidden), [patterns]);
   const [extraSubs, setExtraSubs] = useState(0); // 副圖超過一個時，每多一個加高 90px
   const fullH = full && typeof window !== "undefined" ? window.innerHeight - 110 : height + extraSubs * 90;
 
@@ -238,11 +239,11 @@ export default function KChart({
         lineStyle: LineStyle.Dashed, axisLabelVisible: near.has(l.price), title: "",
       }));
     }
-    for (const p of patterns) {
+    for (const p of drawn) {
       priceLines.current.push(s.createPriceLine({ price: p.neck, color: PAT_KIND_COLOR[p.kind], lineVisible: false, axisLabelVisible: true, title: "" }));
       if (p.broke >= 0 && !p.back) priceLines.current.push(s.createPriceLine({ price: p.target, color: PAT_KIND_COLOR[p.kind], lineVisible: false, axisLabelVisible: true, title: "" }));
     }
-  }, [levels, patterns, bars, line, computed]);
+  }, [levels, drawn, bars, line, computed]);
 
   // 左側文字：離現價最近的上下各 2 個一直顯示，其他滑鼠移到線（區間）附近才出現
   const srTexts = useMemo(() => {
@@ -259,7 +260,7 @@ export default function KChart({
   };
   const [geo, setGeo] = useState<Geo | null>(null);
   useEffect(() => {
-    if (!srTexts.length && !patterns.length) return;
+    if (!srTexts.length && !drawn.length) return;
     let raf = 0, prevKey = "";
     const tick = () => {
       const s = mainSeries.current, c = chart.current;
@@ -274,7 +275,7 @@ export default function KChart({
             const z = l.zone ? [y(l.zone[0]), y(l.zone[1])] : null;
             return { y: y(l.price), ...(z && z[0] != null && z[1] != null ? { z: [Math.min(z[0], z[1]), Math.max(z[0], z[1])] as [number, number] } : {}) };
           }),
-          pat: patterns.flatMap((p) => {
+          pat: drawn.flatMap((p) => {
             const xa = x(p.a.i), xb = x(p.b.i), ya = y(p.a.price), yb = y(p.b.price), yn = y(p.neck);
             if (xa == null || xb == null || ya == null || yb == null || yn == null) return [];
             const pts = p.shape.map((q) => [x(q.i), y(q.price)]).filter((q): q is [number, number] => q[0] != null && q[1] != null);
@@ -290,7 +291,7 @@ export default function KChart({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [srTexts, patterns, bars]);
+  }, [srTexts, drawn, bars]);
 
   // 要顯示的文字與位置：線太近時往上錯開（由下往上排）
   const srLabels = useMemo(() => {
@@ -418,14 +419,14 @@ export default function KChart({
             </div>
           ))}
           {/* 超級支撐壓力：區間畫半透明色帶、M 頭／W 底畫出形狀，文字放線的左上方（跟線同色、不塗底） */}
-          {geo && (srTexts.length > 0 || patterns.length > 0) && (
+          {geo && (srTexts.length > 0 || drawn.length > 0) && (
             <svg className="absolute left-0 top-0 z-[5] pointer-events-none" width={geo.w} height={mainH} aria-hidden="true">
               {srTexts.map((t, k) => {
                 const z = geo.lv[k]?.z;
                 return z ? <rect key={k} x={0} y={z[0]} width={geo.w} height={Math.max(2, z[1] - z[0])} fill={SR_COLOR[t.l.kind]} opacity={0.1 + 0.05 * t.l.strength} /> : null;
               })}
               {geo.pat.map((g, k) => {
-                const p = patterns[k];
+                const p = drawn[k];
                 if (!p) return null;
                 const top = p.kind === "M";
                 const col = PAT_KIND_COLOR[p.kind];

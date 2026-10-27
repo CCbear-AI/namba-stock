@@ -66,7 +66,10 @@ function groupMinutes(bars: Bar[], n: number): Bar[] {
 async function withOfficial(code: string, m: "tse" | "otc", bars: Bar[]): Promise<Bar[]> {
   const { dates, s } = getDaily();
   const x = s.get(code);
-  const map = new Map(bars.map((b) => [b.time, b]));
+  // Yahoo 在休市日（例如 10/23 颱風）也會補一根量 0、價格沿用前一天的 K 棒，會拉偏均線 → 官方日 K 涵蓋期間只留官方交易日
+  const days = new Set(dates.map((d) => Date.parse(d) / 1000));
+  const first = Date.parse(dates[0] ?? "") / 1000, end = Date.parse(dates.at(-1) ?? "") / 1000;
+  const map = new Map(bars.filter((b) => !(b.time >= first && b.time <= end && !days.has(b.time))).map((b) => [b.time, b]));
   if (x) dates.forEach((d, i) => {
     if (!(x.c[i] > 0)) return;
     const t = Date.parse(d) / 1000;

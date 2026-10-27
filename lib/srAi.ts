@@ -75,7 +75,7 @@ export function srFacts(all: Bar[], tf: string) {
   }
   const total = vp.reduce((s, v) => s + v, 0) || 1;
   const dense = vp.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v).slice(0, 4)
-    .map(({ v, i }) => `${r2(lo + i * step)}～${r2(lo + (i + 1) * step)}（占 ${((v / total) * 100).toFixed(0)}% 成交量）`);
+    .map(({ v, i }) => `${toTick(lo + i * step)}～${toTick(lo + (i + 1) * step)}（占 ${((v / total) * 100).toFixed(0)}% 成交量）`);
 
   const range = (k: number) => {
     const s = bars.slice(-k);
@@ -90,6 +90,7 @@ export function srFacts(all: Bar[], tf: string) {
   return {
     text: [
       `週期：${TF_NAME[tf] ?? tf}，最新一根 ${d(n - 1)}，現價 ${last.close}`,
+      `短線參考範圍（現價 ±8%）：${toTick(last.close * 0.92)}～${toTick(last.close * 1.08)}`,
       `均線：${Object.entries(ma).map(([k, v]) => `${k} ${v}`).join("、") || "無"}`,
       `區間：${[20, 60, 120].map(range).join("；")}`,
       `轉折點（由舊到新）：${pivots.join("；") || "無"}`,
@@ -106,8 +107,8 @@ export function srFacts(all: Bar[], tf: string) {
 const SYSTEM = `你是台灣股市的技術分析師。根據使用者提供的K線事實，判讀最重要的支撐與壓力價位。
 規則：
 - 只能使用提供的資料推論，不要捏造日期、價格或消息面。
-- 以短中線操作為主：優先挑離現價最近、接下來最可能碰到的價位，再視情況補一個較遠的關鍵價。
-- 壓力必須高於現價、支撐必須低於現價；各挑 2～3 個。
+- 以短中線操作為主：優先從「短線參考範圍」內挑離現價最近、接下來最可能碰到的價位，最多再補一個範圍外的關鍵價。
+- 壓力必須高於現價、支撐必須低於現價；各挑 3 個（資料真的不夠才給 2 個）。
 - 依據包含：均線位置、前波高低點、未回補缺口、近期收盤密集區、成交密集區、型態頸線；多種依據落在同一價位附近最重要。
 - 每個價位寫一句不超過 20 字的理由，具體說出依據與日期，日期一律寫成「10/15」這種格式（例如「MA20與前高2490一帶」「10/15下跌缺口」「10/19低點，兩次測試」）。理由必須能從資料中直接驗證，例如說「缺口」就必須是資料列出的缺口。
 - 依據是一段價格區間（缺口、成交密集區、多個低點形成的平台）時，加上 zone:[下緣,上緣]；單一價位就不要給 zone。
@@ -128,7 +129,7 @@ export async function aiLevels(bars: Bar[], tf: string, model = AI_MODEL): Promi
     const p = Number(x.price);
     if (!Number.isFinite(p) || p <= 0 || Math.abs(p / last - 1) > 0.3) continue;
     const price = toTick(p);
-    if (price === last || seen.has(price)) continue; // 對齊升降單位後等於現價的不算
+    if (Math.abs(price / last - 1) < 0.003 || seen.has(price)) continue; // 對齊升降單位後跟現價差不到 0.3% 的不算（太近沒參考價值）
     const kind: Level["kind"] = price > last ? "resistance" : "support"; // 方向以實際價位為準
     seen.add(price);
     const s = Math.round(Number(x.strength));
@@ -137,11 +138,24 @@ export async function aiLevels(bars: Bar[], tf: string, model = AI_MODEL): Promi
     const z = Array.isArray(x.zone) ? x.zone.map(Number) : [];
     if (z.length === 2 && z.every((v) => Number.isFinite(v) && v > 0)) {
       const lo = Math.min(z[0], z[1]), hi = Math.max(z[0], z[1]);
-      if (hi > lo && hi - lo <= last * 0.06 && price >= lo * 0.99 && price <= hi * 1.01 && (kind === "resistance" ? lo > last : hi < last)) zone = [lo, hi];
+      if (hi > lo && hi - lo <= last * 0.06 && price >= lo * 0.99 && price <= hi * 1.01 && (kind === "resistance" ? lo > last : hi < last)) zone = [toTick(lo), toTick(hi)];
     }
     levels.push({ kind, price, strength: (s >= 3 ? 3 : s <= 1 ? 1 : 2) as Level["strength"], note: slashDates(String(x.note ?? "")).slice(0, 40), ...(zone ? { zone } : {}) });
   }
+  // 同方向價位差不到 0.5%＝其實是同一個位置，只留強度高的（同強度留離現價近的）
+  levels.sort((a, b) => b.strength - a.strength || Math.abs(a.price - last) - Math.abs(b.price - last));
+  for (let i = levels.length - 1; i > 0; i--) {
+    if (levels.slice(0, i).some((l) => l.kind === levels[i].kind && Math.abs(l.price / levels[i].price - 1) < 0.005)) levels.splice(i, 1);
+  }
   if (!levels.length) throw new Error("AI 沒有給出可用的價位");
+  // AI 給的某一邊被驗證刷掉到不足 2 個時，用公式版同方向、離現有價位 0.5% 以上的價位補到 2 個
+  const formula = superLevels(bars).levels;
+  for (const kind of ["resistance", "support"] as const) {
+    const near = (p: number) => levels.some((l) => Math.abs(l.price / p - 1) < 0.005);
+    const extra = formula.filter((l) => l.kind === kind && Math.abs(l.price / last - 1) >= 0.003 && !near(l.price))
+      .sort((a, b) => Math.abs(a.price - last) - Math.abs(b.price - last));
+    while (levels.filter((l) => l.kind === kind).length < 2 && extra.length) { const l = extra.shift()!; levels.push({ ...l, note: l.note.slice(0, 40) }); }
+  }
   levels.sort((a, b) => b.price - a.price);
   return { levels, summary: slashDates(String(j.summary ?? "")).slice(0, 200), model, asOf: f.asOf, price: last };
 }

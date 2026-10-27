@@ -2,7 +2,7 @@
 // 1) 用 ZigZag 找出轉折高低點（門檻依近期波動自動調整）
 // 2) 找最近一組「兩個差不多高的高點（M）／兩個差不多低的低點（W）」，中間那個反向轉折點就是頸線
 // 3) 收盤跌破（M）／突破（W）頸線算成立，滿足點＝頸線再走一個「頭到頸線」的距離
-// 4) M 和 W 共用同一段轉折（其實是同一波走勢）時只留比較新的那個，避免兩個形狀疊成一條鋸齒
+// 4) M 和 W 共用同一段轉折（其實是同一波走勢）時兩個都列出，但較舊的標 hidden 不畫，避免兩個形狀疊成一條鋸齒
 import type { Bar } from "./types";
 
 export type Pivot = { i: number; price: number; kind: "H" | "L" };
@@ -17,6 +17,8 @@ export type DoublePattern = {
   target: number;
   /** 畫形狀用的五個點（起漲／起跌點 → 頭 → 頸 → 頭 → 破頸或現價），i 為 K 棒位置 */
   shape: { i: number; price: number }[];
+  /** 跟另一個型態時間重疊且較舊：只列在說明、不畫在圖上 */
+  hidden?: boolean;
 };
 
 /** 轉折門檻：近 60 根平均振幅 × 4，限制在 0.5%～25% */
@@ -101,10 +103,10 @@ export function doublePatterns(bars: Bar[], lookback = 250): { pivots: Pivot[]; 
     return null;
   };
 
-  let patterns = [find("M"), find("W")].filter((p): p is DoublePattern => !!p);
+  const patterns = [find("M"), find("W")].filter((p): p is DoublePattern => !!p);
   if (patterns.length === 2) {
     const [m, w] = patterns;
-    if (m.a.i <= w.b.i && w.a.i <= m.b.i) patterns = [m.b.i >= w.b.i ? m : w];
+    if (m.a.i <= w.b.i && w.a.i <= m.b.i) (m.b.i >= w.b.i ? w : m).hidden = true;
   }
   return { pivots, patterns };
 }
