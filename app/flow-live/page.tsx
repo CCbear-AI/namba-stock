@@ -36,7 +36,7 @@ function clean(points: FlowPoint[], key: "s" | "g" = "s"): FlowPoint[] {
 
 /** 資金進攻／逢低承接／拉高出貨／資金撤退 */
 /** 族群的顏色分類（電子／金融／傳產） */
-const THEME_GROUP: Record<string, G> = { 台塑四寶: "傳產", 航運: "傳產", 重電: "傳產", 機器人: "傳產", 金控: "金融" };
+const THEME_GROUP: Record<string, G> = { 台塑四寶: "傳產", 重電: "傳產", 風電: "傳產", 機器人: "傳產", 軍工: "傳產" };
 const groupOf = (k: string): G => THEME_GROUP[k] ?? (THEMES[k] ? "電子" : industryGroup(k));
 
 const stance = (net: number, chg: number) =>
