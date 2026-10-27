@@ -96,7 +96,7 @@ export default function KChart({
   // 超級支撐壓力：伺服器端 AI 判讀（同一根 K 線只判讀一次）；M 頭／W 底在瀏覽器直接算
   const srOn = sr && tf !== "1m";
   const lastT = data?.bars?.length ? data.bars[data.bars.length - 1].time : 0;
-  const srKey = srOn && lastT ? `/api/levels?v=2&code=${encodeURIComponent(code)}&tf=${apiTf}&d=${intraday ? Math.floor(lastT / 1800) : lastT}` : null;
+  const srKey = srOn && lastT ? `/api/levels?v=3&code=${encodeURIComponent(code)}&tf=${apiTf}&d=${intraday ? Math.floor(lastT / 1800) : lastT}` : null;
   const [sres, setSres] = useState<{ key: string; r?: SrData; err?: string } | null>(null);
   useEffect(() => {
     if (!srKey) return;

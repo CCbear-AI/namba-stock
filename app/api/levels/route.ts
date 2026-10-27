@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     const bars = await getBars(code, tf);
     if (bars.length < 20) return Response.json({ levels: [], summary: "K 線太少，無法判讀。", model: "formula", asOf: "", price: 0 });
     const intraday = tf.endsWith("m") && tf !== "1mo";
-    const key = `${code}|${tf}|${bars[bars.length - 1].time}`;
+    const key = `v3|${code}|${tf}|${bars[bars.length - 1].time}`; // v3：改提示詞或驗證規則時加版本，舊快取才會失效
     const ok = (r: SrResult) => Response.json(r, { headers: { "Cache-Control": `public, max-age=0, s-maxage=${intraday ? 900 : 3600}, stale-while-revalidate=86400` } });
     // 公式版不快取，下次再試 AI
     const fallback = (extra: { aiError?: string; pending?: boolean }) =>
