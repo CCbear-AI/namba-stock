@@ -8,8 +8,6 @@ import type { ScanRow } from "@/lib/scan";
 
 type Scan = { time: number; open: boolean; rows: ScanRow[] };
 type Tab = "ath" | "near" | "atl";
-const SPIDERS = 32;
-const PATROL = 5; // 掃完後留下來巡邏的蜘蛛
 const NEAR = 0.03; // 離歷史高點 3% 以內算「即將破頂」
 // 平前高、平前低也算（跟里長伯一致）
 const isAth = (r: ScanRow) => r.ath > 0 && r.vol > 0 && r.price >= r.ath;
@@ -41,7 +39,7 @@ export default function Radar() {
   const near = useMemo(() => rows.filter(isNear), [rows]);
   const atl = useMemo(() => rows.filter(isAtl), [rows]);
 
-  // 每次資料更新，蜘蛛重新爬一遍（約 8 秒）
+  // 每次資料更新，重新逐檔掃描一遍（約 8 秒）
   useEffect(() => {
     if (!order.length) return;
     const t0 = performance.now(), dur = 8000;
@@ -94,14 +92,14 @@ export default function Radar() {
     <div className="grid gap-4" ref={area}>
       <div className="flex flex-wrap items-start gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>破頂雷達</h1>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>新高追蹤</h1>
           <div className="sub mt-1 flex items-center gap-2"><span className={`inline-block w-2 h-2 rounded-full ${data?.open ? "bg-[var(--up)] animate-pulse" : "bg-dim"}`} />{data?.open ? `盤中 · 每 20 秒重新比對 ${hm(data.time)}` : data ? `收盤 · ${new Date(data.time + 8 * 3600e3).toISOString().slice(5, 10).replace("-", "/")} 的資料 ${hm(data.time)}` : ""}</div>
         </div>
         <div className="ml-auto w-72">
           <div className="flex items-center gap-2 text-[13px]">
             <button data-noexport onClick={() => setSound(!sound)} title={sound ? "關閉音效" : "打開音效"} aria-label={sound ? "關閉音效" : "打開音效"} className="text-text-2 hover:text-text">{sound ? "🔊" : "🔈"}</button>
-            {progress < 1 ? <><span>蜘蛛 × {SPIDERS}</span><span className="ml-auto mono sub">{scanned.toLocaleString()} / {order.length.toLocaleString()}</span></>
-              : <><span>掃描完成 · {PATROL} 隻巡邏中</span><button data-noexport className="btn !py-0.5 ml-auto" onClick={() => setRescan((x) => x + 1)}>重新掃描</button></>}
+            {progress < 1 ? <><span>掃描中</span><span className="ml-auto mono sub">{scanned.toLocaleString()} / {order.length.toLocaleString()}</span></>
+              : <><span>掃描完成</span><button data-noexport className="btn !py-0.5 ml-auto" onClick={() => setRescan((x) => x + 1)}>重新掃描</button></>}
           </div>
           <div className="h-1 bg-panel-2 rounded mt-2 overflow-hidden"><div className="h-full bg-[var(--gold)]" style={{ width: `${progress * 100}%` }} /></div>
         </div>
@@ -114,7 +112,7 @@ export default function Radar() {
             <span className="ml-auto"><ExportBtn icon name="創上市以來新高" target={() => document.getElementById("radar-head")} /></span>
           </div>
           <div className="sub mt-1">
-            {progress < 1 ? "蜘蛛正在逐檔比對每一檔上市以來的最高價與最低價…" : <>
+            {progress < 1 ? "正在逐檔比對每一檔上市以來的最高價與最低價…" : <>
               {earliest && <>最早 {firstAt(earliest.c) ?? ""} {earliest.n}</>}{latest && latest !== earliest && <> · 最新 {firstAt(latest.c) ?? ""} {latest.n}</>}
               {earliest ? " · " : ""}另有 <span className="text-[var(--gold-2)]">{near.length}</span> 檔離高點不到 3%
             </>}
@@ -139,7 +137,7 @@ export default function Radar() {
 
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
         <div className="card p-4 relative overflow-hidden" id="radar-grid">
-          <div className="absolute right-3 top-3 z-10"><ExportBtn icon name="破頂雷達" target={() => document.getElementById("radar-grid")} /></div>
+          <div className="absolute right-3 top-3 z-10"><ExportBtn icon name="新高追蹤" target={() => document.getElementById("radar-grid")} /></div>
           {groups.map((g) => {
             const hi = g.l.filter((r) => athSet.has(r.c)).length;
             const nr = g.l.filter((r) => nearSet.has(r.c)).length;
@@ -161,8 +159,7 @@ export default function Radar() {
               </div>
             );
           })}
-          {!rows.length && <div className="sub text-center py-16 loading">雷達暖機中…（需要先有歷史最高價資料）</div>}
-          {rows.length > 0 && <Spiders progress={progress} />}
+          {!rows.length && <div className="sub text-center py-16 loading">資料準備中…（需要先有歷史最高價資料）</div>}
         </div>
 
         <div className="grid gap-3 content-start">
@@ -197,46 +194,12 @@ export default function Radar() {
                   </Link>
                 );
               })}
-              {!list.length && <div className="sub text-center py-8">{progress < 1 ? "蜘蛛還在爬，抓到的會飛進來" : "目前沒有"}</div>}
+              {!list.length && <div className="sub text-center py-8">{progress < 1 ? "掃描中，找到的會陸續出現" : "目前沒有"}</div>}
             </div>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-/** 爬來爬去的蜘蛛（純裝飾，跟著掃描進度往下爬） */
-function Spiders({ progress }: { progress: number }) {
-  const [now, setNow] = useState(0);
-  const patrol = progress >= 1;
-  useEffect(() => {
-    if (!patrol) return;
-    let id = 0;
-    const loop = () => { setNow(performance.now() / 1000); id = requestAnimationFrame(loop); };
-    id = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(id);
-  }, [patrol]);
-  // 掃描中跟著進度往下爬；掃完後留幾隻慢慢巡邏
-  const pts = patrol
-    ? Array.from({ length: PATROL }, (_, i) => { const t = now * 0.08 + i * 1.7; return { x: 10 + ((Math.sin(t * 1.3 + i) + 1) / 2) * 80, y: 5 + ((Math.cos(t * 0.9 + i * 2) + 1) / 2) * 90 }; })
-    : Array.from({ length: 6 }, (_, i) => {
-      const t = progress * 6 + i * 0.37;
-      return { x: 8 + ((Math.sin(t * 2.1 + i) + 1) / 2) * 84, y: Math.min(96, progress * 100 + Math.sin(t * 3 + i * 2) * 6) };
-    });
-  const spin = patrol ? now : progress * 40;
-  return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
-      {pts.map((p, i) => (
-        <svg key={i} x={`${p.x}%`} y={`${p.y}%`} overflow="visible">
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((k) => {
-            const a = (k / 8) * Math.PI * 2 + spin;
-            return <line key={k} x1={0} y1={0} x2={Math.cos(a) * 14} y2={Math.sin(a) * 14} stroke="#5aa9ff" strokeWidth={1} opacity={0.8} />;
-          })}
-          <circle r={4} fill="#d9b45a" />
-        </svg>
-      ))}
-    </svg>
   );
 }
 

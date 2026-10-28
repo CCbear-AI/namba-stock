@@ -33,7 +33,7 @@ function Screener() {
   return (
     <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
       <div className="card self-start lg:sticky lg:top-28 flex flex-col max-h-[calc(100vh-8rem)]">
-        <div className="card-h text-[16px]">飆股選股器</div>
+        <div className="card-h text-[16px]">條件選股</div>
         <div className="px-4 sub">快速策略</div>
         <div className="grid grid-cols-2 gap-2 p-4 pt-2">
           {STRATEGIES.map((s) => <button key={s.id} className={`btn justify-center ${strategy?.id === s.id ? "on" : ""}`} onClick={() => setConds(s.conds)}>{s.label}</button>)}

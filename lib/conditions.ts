@@ -1,4 +1,4 @@
-// 選股條件、快速策略、飆股訊號標籤（前後端與提醒共用）
+// 選股條件、快速策略、強勢訊號標籤（前後端與提醒共用）
 import type { ScanRow } from "./scan";
 
 export const isLimitUp = (r: ScanRow) => r.up > 0 && r.price >= r.up && r.vol > 0;
@@ -13,7 +13,7 @@ export const openedDown = (r: ScanRow) => r.down > 0 && r.low <= r.down && r.pri
 export const efficiency = (r: ScanRow) => (r.move20 > 0 && r.rvol > 0 ? Math.abs(r.pct) / r.move20 / r.rvol : 0);
 /** 量價齊揚：RVOL ≥ 1.5、推進效率 ≥ 1、今日上漲（放量而且價格確實被推上去） */
 export const volPriceUp = (r: ScanRow) => r.rvol >= 1.5 && r.pct > 0 && efficiency(r) >= 1;
-/** 爆量推進：RVOL ≥ 2、今日漲 ≥ 3%、而且量價齊揚（首頁飆股訊號標籤與選股器共用同一個定義） */
+/** 爆量推進：RVOL ≥ 2、今日漲 ≥ 3%、而且量價齊揚（首頁強勢訊號標籤與選股器共用同一個定義） */
 export const volPush = (r: ScanRow) => r.rvol >= 2 && r.pct >= 3 && volPriceUp(r);
 /** 爆量卡關（爆量沒推進）：RVOL ≥ 2，但漲跌不到平常日波幅（近 20 日平均每日漲跌幅）的三成 */
 export const volStall = (r: ScanRow) => r.rvol >= 2 && r.move20 > 0 && Math.abs(r.pct) < r.move20 * 0.3;
@@ -53,7 +53,7 @@ export const CONDS: Cond[] = [
 export const COND = Object.fromEntries(CONDS.map((c) => [c.id, c]));
 
 export const STRATEGIES: { id: string; label: string; conds: string[] }[] = [
-  { id: "rocket", label: "飆股起漲", conds: ["pct5", "vr2", "ma20"] },
+  { id: "rocket", label: "起漲訊號", conds: ["pct5", "vr2", "ma20"] },
   { id: "insti", label: "法人連買", conds: ["f3", "t3"] },
   { id: "limit", label: "漲停續強", conds: ["hi60", "limup"] },
   { id: "volbrk", label: "量增突破", conds: ["vr2", "ma20", "hi60", "vol3k"] },
@@ -74,7 +74,7 @@ export function hiTag(r: ScanRow) {
   return "";
 }
 
-/** 飆股訊號標籤（首頁） */
+/** 強勢訊號標籤（首頁） */
 export function signalTags(r: ScanRow): string[] {
   const t: string[] = [];
   if (r.limStreak >= 2) t.push(`連 ${r.limStreak} 日漲停`);

@@ -1,5 +1,5 @@
 // 全市場掃描：即時快照 + 歷史日 K + 籌碼 → 每檔的量比、RVOL、均線、新高新低、法人連買…
-// 選股器、破頂雷達、漲幅排行、漲跌停、飆股訊號、提醒都用這份
+// 選股器、新高追蹤、漲幅排行、漲跌停、強勢訊號、提醒都用這份
 import { getDaily, getChips, getAth, lastIdx, type Series } from "./history";
 import { volFraction } from "./misStats";
 import type { Market, Row } from "./types";

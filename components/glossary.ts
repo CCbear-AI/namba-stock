@@ -12,7 +12,7 @@ export const COND_HELP: Record<string, string> = {
   vr2: VR_HELP, vshrink: VR_HELP, rvol2: RVOL_HELP, rvol3: RVOL_HELP, vpu: VPU_HELP, push: PUSH_HELP, stall: STALL_HELP,
 };
 
-/** 飆股訊號標籤 → 說明（沒有的回傳 undefined） */
+/** 強勢訊號標籤 → 說明（沒有的回傳 undefined） */
 export function tagHelp(tag: string): string | undefined {
   if (tag === "爆量推進") return PUSH_HELP;
   if (tag === "爆量沒推進") return STALL_HELP;

@@ -134,7 +134,7 @@ export default function Home() {
     foreign: { span: "md:col-span-6 lg:col-span-3", node: <Rank title="外資買超(張)" sub={ch ? md(ch.date) : undefined} rows={(ch?.rank.f.buy ?? []).slice(0, 30).map((r) => ({ c: r.c, n: r.n, p: byCode.get(r.c), v: <span className="up">+{num(r.lots)}</span> }))} /> },
     signals: { span: "md:col-span-12 lg:col-span-8", node: (
       <div className="card">
-        <div className="card-h">飆股訊號 <Link href="/screener" className="text-[13px] text-[var(--gold)]">開啟選股器</Link></div>
+        <div className="card-h">強勢訊號 <Link href="/screener" className="text-[13px] text-[var(--gold)]">開啟選股器</Link></div>
         <div className="scroll-y max-h-[240px] px-2 pb-2">
           <table className="tbl">
             <thead><tr><th>股票</th><th className="!text-left">符合的訊號</th><th>股價</th><th>漲跌幅</th><th><Term tip={RVOL_HELP} align="right">RVOL</Term></th></tr></thead>

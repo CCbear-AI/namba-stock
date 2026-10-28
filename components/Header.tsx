@@ -18,7 +18,7 @@ const NAV = [
   { to: "/watchlist", label: "自選股", tip: "自選群組、0050 權值股、創歷史新高" },
   { to: "/stock/2330", label: "個股", tip: "K 線、五檔、分時明細、籌碼" },
   { to: "/multi", label: "多股看盤", tip: "同時看多檔走勢，可帶入整個自選群組" },
-  { to: "/radar", label: "破頂雷達", tip: "蜘蛛爬全市場，抓歷史新高、新低與即將破頂" },
+  { to: "/radar", label: "新高追蹤", tip: "逐檔掃描全市場，找出創歷史新高、新低與快要創新高的股票" },
   { to: "/pattern", label: "相似股", tip: "搜尋一檔股票、選一段走勢，到全市場排出形狀最像的" },
   { to: "/screener", label: "選股器", tip: "條件選股、新高新低" },
   { to: "/strategy", label: "AI 策略", tip: "說出選股想法，AI 畫成流程圖並回測，跟 0050 比" },
