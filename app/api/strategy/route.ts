@@ -12,7 +12,7 @@ const INDS = Object.values(INDUSTRY).filter((n) => !["管理股票", "存託憑�
 const SYSTEM = `你把台股選股想法轉成 JSON 策略規格。只能用下面列的條件，只輸出一個 JSON 物件，不要其他文字。
 
 格式：
-{"name":"10字內策略名","idea":"一句話重述","universe":{...},"entry":[...],"exit":[...],"hold":{"max":10},"rank":"value","assume":["你自己補的假設"],"unsupported":["做不到的部分"]}
+{"reply":"用 2~4 句口語跟使用者說明這版怎麼做、你補了什麼假設、哪裡可以再調","name":"10字內策略名","idea":"一句話重述","universe":{...},"entry":[...],"exit":[...],"hold":{"max":10},"rank":"value","assume":["你自己補的假設"],"unsupported":["做不到的部分"]}
 
 universe（擇一）：
 {"k":"all"} 全市場｜{"k":"tse"} 上市｜{"k":"otc"} 上櫃｜{"k":"tw50"} 0050成分股／權值股／大型股｜{"k":"watchlist"} 我的自選股
@@ -49,6 +49,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { text?: string; prev?: Spec; spec?: Spec; watchlist?: string[] };
   const watchlist = (body.watchlist ?? []).filter((c) => /^\d{4,6}[A-Z]?$/.test(c)).slice(0, 200);
   let spec: Spec;
+  let reply: string | undefined;
   if (body.spec) {
     spec = normalize(body.spec);
   } else {
@@ -59,17 +60,19 @@ export async function POST(req: Request) {
       ? `目前的策略：${JSON.stringify(body.prev)}\n\n使用者要這樣修改：「${text}」\n請輸出修改後完整的 JSON（沒提到的部分保持不變）。`
       : `選股想法：「${text}」`;
     try {
-      const reply = await chat([{ role: "system", content: SYSTEM }, { role: "user", content: user }], { timeout: 240_000, temperature: 0.1 });
-      spec = normalize(parseJson<Partial<Spec>>(reply));
+      const out = await chat([{ role: "system", content: SYSTEM }, { role: "user", content: user }], { timeout: 240_000, temperature: 0.1 });
+      const raw = parseJson<Partial<Spec> & { reply?: unknown }>(out);
+      spec = normalize(raw);
+      if (typeof raw.reply === "string" && raw.reply.trim()) reply = raw.reply.trim().slice(0, 600);
     } catch (e) {
       return Response.json({ error: `AI 沒有成功轉出策略：${(e as Error).message}，請再試一次或換個說法` }, { status: 502 });
     }
     if (!spec.entry.length) {
       const miss = spec.unsupported?.length ? `這裡沒有「${spec.unsupported.join("、")}」的資料，` : "";
-      return Response.json({ spec, error: `${miss}AI 沒有抓到可以回測的進場條件。請用價格、均線、新高新低、漲跌幅、成交量或法人連買賣來描述「什麼時候買」` }, { status: 422 });
+      return Response.json({ spec, reply, error: `${miss}AI 沒有抓到可以回測的進場條件。請用價格、均線、新高新低、漲跌幅、成交量或法人連買賣來描述「什麼時候買」` }, { status: 422 });
     }
   }
   const b = await bench().catch(() => undefined);
   const result = backtest(spec, { watchlist, bench: b });
-  return Response.json({ spec, result });
+  return Response.json({ spec, result, reply });
 }

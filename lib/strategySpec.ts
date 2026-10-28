@@ -60,3 +60,40 @@ export function universeText(u: Universe, wlCount = 0): string {
   return u.minValue ? `${base}，排除成交值低於 ${u.minValue} 億的冷門股` : base;
 }
 
+
+/** 流程圖標籤用的短說明 */
+export function condChip(c: Cond): string {
+  switch (c.k) {
+    case "aboveMA": return `站上${maName(c.n)}`;
+    case "belowMA": return `在${maName(c.n)}下`;
+    case "crossMA": return `突破${maName(c.n)}`;
+    case "maBull": return "均線多頭";
+    case "newHigh": return `創 ${c.n} 日新高`;
+    case "newLow": return `創 ${c.n} 日新低`;
+    case "chg": return `${c.n === 1 ? "當日" : `${c.n} 日`}${range(c.min, c.max, "%")}`;
+    case "volRatio": return `量比 ≥ ${c.min} 倍`;
+    case "price": return `股價 ${range(c.min, c.max, " 元")}`;
+    case "value": return `成交值 ≥ ${c.min} 億`;
+    case "rsi": return `RSI ${range(c.min, c.max)}`;
+    case "foreignBuy": return `外資連買 ${c.days} 天`;
+    case "trustBuy": return `投信連買 ${c.days} 天`;
+    case "foreignSell": return `外資連賣 ${c.days} 天`;
+    case "trustSell": return `投信連賣 ${c.days} 天`;
+  }
+}
+export function exitChip(e: Exit): string {
+  switch (e.k) {
+    case "stopLoss": return `虧 ${e.pct}% 停損`;
+    case "takeProfit": return `賺 ${e.pct}% 停利`;
+    case "trailing": return `高點回落 ${e.pct}%`;
+    case "belowMA": return `跌破${maName(e.n)}`;
+    case "maxDays": return `最多抱 ${e.n} 天`;
+  }
+}
+export const rankText = (r: Spec["rank"]) => (r === "chg" ? "當天漲最多" : r === "volRatio" ? "量放最大" : "成交值最大");
+
+/** AI 沒給說明時，用規格自己組一段白話 */
+export function specReply(s: Spec, wlCount = 0): string {
+  const t = `這版做法：從${universeText(s.universe, wlCount)}裡，每天收盤後挑出「${s.entry.map(condText).join("、")}」的股票，隔天開盤等權重買進，最多同時持有 ${s.hold.max} 檔；${s.exit.map(exitText).join("，或")}就出場。`;
+  return [t, s.assume?.length ? `我自己補的假設：${s.assume.join("；")}。` : "", s.unsupported?.length ? `「${s.unsupported.join("、")}」這裡沒有資料，先略過。` : ""].filter(Boolean).join("");
+}
