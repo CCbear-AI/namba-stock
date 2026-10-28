@@ -1,4 +1,4 @@
-// 類股指數：歷史日 K（data/sector-tse.json）＋ MIS 即時
+// 類股指數：歷史日 K（data/sector-tse.json、data/sector-otc.json）＋ MIS 即時
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { getQuotes } from "./mis";
@@ -21,7 +21,7 @@ function load(market: "tse" | "otc" = "tse"): Store {
 }
 
 // 上櫃：MIS 名稱（櫃買半導體類指數）↔ 櫃買歷史名稱（半導體業）
-const OTC_ALIAS: Record<string, string> = { 營建: "建材營造", 化工: "化學" };
+const OTC_ALIAS: Record<string, string> = { 營建: "建材營造", 化工: "化學", 紡纖: "紡織纖維", 機械: "電機機械" };
 const normName = (n: string) => n.replace(/^櫃買/, "").replace(/類指數$|指數$/, "").replace(/設備業$|工業$|業$/, "");
 function historyKey(name: string, market: "tse" | "otc") {
   const st = load(market);

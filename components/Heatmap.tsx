@@ -18,8 +18,24 @@ export function heat(p: number, cap = 7) {
   return p > 0 ? `rgb(${Math.round(70 + 170 * t)},${Math.round(40 - 10 * t)},${Math.round(48 - 8 * t)})` : `rgb(20,${Math.round(70 + 110 * t)},${Math.round(55 + 40 * t)})`;
 }
 
-export default function Heatmap({ rows, period = "d", sizeBy = "cap", byIndustry = true, perGroup = 40, minH = 420, groupPct }: {
+/** 方格內文字：名稱依格子寬高自動縮放；窄長格子改直排；都放不下就顯示代號（數字比中文窄） */
+function cellText(n: string, c: string, w: number, h: number) {
+  const MIN = 8;
+  const horiz = (chars: number, k = 1) => Math.min(22, (w - 4) / (chars * k), h * 0.7);
+  const vert = Math.min(22, (h - 4) / n.length, w * 0.75);
+  let label = n, fs = horiz(n.length), vertical = false;
+  if (fs < MIN && vert >= MIN && h > w) { fs = vert; vertical = true; }
+  else if (fs < MIN) { label = c; fs = horiz(c.length, 0.6); if (fs < MIN) label = ""; }
+  if (!vertical) fs = Math.min(fs, Math.max(MIN, h * 0.42));
+  // 漲跌幅（約 6 個半形字）要有第二行的高度才放
+  const fp = Math.min(18, fs * 0.82, (w - 4) / 3.6);
+  return { label, fs, vertical, fp: label && !vertical && h >= fs * 1.25 + fp * 1.2 + 2 && fp >= 7.5 ? fp : 0 };
+}
+
+export default function Heatmap({ rows, period = "d", sizeBy = "cap", byIndustry = true, perGroup = 40, minH = 420, ratio = 0.62, maxH = 760, groupPct }: {
   rows: ScanRow[]; period?: Period; sizeBy?: SizeBy; byIndustry?: boolean; perGroup?: number; minH?: number;
+  /** 高度＝寬度×ratio，限制在 minH~maxH */
+  ratio?: number; maxH?: number;
   /** 產業標題的漲跌幅（整個產業市值加權）；沒給就用畫出來的這些股票算 */
   groupPct?: Record<string, number>;
 }) {
@@ -32,7 +48,7 @@ export default function Heatmap({ rows, period = "d", sizeBy = "cap", byIndustry
     ro.observe(el); setW(el.clientWidth);
     return () => ro.disconnect();
   }, []);
-  const H = Math.max(minH, Math.min(760, Math.round(W * 0.62)));
+  const H = Math.max(minH, Math.min(maxH, Math.round(W * ratio)));
   const cap = period === "d" ? 7 : period === 5 ? 15 : 35;
   const size = (r: ScanRow) => (sizeBy === "equal" ? 1 : Math.max(0.01, r[sizeBy]));
 
@@ -63,13 +79,13 @@ export default function Heatmap({ rows, period = "d", sizeBy = "cap", byIndustry
       ))}
       {cells.map((c) => {
         const p = periodPct(c.d, period);
-        const big = c.w > 70 && c.h > 40;
+        const t = cellText(c.d.n, c.d.c, c.w, c.h);
         return (
-          <Link key={c.d.c} href={`/stock/${c.d.c}`} onMouseEnter={() => setHover(c.d)}
+          <Link key={c.d.c} href={`/stock/${c.d.c}`} onMouseEnter={() => setHover(c.d)} title={`${c.d.c} ${c.d.n} ${pct(p)}`}
             className="absolute flex flex-col items-center justify-center overflow-hidden text-white border border-[#0b0c0e] hover:brightness-125"
             style={{ left: c.x, top: c.y, width: c.w, height: c.h, background: heat(p, cap) }}>
-            {c.w > 34 && c.h > 18 && <span style={{ fontSize: big ? Math.min(22, c.w / 6) : 11 }} className="font-semibold leading-tight truncate max-w-full px-0.5">{c.d.n}</span>}
-            {c.w > 40 && c.h > 32 && <span style={{ fontSize: big ? Math.min(18, c.w / 8) : 10 }} className="mono leading-tight opacity-90">{pct(p)}</span>}
+            {t.label && <span style={{ fontSize: t.fs, writingMode: t.vertical ? "vertical-rl" : undefined }} className={`font-semibold leading-tight whitespace-nowrap ${t.label === c.d.c ? "mono" : ""}`}>{t.label}</span>}
+            {t.fp > 0 && <span style={{ fontSize: t.fp }} className="mono leading-tight opacity-90 whitespace-nowrap">{pct(p)}</span>}
           </Link>
         );
       })}

@@ -43,7 +43,7 @@ export default function SectorPage() {
           <button className={market === "tse" ? "on" : ""} onClick={() => { setMarket("tse"); setId("t24"); setStock(null); }}>上市</button>
           <button className={market === "otc" ? "on" : ""} onClick={() => { setMarket("otc"); setId("o24"); setStock(null); }}>上櫃</button>
         </div>
-        <Help>證交所／櫃買中心官方類股指數；類股成交量是成分股成交量加總。點右邊成分股可看個股並判讀超級支撐壓力。</Help>
+        <Help>證交所／櫃買中心官方類股指數；類股成交量是成分股成交量加總。上櫃類股只有日／週／月 K，沒有分時。點右邊成分股可看個股並判讀超級支撐壓力。</Help>
       </div>
       {/* 類股按鈕依視窗寬度自動換行，全部都看得到 */}
       <div className="flex flex-wrap gap-2">
@@ -73,11 +73,8 @@ export default function SectorPage() {
               </>
             )}
           </div>
-          {!stock && cur && cur.market === "otc" ? (
-            <div className="h-[420px] flex items-center justify-center text-text-2 px-6 text-center">上櫃類股的歷史 K 線還沒有資料來源（第二期補上）。可以先點右邊成分股看個股 K 線。</div>
-          ) : (
-            <KChart key={target} code={target} prev={stock ? stockRow?.prev : cur?.prev} height={480} tfs={stock ? ["1m", "5m", "1d", "1wk", "1mo"] : ["1m", "5m", "1d", "1wk", "1mo"]} />
-          )}
+          {/* 上櫃類股只有日 K（櫃買官方），沒有免費的分時資料 */}
+          <KChart key={target} code={target} prev={stock ? stockRow?.prev : cur?.prev} height={480} tfs={!stock && cur?.market === "otc" ? ["1d", "1wk", "1mo"] : ["1m", "5m", "1d", "1wk", "1mo"]} />
         </div>
         <div className="card flex flex-col">
           <div className="card-h">成分股 <span className="sub">{cons.length} 檔 · 依市值</span></div>

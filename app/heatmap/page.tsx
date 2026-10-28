@@ -50,9 +50,9 @@ export default function HeatmapPage() {
         <Legend cap={period === "d" ? 10 : period === 5 ? 15 : 35} />
         <ExportBtn name="大盤熱力圖" target={() => document.getElementById("heatmap-area")} />
       </div>
-      <div id="heatmap-area" className="grid gap-4 lg:grid-cols-[1fr_260px]">
+      <div id="heatmap-area" className="grid gap-4 xl:grid-cols-[1fr_260px]">
         <div className="card p-2 overflow-hidden">
-          <Heatmap rows={shown} period={period} sizeBy={sizeBy} perGroup={TOP} groupPct={groupPct} />
+          <Heatmap rows={shown} period={period} sizeBy={sizeBy} perGroup={TOP} groupPct={groupPct} ratio={0.72} maxH={1100} minH={480} />
         </div>
         <div className="grid gap-4 content-start">
           <div className="card">
