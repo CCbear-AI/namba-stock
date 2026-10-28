@@ -21,6 +21,7 @@ const NAV = [
   { to: "/radar", label: "破頂雷達", tip: "蜘蛛爬全市場，抓歷史新高、新低與即將破頂" },
   { to: "/pattern", label: "相似股", tip: "搜尋一檔股票、選一段走勢，到全市場排出形狀最像的" },
   { to: "/screener", label: "選股器", tip: "條件選股、新高新低" },
+  { to: "/strategy", label: "AI 策略", tip: "說出選股想法，AI 畫成流程圖並回測，跟 0050 比" },
   { to: "/alerts", label: "提醒", tip: "到價、漲跌幅、法人與策略提醒" },
   { to: "/chips", label: "籌碼", tip: "法人與主力買賣超" },
   { to: "/limits", label: "漲跌停", tip: "漲停、跌停與打開" },
