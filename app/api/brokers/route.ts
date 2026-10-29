@@ -1,8 +1,9 @@
 import { adjustedConc, dtView, handoffMarket, rankView, stockHandoff, tw50View } from "@/lib/brokerFlow";
+import { brokerScore, scoreView } from "@/lib/brokerScore";
 import { brokerDaily, brokerView, findBrokers, marketView, riverView, stockViewLive, trackView } from "@/lib/brokers";
 
 // 分點進出（盤後資料，每晚掃描一次）
-// ?view=stock&code=2330&days=1|5|20 · ?view=handoff · ?view=tw50&codes=…&to= · ?view=dt · ?view=rank&codes=… · ?view=bk&code=&id=（分點 K 線逐日） · ?view=market&date= · ?view=river&days=5|10|25&code=&to= · ?view=broker&id=&days= · ?view=track&items=2330:1440,… · ?view=find&q=
+// ?view=stock&code=2330&days=1|5|20 · ?view=handoff · ?view=tw50&codes=…&to= · ?view=dt · ?view=rank&codes=… · ?view=bk&code=&id=（分點 K 線逐日） · ?view=market&date= · ?view=river&days=5|10|25&code=&to= · ?view=broker&id=&days= · ?view=track&items=2330:1440,… · ?view=find&q= · ?view=score&h=1|5|10|20&min=
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const view = sp.get("view") ?? "market";
@@ -34,8 +35,14 @@ export async function GET(req: Request) {
       return json(marketView(sp.get("date") ?? undefined));
     case "river":
       return json(riverView([5, 10, 25].includes(days) ? days : 5, code || undefined, sp.get("to") ?? undefined));
-    case "broker":
-      return json(brokerView(sp.get("id") ?? "", [1, 5, 20].includes(days) ? days : 1));
+    case "broker": {
+      const id = sp.get("id") ?? "";
+      return json({ ...brokerView(id, [1, 5, 20].includes(days) ? days : 1), score: brokerScore(id) });
+    }
+    case "score": {
+      const h = Number(sp.get("h"));
+      return json(scoreView(([1, 5, 10, 20] as const).find((x) => x === h) ?? 5, Math.min(200, Math.max(5, Number(sp.get("min")) || 20))));
+    }
     case "track": {
       const items = (sp.get("items") ?? "").split(",").map((x) => x.split(":")).filter(([c, id]) => /^\w{4,6}$/.test(c ?? "") && id).slice(0, 50).map(([c, id]) => ({ c, id }));
       return json(trackView(items));

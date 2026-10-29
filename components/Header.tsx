@@ -24,18 +24,18 @@ const NAV: Group[] = [
     { to: "/limits", label: "漲跌停", tip: "漲停、跌停與打開" },
   ] },
   { label: "自選", items: [
-    { to: "/watchlist", label: "自選股", tip: "自選群組、0050 權值股、創歷史新高" },
+    { to: "/watchlist", label: "自選股", tip: "自選群組、0050 權值股、創歷史新高、分點追蹤" },
     { to: "/multi", label: "多股看盤", tip: "同時看多檔走勢，可帶入整個自選群組" },
     { to: "/alerts", label: "提醒", tip: "到價、漲跌幅、法人與策略提醒" },
   ] },
   { label: "個股", items: [{ to: "/stock/2330", label: "個股", tip: "K 線、五檔、分時明細、籌碼" }] },
   { label: "籌碼", items: [
     { to: "/chips", label: "法人籌碼", tip: "法人與主力買賣超" },
-    { to: "/brokers", label: "分點", tip: "券商分點進出：個股分點 K 線、全市場大額買賣、河道、換手、隔日沖、排序" },
+    { to: "/brokers", label: "分點", tip: "券商分點進出：個股分點 K 線、全市場大額買賣、河道、換手（含 0050）、隔日沖、分點跟單成績單" },
   ] },
   { label: "選股", items: [
     { to: "/radar", label: "新高追蹤", tip: "逐檔掃描全市場，找出創歷史新高、新低與快要創新高的股票" },
-    { to: "/screener", label: "選股器", tip: "條件選股、新高新低" },
+    { to: "/screener", label: "選股器", tip: "條件選股、新高新低、依分點賣方集中度排序" },
     { to: "/pattern", label: "相似股", tip: "搜尋一檔股票、選一段走勢，到全市場排出形狀最像的" },
     { to: "/strategy", label: "AI 策略", tip: "說出選股想法，AI 畫成流程圖並回測，跟 0050 比" },
   ] },

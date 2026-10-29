@@ -114,8 +114,8 @@ export default function Home() {
     ) },
     summary: { span: "md:col-span-12", node: (
       <div className="card">
-        <div className="card-h">盤後重點{sum?.date && <span className="sub mr-auto">{md(sum.date)}</span>}
-          <Help align="right">收盤後由 AI 依當天數字（大盤、漲跌家數、族群、法人、期貨、國際行情）整理的重點。數字都是程式算的，AI 只負責寫成白話；不構成買賣建議。</Help>
+        <div className="card-h">盤後重點<span className="sub mr-auto">{sum?.date && `${md(sum.date)} · `}每個交易日台灣 16:30 更新</span>
+          <Help align="right">收盤後由 AI 依當天數字（大盤、漲跌家數、族群、法人、期貨、國際行情）整理的重點。每個交易日台灣 16:30 開始整理，通常 17:00 前更新完成。數字都是程式算的，AI 只負責寫成白話；不構成買賣建議。</Help>
         </div>
         <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
           {sum && !sum.error ? (

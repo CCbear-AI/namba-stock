@@ -13,6 +13,8 @@ import { useSparks } from "@/components/useSparks";
 import { builtinCodes } from "@/components/scopes";
 import type { ScanRow } from "@/lib/scan";
 import Help from "@/components/Help";
+import BrokerTrack from "@/components/BrokerTrack";
+import { useTrack } from "@/components/brokerUi";
 
 type View = "list" | "heat" | "river";
 const DESC: Record<string, string> = {
@@ -29,6 +31,7 @@ function Watchlist() {
   const router = useRouter();
   const sp = useSearchParams();
   const g = useGroups();
+  const tr = useTrack();
   const { data } = useScan();
   const all = useMemo(() => data?.rows ?? [], [data]);
   const byCode = useMemo(() => new Map(all.map((r) => [r.c, r])), [all]);
@@ -66,10 +69,13 @@ function Watchlist() {
       <div className="card self-start p-3">
         <div className="sub px-1 mb-2">群組</div>
         {groups.map((x) => (
-          <button key={x.id} onClick={() => { setGid(x.id); setRenaming(false); }} className={`w-full flex items-center px-3 py-2 rounded-lg text-left ${x.id === cur.id ? "bg-panel-2" : "hover:bg-panel-2/60"}`}>
+          <button key={x.id} onClick={() => { setGid(x.id); setRenaming(false); }} className={`w-full flex items-center px-3 py-2 rounded-lg text-left ${x.id === cur.id && gid !== "track" ? "bg-panel-2" : "hover:bg-panel-2/60"}`}>
             <span className="truncate">{x.name}</span><span className="ml-auto sub mono">{x.codes.length}</span>
           </button>
         ))}
+        <button onClick={() => setGid("track")} className={`w-full flex items-center px-3 py-2 mt-2 border-t border-line rounded-lg text-left ${gid === "track" ? "bg-panel-2" : "hover:bg-panel-2/60"}`}>
+          <span className="truncate">分點追蹤</span><span className="ml-auto sub mono">{tr.list.length}</span>
+        </button>
         {newName != null ? (
           <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="群組名稱，按 Enter" className="w-full mt-2 bg-panel-2 border border-[var(--gold)] rounded-lg px-3 py-2 text-[13px] outline-none"
             onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) { setGid(g.create(newName.trim())); setNewName(null); } if (e.key === "Escape") setNewName(null); }} onBlur={() => setNewName(null)} />
@@ -78,6 +84,12 @@ function Watchlist() {
         <div className="sub mt-3 px-1">自選股只存在這台裝置。</div>
       </div>
 
+      {gid === "track" ? (
+        <div className="card">
+          <div className="card-h"><span className="text-[17px] inline-flex items-center">分點追蹤<Help>追蹤「股票＋分點」組合（例如 台積電＋摩根大通），每天收盤後看這家分點在這檔買賣幾張、連買幾天、估算成本。點一列看那檔的分點進出。</Help></span><span className="sub">{tr.list.length} 組</span></div>
+          <BrokerTrack onStock={(c) => router.push(`/brokers?tab=stock&code=${c}`)} />
+        </div>
+      ) : (
       <div className="card" ref={area}>
         <div className="card-h flex-wrap">
           <div className="flex items-center gap-2">
@@ -130,6 +142,7 @@ function Watchlist() {
         {view === "heat" && <HeatView rows={rows} />}
         {view === "river" && <RiverView rows={rows} title={cur.name} />}
       </div>
+      )}
     </div>
   );
 }

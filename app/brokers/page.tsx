@@ -1,18 +1,17 @@
 "use client";
-// 分點進出：個股／全市場／河道／追蹤／換手／0050／隔日沖／排序（資料每晚掃一次各股買賣超前 15 名分點）
+// 分點進出：個股／全市場／河道／換手（含 0050）／隔日沖／成績單；追蹤在自選股、排序在條件選股（資料每晚掃一次各股買賣超前 15 名分點）
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createChart, CandlestickSeries, HistogramSeries, LineStyle, type IChartApi, type Time } from "lightweight-charts";
-import { localStore, useGroups, usePoll, useScan } from "@/components/hooks";
-import { athRows, d20Rows, top50 } from "@/components/scopes";
+import { usePoll, useScan } from "@/components/hooks";
+import { top50 } from "@/components/scopes";
 import { cls, num, price } from "@/components/fmt";
 import Help from "@/components/Help";
 import ExportBtn from "@/components/ExportBtn";
 import StockPicker from "@/components/StockPicker";
+import { CLS_HELP, CTag, DT, Dot, md, sg, streakText, useTrack, type Cls, type K } from "@/components/brokerUi";
 
-type K = "f" | "l";
-type Cls = "rel" | "long" | "dip" | "chase" | "dt" | "bad" | "none";
 type BRow = { id: string; n: string; k: K; cls: Cls; buy: number; sell: number; net: number; pct: number };
 type Broker = { id: string; n: string; k: K; cls: Cls; net: number[]; sum: number; buyAvg: number | null; sellAvg: number | null; streak: number; rangeNet: number };
 type HeatRow = { id: string; n: string; k: K; cls: Cls; net: number[]; sum: number; cost: number | null; buyDays: number; streak: number };
@@ -29,36 +28,10 @@ type Pair = { c: string; n: string; id: string; b: string; k: K; cls: Cls; lots:
 type MV = { error?: string; date: string; dates: string[]; hot: { c: string; n: string; val: number; chg: number; top: { n: string; lots: number } | null; bot: { n: string; lots: number } | null }[]; bigBuy: Pair[]; bigSell: Pair[]; sudden: Pair[] };
 type RRow = { id: string; n: string; k: K; cls: Cls; v: number; daily: number[]; move: number | null };
 type RV = { error?: string; unit: string; code: string | null; name: string | null; n: number; from: string; to: string; dates: string[]; buy: RRow[]; sell: RRow[] };
-type BV = { error?: string; id: string; name: string; k: K; cls: Cls; from: string; to: string; n: number; buy: { c: string; n: string; lots: number; amt: number }[]; sell: { c: string; n: string; lots: number; amt: number }[] };
-type TV = { dates: string[]; rows: { c: string; n: string; id: string; b: string; k: K; cls: Cls; last10: number[]; sum5: number; sum20: number; streak: number; cost: number | null; close: number | null }[] };
+type BV = { error?: string; id: string; name: string; k: K; cls: Cls; from: string; to: string; n: number; buy: { c: string; n: string; lots: number; amt: number }[]; sell: { c: string; n: string; lots: number; amt: number }[];
+  score: { from: string; to: string; rows: { h: number; cnt: number; avg: number | null; win: number | null; steady: boolean }[] } | null };
 
-const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
-const sg = (v: number) => `${v > 0 ? "+" : ""}${num(v)}`;
-const KC: Record<K, string> = { f: "#5b9cf0", l: "#c8d65a" };
-const KN: Record<K, string> = { f: "外資", l: "本土" };
-const DT = "#f0a14a"; // 隔日沖（橘）
-const Dot = ({ k, c }: { k: K; c?: Cls }) => <span title={c === "dt" ? "隔日沖" : KN[k]} className="inline-block w-2 h-2 rounded-full mr-1.5 shrink-0" style={{ background: c === "dt" ? DT : KC[k] }} />;
-const CN: Record<Cls, string> = { rel: "可靠放長", long: "放長", dip: "跌時買", chase: "追漲", dt: "隔日沖", bad: "壞分點", none: "" };
-const STABLE: Cls[] = ["rel", "long", "dip"];
-/** 分點分類小標：安定籌碼偏金、浮動籌碼灰、隔日沖橘 */
-const CTag = ({ c }: { c?: Cls }) => (c && c !== "none" ? <span className="ml-1.5 text-[11px] shrink-0" style={{ color: c === "dt" ? DT : STABLE.includes(c) ? "var(--gold-2)" : "var(--text-2)" }}>{CN[c]}</span> : null);
-const CLS_HELP = "分點分類（用近 70 個交易日各股前 15 名資料，每晚重算）：隔日沖＝買進的張數裡隔天就賣掉 25% 以上；壞分點＝買進後 10 天平均跑輸大盤 1.5% 以上；追漲＝七成以上買在上漲日；跌時買＝不到四成買在上漲日；可靠放長＝隔天幾乎不賣（≤10%）而且 5 天內大多沒賣回；放長＝其他。可靠放長、放長、跌時買算「安定籌碼」，追漲、隔日沖、壞分點算「浮動籌碼」；事件太少的是「沒成績」。";
-const streakText = (s: number) => (s >= 2 ? `連買 ${s} 天` : s <= -2 ? `連賣 ${-s} 天` : "");
-
-// 追蹤清單（存在這台裝置）
-type Track = { c: string; id: string; b: string };
-const trackStore = localStore<Track[]>("namba.brokerTrack", () => []);
-const NO_TRACK: Track[] = [];
-function useTrack() {
-  const list = useSyncExternalStore(trackStore.subscribe, trackStore.read, () => NO_TRACK);
-  const has = (c: string, id: string) => list.some((t) => t.c === c && t.id === id);
-  return {
-    list, has,
-    toggle: (t: Track) => trackStore.write(has(t.c, t.id) ? list.filter((x) => !(x.c === t.c && x.id === t.id)) : [...list, t]),
-  };
-}
-
-const TABS = [["stock", "個股"], ["market", "全市場"], ["river", "河道"], ["track", "追蹤"], ["handoff", "換手"], ["tw50", "0050"], ["dt", "隔日沖"], ["rank", "排序"]] as const;
+const TABS = [["stock", "個股"], ["market", "全市場"], ["river", "河道"], ["handoff", "換手"], ["dt", "隔日沖"], ["score", "成績單"]] as const;
 type Tab = (typeof TABS)[number][0];
 
 export default function Page() {
@@ -67,17 +40,24 @@ export default function Page() {
 
 function Brokers() {
   const sp = useSearchParams();
-  const [tab, setTab] = useState<Tab>((TABS.find(([t]) => t === sp.get("tab"))?.[0]) ?? "stock");
+  const router = useRouter();
+  const old = sp.get("tab");
+  const [tab, setTab] = useState<Tab>(old === "tw50" ? "handoff" : (TABS.find(([t]) => t === old)?.[0]) ?? "stock");
+  // 舊網址：追蹤搬到自選股、排序搬到條件選股
+  const moved = old === "track" ? "/watchlist?g=track" : old === "rank" ? "/screener?sort=conc" : null;
+  useEffect(() => { if (moved) router.replace(moved); }, [moved, router]);
   const [code, setCode] = useState(sp.get("code") ?? "2330");
   const [broker, setBroker] = useState<{ id: string; n: string } | null>(null);
   useEffect(() => {
+    if (moved) return;
     // 分頁、股票寫進網址，重新整理或分享都會回到同一個畫面
     const u = new URL(location.href);
     u.searchParams.set("tab", tab);
     u.searchParams.set("code", code);
     history.replaceState(null, "", u);
-  }, [tab, code]);
+  }, [tab, code, moved]);
   const pick = (c: string) => { setCode(c); setTab("stock"); window.scrollTo({ top: 0 }); };
+  if (moved) return null;
   return (
     <div className="grid gap-4" id="brokers-area">
       <div className="flex flex-wrap items-center gap-3">
@@ -90,11 +70,9 @@ function Brokers() {
       {tab === "stock" && <StockTab code={code} onBroker={setBroker} />}
       {tab === "market" && <MarketTab onStock={pick} onBroker={setBroker} />}
       {tab === "river" && <RiverTab code={code} onBroker={setBroker} />}
-      {tab === "track" && <TrackTab code={code} onStock={pick} />}
-      {tab === "handoff" && <HandoffTab onStock={pick} />}
-      {tab === "tw50" && <Tw50Tab onStock={pick} />}
+      {tab === "handoff" && <HandoffTab onStock={pick} tw50={old === "tw50"} />}
       {tab === "dt" && <DtTab onStock={pick} onBroker={setBroker} />}
-      {tab === "rank" && <RankTab onStock={pick} />}
+      {tab === "score" && <ScoreTab onStock={pick} onBroker={setBroker} />}
       {broker && <BrokerPanel b={broker} onClose={() => setBroker(null)} onStock={(c) => { setBroker(null); pick(c); }} />}
     </div>
   );
@@ -198,7 +176,8 @@ function BrokerK({ d, onBroker }: { d: SV; onBroker: (b: { id: string; n: string
   return (
     <div className="card">
       <div className="card-h"><span>分點 K 線<Help>挑一家分點，看它近 {d.dates.length} 個交易日哪幾天買、哪幾天賣（下方長條，紅買綠賣），虛線是估算的買進／賣出均價（用每天收盤價估，當沖價差看不到）。分點依這段期間進出量排序。</Help></span>
-        <button className={`btn ${tracked ? "on" : ""}`} onClick={() => tr.toggle({ c: d.code, id: b.id, b: b.n })}>{tracked ? "★ 已追蹤" : "☆ 追蹤這組"}</button>
+        <span className="flex items-center gap-2">{tracked && <Link href="/watchlist?g=track" className="sub underline">在自選股看</Link>}
+          <button className={`btn ${tracked ? "on" : ""}`} onClick={() => tr.toggle({ c: d.code, id: b.id, b: b.n })}>{tracked ? "★ 已追蹤" : "☆ 追蹤這組"}</button></span>
       </div>
       <div className="px-4 flex flex-wrap gap-1.5">
         {shown.map((x) => (
@@ -421,54 +400,6 @@ function RiverTab({ code, onBroker }: { code: string; onBroker: (b: { id: string
   );
 }
 
-// ---------------- 追蹤 ----------------
-function TrackTab({ code, onStock }: { code: string; onStock: (c: string) => void }) {
-  const tr = useTrack();
-  const [c, setC] = useState(code);
-  const { data: sv } = usePoll<SV>(`/api/brokers?view=stock&code=${c}&days=5`);
-  const items = useMemo(() => tr.list.map((t) => `${t.c}:${t.id}`).join(","), [tr.list]);
-  const { data } = usePoll<TV>(items ? `/api/brokers?view=track&items=${items}` : null);
-  return (
-    <div className="grid gap-4">
-      <div className="card px-4 py-3 grid gap-2">
-        <div className="flex flex-wrap items-center gap-3"><span className="font-semibold">新增追蹤</span><span className="sub">選一檔股票，再點分點就加入（也可以在「個股」的分點 K 線按「追蹤這組」）</span></div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StockPicker className="w-[240px]" keep placeholder={`股票：${c}`} onPick={setC} />
-          {sv?.error && <span className="sub">{sv.error}</span>}
-          {sv && !sv.error && sv.brokers.slice(0, 16).map((b) => (
-            <button key={b.id} className={`btn !py-0.5 !px-2.5 ${tr.has(sv.code, b.id) ? "on" : ""}`} onClick={() => tr.toggle({ c: sv.code, id: b.id, b: b.n })}>{tr.has(sv.code, b.id) ? "★" : "+"} {b.n}</button>
-          ))}
-        </div>
-      </div>
-      <div className="card">
-        <div className="card-h"><span>我的追蹤 <span className="sub">{tr.list.length} 組 · 存在這台裝置</span></span></div>
-        {!tr.list.length ? <div className="sub py-10 text-center">還沒有追蹤任何「股票＋分點」。之後每天在這裡看它買了幾張、連買幾天，不用一檔一檔查。</div> : !data ? <div className="sub py-10 text-center loading">載入中…</div> : (
-          <div className="scroll-x px-2 pb-3">
-            <table className="tbl text-[13px]">
-              <thead><tr><th>股票</th><th style={{ textAlign: "left" }}>分點</th><th style={{ textAlign: "left" }}>近 10 日（{md(data.dates[0])}–{md(data.dates.at(-1)!)}）</th><th>今天</th><th>近 5 日</th><th>近 20 日</th><th>狀態</th><th>估算成本</th><th /></tr></thead>
-              <tbody>{data.rows.map((r) => {
-                const max = Math.max(1, ...r.last10.map(Math.abs));
-                return (
-                  <tr key={r.c + r.id} className="click" onClick={() => onStock(r.c)}>
-                    <td>{r.n} <span className="mono sub">{r.c}</span></td>
-                    <td style={{ textAlign: "left" }}><span className="flex items-center"><Dot k={r.k} c={r.cls} />{r.b}</span></td>
-                    <td><div className="flex items-center gap-[3px] h-6 min-w-[150px]">{r.last10.map((v, i) => <span key={i} title={`${md(data.dates[i])} ${sg(v)} 張`} className="flex-1 flex flex-col justify-center h-full"><span className="rounded-[2px] mx-auto w-full" style={{ height: `${Math.max(2, (Math.abs(v) / max) * 100)}%`, background: v > 0 ? "var(--up)" : v < 0 ? "var(--down)" : "#333840" }} /></span>)}</div></td>
-                    <td className={`mono ${cls(r.last10.at(-1) ?? 0)}`}>{sg(r.last10.at(-1) ?? 0)}</td>
-                    <td className={`mono ${cls(r.sum5)}`}>{sg(r.sum5)}</td><td className={`mono ${cls(r.sum20)}`}>{sg(r.sum20)}</td>
-                    <td className="sub">{streakText(r.streak) || "—"}</td>
-                    <td className="mono">{r.cost && r.close ? <>{price(r.cost)} <span className={cls(r.close - r.cost)}>{(((r.close - r.cost) / r.cost) * 100).toFixed(1)}%</span></> : "—"}</td>
-                    <td><button aria-label="取消追蹤" className="sub hover:text-text px-1" onClick={(e) => { e.stopPropagation(); tr.toggle({ c: r.c, id: r.id, b: r.b }); }}>✕</button></td>
-                  </tr>
-                );
-              })}</tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ---------------- 分點買了什麼（浮出面板） ----------------
 function BrokerPanel({ b, onClose, onStock }: { b: { id: string; n: string }; onClose: () => void; onStock: (c: string) => void }) {
   const [n, setN] = useState(1);
@@ -495,7 +426,15 @@ function BrokerPanel({ b, onClose, onStock }: { b: { id: string; n: string }; on
           </div>
         </div>
         {!data ? <div className="sub py-10 text-center loading">載入中…</div> : data.error ? <div className="sub py-10 text-center">{data.error}</div> : (
-          <div className="grid gap-4 md:grid-cols-2 px-2 pb-3">{list(data.buy, "buy")}{list(data.sell, "sell")}</div>
+          <>
+            {data.score && (
+              <div className="px-4 pb-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px]">
+                <span className="sub inline-flex items-center">跟單成績<Help>{SCORE_HELP}</Help></span>
+                {data.score.rows.map((r) => <span key={r.h}>{r.h} 天 {r.avg == null ? <span className="sub">—</span> : <><span className={`mono ${cls(r.avg)}`}>{r.avg > 0 ? "+" : ""}{r.avg.toFixed(2)}%</span> <span className="sub">勝率 {r.win}%・{num(r.cnt)} 次</span></>}</span>)}
+              </div>
+            )}
+            <div className="grid gap-4 md:grid-cols-2 px-2 pb-3">{list(data.buy, "buy")}{list(data.sell, "sell")}</div>
+          </>
         )}
         <div className="sub px-4 pb-3">只算得到這家分點有進各股前 15 名的日子；點一列看那檔股票的分點。</div>
       </div>
@@ -529,7 +468,12 @@ function HandoffCard({ h }: { h: Handoff }) {
   );
 }
 type HRow = { c: string; n: string; score: number; amt: number; sb: number; ss: number; fb: number; fs: number; lead: string | null; d20: number };
-function HandoffTab({ onStock }: { onStock: (c: string) => void }) {
+function HandoffTab({ onStock, tw50 }: { onStock: (c: string) => void; tw50?: boolean }) {
+  const [scope, setScope] = useState<"all" | "tw50">(tw50 ? "tw50" : "all");
+  const seg = <div className="seg">{([["all", "全市場"], ["tw50", "0050 成分股"]] as const).map(([id, l]) => <button key={id} className={scope === id ? "on" : ""} onClick={() => setScope(id)}>{l}</button>)}</div>;
+  return scope === "all" ? <HandoffAll onStock={onStock} seg={seg} /> : <Tw50Tab onStock={onStock} seg={seg} />;
+}
+function HandoffAll({ onStock, seg }: { onStock: (c: string) => void; seg: ReactNode }) {
   const { data } = usePoll<{ error?: string; date: string; from: string; stable: HRow[]; float: HRow[] }>("/api/brokers?view=handoff");
   if (!data) return <div className="sub py-20 text-center loading">分點資料載入中…</div>;
   if (data.error) return <div className="card sub py-16 text-center">{data.error}</div>;
@@ -555,7 +499,7 @@ function HandoffTab({ onStock }: { onStock: (c: string) => void }) {
   );
   return (
     <div className="grid gap-4">
-      <div className="card px-4 py-3 text-[13px] flex items-center gap-1">籌碼在往誰的手上走<Help>{HANDOFF_HELP} 只看近 20 日平均每天成交 1 億以上、這週雙方進出 1 億以上的股票。</Help><span className="sub ml-2">分點怎麼分類</span><Help>{CLS_HELP}</Help></div>
+      <div className="card px-4 py-3 text-[13px] flex flex-wrap items-center gap-1">{seg}<span className="ml-2">籌碼在往誰的手上走</span><Help>{HANDOFF_HELP} 只看近 20 日平均每天成交 1 億以上、這週雙方進出 1 億以上的股票。</Help><span className="sub ml-2">分點怎麼分類</span><Help>{CLS_HELP}</Help></div>
       <div className="grid gap-4 xl:grid-cols-2">
         {table(data.stable, "籌碼變安定", "放長的在接、短線的在出", true)}
         {table(data.float, "籌碼變浮動", "短線的在接、放長的在出", false)}
@@ -568,7 +512,7 @@ function HandoffTab({ onStock }: { onStock: (c: string) => void }) {
 type WRow = { c: string; n: string; score: number; sNet: number; fNet: number; grp: "long" | "both" | "short" | "out"; streak: number };
 type WV = { error?: string; date: string; from: string; dates: string[]; total: { sNet: number; fNet: number; score: number; label: string }; missing: string[]; rows: WRow[] };
 const GRP = [["long", "長線接手", "安定籌碼淨買、浮動籌碼淨賣"], ["both", "一起買", "安定、浮動籌碼都淨買"], ["short", "短線接手", "浮動籌碼淨買、安定籌碼淨賣"], ["out", "一起賣", "安定、浮動籌碼都淨賣"]] as const;
-function Tw50Tab({ onStock }: { onStock: (c: string) => void }) {
+function Tw50Tab({ onStock, seg }: { onStock: (c: string) => void; seg: ReactNode }) {
   const { data: scan } = useScan(0);
   const codes = useMemo(() => (scan ? top50(scan.rows).map((r) => r.c).join(",") : ""), [scan]);
   const [to, setTo] = useState<string | null>(null);
@@ -589,7 +533,7 @@ function Tw50Tab({ onStock }: { onStock: (c: string) => void }) {
     <div className="grid gap-4">
       <div className="card px-4 py-3 grid gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="font-semibold">0050 成分股：籌碼在往誰的手上走</span><span className="sub">{md(data.from)}–{md(data.date)} · 近 5 日</span>
+          {seg}<span className="font-semibold">0050 成分股：籌碼在往誰的手上走</span><span className="sub">{md(data.from)}–{md(data.date)} · 近 5 日</span>
           <Help>把每一檔每天買賣超前 15 名的分點分成安定籌碼（可靠放長、放長、跌時買）和浮動籌碼（追漲、隔日沖、壞分點），加總近 5 日，看兩邊各自淨買還是淨賣：安定買、浮動賣＝長線接手；反過來＝短線接手。按回放看這段期間怎麼輪動。0050 成分股用上市市值前 50 大。</Help>
         </div>
         <div className="flex flex-wrap gap-6 text-[13px]">
@@ -711,50 +655,79 @@ function DtTab({ onStock, onBroker }: { onStock: (c: string) => void; onBroker: 
   );
 }
 
-// ---------------- 排序 ----------------
-type RkRow = { c: string; n: string; pctile: number; conc: number; sellers: { n: string; cls: string; pct: number }[]; tags: string[] };
-function RankTab({ onStock }: { onStock: (c: string) => void }) {
-  const { data: scan } = useScan(0);
-  const g = useGroups();
-  const [list, setList] = useState("b-0050");
-  const [paste, setPaste] = useState("");
-  const codes = useMemo(() => {
-    if (list === "paste") return [...new Set(paste.match(/\b\d{4}\b/g) ?? [])];
-    if (!scan) return [];
-    if (list === "b-0050") return top50(scan.rows).map((r) => r.c);
-    if (list === "b-ath") return athRows(scan.rows).map((r) => r.c);
-    if (list === "b-d20") return d20Rows(scan.rows).map((r) => r.c);
-    return g.groups.find((x) => x.id === list)?.codes ?? [];
-  }, [list, paste, scan, g.groups]);
-  const { data } = usePoll<{ error?: string; date: string; rows: RkRow[]; skip: RkRow[]; none: string[] }>(codes.length ? `/api/brokers?view=rank&codes=${codes.join(",")}` : null);
-  const LISTS: [string, string][] = [["b-0050", "0050 權值股"], ["b-ath", "創歷史新高"], ["b-d20", "近20日漲超20%"], ...g.groups.map((x): [string, string] => [x.id, x.name]), ["paste", "貼上代號"]];
-  const row = (r: RkRow, i: number | null) => (
-    <tr key={r.c} className="click" onClick={() => onStock(r.c)}>
-      <td className="sub">{i == null ? "—" : i + 1}</td>
-      <td style={{ textAlign: "left" }}>{r.n} <span className="mono sub">{r.c}</span></td>
-      <td>{i == null ? <span className="sub">不排序</span> : <div className="flex items-center gap-2 justify-end"><div className="w-24 h-1.5 rounded bg-panel-2"><div className="h-full rounded bg-[var(--gold)]" style={{ width: `${r.pctile}%` }} /></div><span className="mono w-6">{r.pctile}</span></div>}</td>
-      <td style={{ textAlign: "left", whiteSpace: "normal" }}>{r.sellers.map((x) => <span key={x.n} className="mr-3 inline-block">{x.n}<span className="mono down ml-1">{x.pct.toFixed(1)}%</span></span>)}</td>
-      <td className="mono">{r.conc.toFixed(1)}%</td>
-      <td>{r.tags.map((t) => <span key={t} className="chip ml-1 !bg-panel-2 !text-text-2">{t}</span>)}</td>
-    </tr>
-  );
+// ---------------- 成績單 ----------------
+const SCORE_HELP = "訊號＝這家分點某天在某檔淨買 500 萬以上。跟單報酬＝隔天開盤買進，持有 N 天到收盤，扣掉同一段期間全市場平均（也是隔天開盤買），所以 +1% 代表比隨便買一檔多賺 1%。勝率＝超額報酬大於 0 的次數比例。資料只有近 3 個月左右、只看得到各檔前 15 名，不含手續費，過去成績不保證以後。";
+type SRow = { id: string; n: string; k: K; cls: Cls; cnt: number; amt: number; avg: number; win: number; score: number; a1: number | null; a2: number | null; steady: boolean };
+type ScV = {
+  error?: string; date: string; from: string; to: string; mid: string; h: number; minN: number; total: number; good: SRow[]; bad: SRow[];
+  today: { c: string; n: string; chg: number; id: string; b: string; k: K; lots: number; amt: number; avg: number; win: number; cnt: number }[];
+};
+function ScoreTab({ onStock, onBroker }: { onStock: (c: string) => void; onBroker: (b: { id: string; n: string }) => void }) {
+  const [h, setH] = useState(5);
+  const [minN, setMinN] = useState(20);
+  const [side, setSide] = useState<"good" | "bad" | "today">("good");
+  const [kind, setKind] = useState<"all" | K>("all");
+  const [steady, setSteady] = useState(true);
+  const { data } = usePoll<ScV>(`/api/brokers?view=score&h=${h}&min=${minN}`);
+  if (!data) return <div className="sub py-20 text-center loading">成績計算中…</div>;
+  if (data.error) return <div className="card sub py-16 text-center">{data.error}</div>;
+  const pc = (v: number | null) => (v == null ? <span className="sub">—</span> : <span className={`mono ${cls(v)}`}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>);
+  const rows = (side === "good" ? data.good : data.bad).filter((r) => (kind === "all" || r.k === kind) && (!steady || r.steady));
+  const desc = side === "good" ? "跟著買，之後平均跑贏大盤最多的分點（次數少的會往後排）"
+    : side === "bad" ? "跟著買，之後平均跑輸大盤最多的分點：它買的時候反而要小心"
+    : `${md(data.date)} 收盤：成績前 30 名、前後一致的分點今天各買了什麼（每筆 500 萬以上）`;
   return (
-    <div className="card">
-      <div className="card-h" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
-        <span>收盤後的排序<Help>在你的清單裡，依「賣方集中度百分位」排先後：前五大賣家合計佔當天成交量，扣掉規模、漲跌、波動、位置、量能等 11 個價量因素後，在全市場同一天的百分位（越高＝賣方越集中，常是大戶在出）。短線漲多（近 5 日漲 10% 以上或近 20 日漲 25% 以上）的不排序；高波動（近 20 日波動在全市場前 25%）只提醒。只幫你排先後，不是買進建議。</Help></span>
-        <div className="seg flex-wrap">{LISTS.map(([id, l]) => <button key={id} className={list === id ? "on" : ""} onClick={() => setList(id)}>{l}</button>)}</div>
-        {data && !data.error && <span className="sub">{md(data.date)} · 排了 {data.rows.length} 檔 · {data.skip.length} 檔不排{data.none.length ? ` · ${data.none.length} 檔沒有分點資料` : ""}</span>}
-      </div>
-      {list === "paste" && <div className="px-4 pb-3"><textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="貼上股票代號，空白、逗號或換行分隔，例如：2330 2317 2454" className="w-full h-20 bg-panel-2 border border-line rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--gold)]" /></div>}
-      {!codes.length ? <div className="sub py-10 text-center">{list === "paste" ? "貼上代號後就會排序" : scan ? "這個清單是空的" : "清單載入中…"}</div> : !data ? <div className="sub py-10 text-center loading">排序中…</div> : data.error ? <div className="sub py-10 text-center">{data.error}</div> : (
-        <div className="scroll-x px-2 pb-3">
-          <table className="tbl text-[13px]">
-            <thead><tr><th>名次</th><th style={{ textAlign: "left" }}>股票</th><th>賣方集中度百分位</th><th style={{ textAlign: "left" }}>前五大賣家（佔成交量）</th><th>合計</th><th>提醒</th></tr></thead>
-            <tbody>{data.rows.map((r, i) => row(r, i))}{data.skip.map((r) => row(r, null))}</tbody>
-          </table>
-          {data.none.length > 0 && <div className="sub px-2 pt-2">沒有分點資料（成交值太小或不是股票）：{data.none.join("、")}</div>}
+    <div className="grid gap-4">
+      <div className="card px-4 py-3 grid gap-2 text-[13px]">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-semibold text-[14px]">分點訊號成績單<Help>{SCORE_HELP}</Help></span>
+          <span className="sub">訊號日 {md(data.from)}–{md(data.to)}（持有 {h} 天的，最近 {h} 天的訊號還算不出來）· 前半段到 {md(data.mid)}</span>
         </div>
-      )}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="seg">{([["good", "跟買會賺"], ["bad", "跟買會賠"], ["today", `今天的訊號 ${data.today.length}`]] as const).map(([id, l]) => <button key={id} className={side === id ? "on" : ""} onClick={() => setSide(id)}>{l}</button>)}</div>
+          <span className="sub ml-2">持有</span>
+          <div className="seg">{[1, 5, 10, 20].map((d) => <button key={d} className={h === d ? "on" : ""} onClick={() => setH(d)}>{d} 天</button>)}</div>
+          {side !== "today" && <>
+            <span className="sub ml-2">至少</span>
+            <div className="seg">{[10, 20, 50].map((n) => <button key={n} className={minN === n ? "on" : ""} onClick={() => setMinN(n)}>{n} 次</button>)}</div>
+            <div className="seg">{([["all", "全部"], ["f", "外資"], ["l", "本土"]] as const).map(([id, l]) => <button key={id} className={kind === id ? "on" : ""} onClick={() => setKind(id)}>{l}</button>)}</div>
+            <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={steady} onChange={(e) => setSteady(e.target.checked)} className="accent-[var(--gold)]" />只看前後一致<Help>把期間切成前後兩半，兩半的平均超額報酬同方向（都賺或都賠）才算一致；只在某一段特別好的，比較可能是運氣。</Help></label>
+          </>}
+        </div>
+        <div className="sub">{desc}</div>
+      </div>
+      <div className="card">
+        <div className="scroll-x px-2 py-3">
+          {side === "today" ? (!data.today.length ? <div className="sub py-10 text-center">今天沒有符合的訊號</div> : (
+            <table className="tbl text-[13px]">
+              <thead><tr><th style={{ textAlign: "left" }}>股票</th><th>今天漲跌</th><th style={{ textAlign: "left" }}>分點</th><th>買超（張）</th><th>金額（億）</th><th>{h} 天平均超額</th><th>勝率</th><th>次數</th></tr></thead>
+              <tbody>{data.today.map((r) => (
+                <tr key={r.c + r.id} className="click" onClick={() => onStock(r.c)}>
+                  <td style={{ textAlign: "left" }}>{r.n} <span className="mono sub">{r.c}</span></td>
+                  <td className={`mono ${cls(r.chg)}`}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(1)}%</td>
+                  <td style={{ textAlign: "left" }}><button className="flex items-center hover:underline" onClick={(e) => { e.stopPropagation(); onBroker({ id: r.id, n: r.b }); }}><Dot k={r.k} />{r.b}</button></td>
+                  <td className="mono up">{num(r.lots)}</td><td className="mono">{r.amt.toFixed(2)}</td>
+                  <td>{pc(r.avg)}</td><td className="mono">{r.win}%</td><td className="mono sub">{num(r.cnt)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          )) : !rows.length ? <div className="sub py-10 text-center">沒有符合的分點，放寬條件看看</div> : (
+            <table className="tbl text-[13px]">
+              <thead><tr><th>#</th><th style={{ textAlign: "left" }}>分點</th><th>次數</th><th>{h} 天平均超額</th><th>勝率</th><th>前半段</th><th>後半段</th><th>買進金額（億）</th></tr></thead>
+              <tbody>{rows.map((r, i) => (
+                <tr key={r.id} className="click" onClick={() => onBroker(r)}>
+                  <td className="sub">{i + 1}</td>
+                  <td style={{ textAlign: "left" }}><span className="flex items-center"><Dot k={r.k} c={r.cls} />{r.n}<CTag c={r.cls} /></span></td>
+                  <td className="mono">{num(r.cnt)}</td><td>{pc(r.avg)}</td>
+                  <td><div className="flex items-center gap-2 justify-end"><div className="w-14 h-1.5 rounded bg-panel-2"><div className="h-full rounded" style={{ width: `${r.win}%`, background: r.win >= 50 ? "var(--up)" : "var(--down)" }} /></div><span className="mono w-9">{r.win}%</span></div></td>
+                  <td>{pc(r.a1)}</td><td>{pc(r.a2)}</td><td className="mono">{num(r.amt, 1)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          )}
+        </div>
+        <div className="sub px-4 pb-3">共 {num(data.total)} 家分點有 {minN} 次以上訊號 · 點分點看它最近買了什麼 · 只是統計描述，不是買賣建議</div>
+      </div>
     </div>
   );
 }
