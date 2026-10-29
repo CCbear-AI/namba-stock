@@ -27,6 +27,24 @@ async function loadSubs() {
 
 const seen = new Map<string, Set<string>>(); // 每台裝置已推過的（這個程序跑一天，記在記憶體就好）
 
+/** 不用判斷條件的通知（例如分點晚報）：推給有開這類提醒的每台裝置 */
+export async function pushKind(kind: Rule["kind"], msg: { title: string; body: string; url: string; tag: string }) {
+  if (!pushReady) return 0;
+  let sent = 0;
+  for (const s of await loadSubs()) {
+    if (!(s.rules ?? []).some((r) => r.on && r.kind === kind)) continue;
+    try {
+      await webpush.sendNotification(s.sub, JSON.stringify(msg), { TTL: 12 * 3600 });
+      sent++;
+    } catch (e) {
+      const code = (e as { statusCode?: number }).statusCode;
+      if (code === 404 || code === 410) { await sb(`push_subs?device=eq.${encodeURIComponent(s.device)}`, { method: "DELETE" }); subs.at = 0; continue; }
+      console.error("推播失敗", code, (e as Error).message);
+    }
+  }
+  return sent;
+}
+
 /** kinds：這次要檢查哪些類型（盤中不檢查法人買超，盤後只檢查法人買超） */
 export async function checkAndPush(rows: ScanRow[], day: string, kinds: (k: Rule["kind"]) => boolean) {
   if (!pushReady) return 0;

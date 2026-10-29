@@ -19,6 +19,7 @@
     "volcurve": "tsx scripts/volcurve.ts",
     "tdcc-backfill": "tsx scripts/tdcc-backfill.ts",
     "ai-summary": "tsx scripts/ai-summary.ts",
+    "broker-report": "tsx scripts/broker-report.ts",
     "brokers": "tsx scripts/brokers.ts",
     "broker-class": "tsx scripts/broker-class.ts"
   },

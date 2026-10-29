@@ -1,4 +1,4 @@
-# 每個交易日 16:30（台灣時間）更新盤後資料、22:00 再補融資融券：全市場日 K、法人籌碼、融資券、期貨選擇權、類股指數、歷史高低、量能曲線、分點進出、盤後 AI 摘要
+# 每個交易日 16:30（台灣時間）更新盤後資料、22:00 再補融資融券：全市場日 K、法人籌碼、融資券、期貨選擇權、類股指數、歷史高低、量能曲線、分點進出、盤後 AI 摘要、分點晚報
 # 週六早上另外跑一次抓集保股權分散（每週五晚上公布）
 name: daily-data
 
@@ -61,6 +61,17 @@ jobs:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
           IAI_MODEL: ${{ vars.IAI_MODEL }}
         run: npm run ai-summary
+      - name: 分點晚報
+        # 分點資料是最新交易日才寫（通常 22:00 那次），寫好推播給有開「分點晚報」提醒的裝置；同一天只寫一次
+        if: github.event.schedule != '0 1 * * 6'
+        continue-on-error: true
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+          IAI_MODEL: ${{ vars.IAI_MODEL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: npm run broker-report
       - name: 存檔
         id: save
         run: |

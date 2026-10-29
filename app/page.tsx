@@ -28,6 +28,7 @@ export default function Home() {
   const { data: ch } = usePoll<Chips>("/api/chips");
   const { data: ev } = usePoll<{ events: FlowEvent[]; today: boolean }>("/api/events", 30_000);
   const { data: sum } = usePoll<Summary & { error?: string }>("/api/summary", 10 * 60_000);
+  const { data: rep } = usePoll<Summary & { error?: string }>("/api/summary?kind=report", 10 * 60_000);
   const wl = useWatchlist();
   const [idx, setIdx] = useState<"t00" | "o00">("t00");
   const [adding, setAdding] = useState(false);
@@ -113,6 +114,7 @@ export default function Home() {
       </div>
     ) },
     summary: { span: "md:col-span-12", node: (
+      <div className="grid gap-4 lg:grid-cols-2">
       <div className="card">
         <div className="card-h">盤後重點<span className="sub mr-auto">{sum?.date && `${md(sum.date)} · `}每個交易日台灣 16:30 更新</span>
           <Help align="right">收盤後由 AI 依當天數字（大盤、漲跌家數、族群、法人、期貨、國際行情）整理的重點。每個交易日台灣 16:30 開始整理，通常 17:00 前更新完成。數字都是程式算的，AI 只負責寫成白話；不構成買賣建議。</Help>
@@ -126,6 +128,23 @@ export default function Home() {
             </>
           ) : <div className="sub py-2">{sum?.error ?? "載入中…"}（每個交易日 16:30 後更新）</div>}
         </div>
+      </div>
+      <div className="card" id="report">
+        <div className="card-h">分點晚報<span className="sub mr-auto">{rep?.date && `${md(rep.date)} · `}每個交易日晚上 22:00 後更新</span>
+          <Link href="/alerts" className="text-[13px] text-[var(--gold)] mr-1">推播到手機</Link>
+          <Help align="right">券商分點資料（各檔買賣超前 15 名分點）晚上才齊，每個交易日 22:00 後由 AI 整理：成績好的分點買了什麼、隔日沖大買（隔天可能賣壓）、大額或突然大買、這週籌碼換手。數字都是程式算的，AI 只負責寫成白話；不構成買賣建議。想收到通知，到「提醒」建立「分點晚報」並開啟背景推播。</Help>
+        </div>
+        <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
+          {rep && !rep.error ? (
+            <>
+              <div className="font-semibold text-[15px] mb-1.5"><Highlight text={rep.headline} /></div>
+              <ul className="list-disc pl-5 space-y-0.5">{rep.points.map((p, i) => <li key={i}><Highlight text={p} /></li>)}</ul>
+              {rep.watch && <div className="mt-2 text-text-2"><span className="text-[var(--gold-2)]">明日留意</span>　<Highlight text={rep.watch} /></div>}
+              <div className="mt-2"><Link href="/brokers?tab=score" className="text-[13px] text-[var(--gold)]">看分點成績單 →</Link></div>
+            </>
+          ) : <div className="sub py-2">{rep?.error ?? "載入中…"}（每個交易日 22:00 後更新）</div>}
+        </div>
+      </div>
       </div>
     ) },
     gainers: { span: "md:col-span-6 lg:col-span-3", node: <Rank title="漲幅排行" rows={gainers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} /> },
