@@ -181,7 +181,7 @@ export function marketView(date?: string) {
     bigBuy: pairs.filter((p) => p.lots > 0).sort((a, b) => b.amt - a.amt).slice(0, 30),
     bigSell: pairs.filter((p) => p.lots < 0).sort((a, b) => a.amt - b.amt).slice(0, 30),
     // 突然大買：一家分點買超 ≥ 當天成交量 15%，而且前 5 天都沒買這檔
-    sudden: pairs.filter((p) => p.lots > 0 && p.pct >= 15 && p.prev === 0 && prev5.length).sort((a, b) => b.amt - a.amt),
+    sudden: pairs.filter((p) => p.lots > 0 && p.pct >= 15 && p.prev === 0 && prev5.length).sort((a, b) => b.pct - a.pct),
   };
 }
 
