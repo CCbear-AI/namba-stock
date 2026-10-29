@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { getDaily } from "./history";
 import { fetchZco, fetchZco0, type Zco } from "./fubon";
+import { clsOf, type Cls } from "./brokerCls";
 import universe from "@/data/universe.json";
 
 const DIR = path.join(process.cwd(), "data", "brokers");
@@ -79,7 +80,7 @@ const costOf = (net: number[], px: number[]) => {
 
 /** 期間買超／賣超前 15、合計、佔成交量、前五合計 */
 function periodTable(rows: [string, number, number][], vol: number, nm: (id: string) => string, names: Map<string, string>) {
-  const agg = rows.map(([id, b, se]) => ({ id, n: nm(id), k: kindOf(names.get(id) ?? ""), buy: b, sell: se, net: b - se, pct: vol ? r2(((b - se) / vol) * 100) : 0 }));
+  const agg = rows.map(([id, b, se]) => ({ id, n: nm(id), k: kindOf(names.get(id) ?? ""), cls: clsOf(id), buy: b, sell: se, net: b - se, pct: vol ? r2(((b - se) / vol) * 100) : 0 }));
   const buy = agg.filter((x) => x.net > 0).sort((a, b) => b.net - a.net).slice(0, 15);
   const sell = agg.filter((x) => x.net < 0).sort((a, b) => a.net - b.net).slice(0, 15);
   const buySum = buy.reduce((a, x) => a + x.net, 0), sellSum = -sell.reduce((a, x) => a + x.net, 0);
@@ -156,7 +157,7 @@ export function stockView(code: string, n: 1 | 5 | 20) {
     const net = x.b.map((b, i) => b - x.s[i]);
     const wavg = (a: number[]) => { let p = 0, w = 0; a.forEach((v, i) => { if (v > 0 && close[i] > 0) { p += v * close[i]; w += v; } }); return w ? r2(p / w) : null; };
     const g = x.b.slice(-R).reduce((p, q) => p + q, 0) + x.s.slice(-R).reduce((p, q) => p + q, 0);
-    return { g, v: { id, n: nm(id), k: kindOf(names.get(id) ?? ""), net, sum: net.reduce((p, q) => p + q, 0), buyAvg: wavg(x.b), sellAvg: wavg(x.s), streak: streakOf(net), rangeNet: net.slice(-R).reduce((p, q) => p + q, 0) } };
+    return { g, v: { id, n: nm(id), k: kindOf(names.get(id) ?? ""), cls: clsOf(id), net, sum: net.reduce((p, q) => p + q, 0), buyAvg: wavg(x.b), sellAvg: wavg(x.s), streak: streakOf(net), rangeNet: net.slice(-R).reduce((p, q) => p + q, 0) } };
   }).sort((a, b) => b.g - a.g).slice(0, 30).map((x) => x.v);
 
   // 熱力圖：近 20 日進出最大的 16 家
@@ -165,7 +166,7 @@ export function stockView(code: string, n: 1 | 5 | 20) {
     const net = x.b.slice(-H).map((b, i) => b - x.s.slice(-H)[i]);
     const sum = net.reduce((p, q) => p + q, 0);
     const cost = sum > 0 ? costOf(net, close.slice(-H)) : null; // 整段淨賣的分點不算成本
-    return { id, n: nm(id), k: kindOf(names.get(id) ?? ""), net, sum, cost, buyDays: net.filter((v) => v > 0).length, streak: streakOf(net) };
+    return { id, n: nm(id), k: kindOf(names.get(id) ?? ""), cls: clsOf(id), net, sum, cost, buyDays: net.filter((v) => v > 0).length, streak: streakOf(net) };
   }).sort((a, b) => Math.abs(b.sum) - Math.abs(a.sum)).slice(0, 16);
 
   // 當天賣方集中度：前五大賣家佔成交量 %，跟全市場同一天比百分位（第一期不扣價量因素）
@@ -206,7 +207,7 @@ export function marketView(date?: string) {
   const { dates, s } = getDaily();
   const ix = dates.indexOf(day.date);
   const nm = (id: string) => shortName(names.get(id) ?? id);
-  type P = { c: string; n: string; id: string; b: string; k: "f" | "l"; lots: number; pct: number; amt: number; chg: number; prev: number };
+  type P = { c: string; n: string; id: string; b: string; k: "f" | "l"; cls: Cls; lots: number; pct: number; amt: number; chg: number; prev: number };
   const pairs: P[] = [];
   const hot: { c: string; n: string; val: number; chg: number; top: { n: string; lots: number } | null; bot: { n: string; lots: number } | null }[] = [];
   for (const [c, x] of day.s) {
@@ -218,7 +219,7 @@ export function marketView(date?: string) {
     for (const { id, net } of nets) {
       if (!net) continue;
       const prev = prev5.filter((d) => d.s.get(c)?.rows.some(([i2, b, sl]) => i2 === id && Math.sign(b - sl) === Math.sign(net))).length;
-      pairs.push({ c, n: NAME.get(c) ?? c, id, b: nm(id), k: kindOf(names.get(id) ?? ""), lots: net, pct: x.vol ? r2((Math.abs(net) / x.vol) * 100) : 0, amt: r2(yiOf(net, cl)), chg, prev });
+      pairs.push({ c, n: NAME.get(c) ?? c, id, b: nm(id), k: kindOf(names.get(id) ?? ""), cls: clsOf(id), lots: net, pct: x.vol ? r2((Math.abs(net) / x.vol) * 100) : 0, amt: r2(yiOf(net, cl)), chg, prev });
     }
     const top = nets.reduce((a, y) => (y.net > (a?.net ?? 0) ? y : a), null as { id: string; net: number } | null);
     const bot = nets.reduce((a, y) => (y.net < (a?.net ?? 0) ? y : a), null as { id: string; net: number } | null);
@@ -273,7 +274,7 @@ export function riverView(n: number, code?: string, to?: string) {
   const rc = rank(cur.m), rp = prev ? rank(prev.m) : null;
   const row = ([id, v]: [string, number]) => {
     const r = rc.get(id)!, p = rp?.get(id);
-    return { id, n: shortName(names.get(id) ?? id), k: kindOf(names.get(id) ?? ""), v: r2(v), daily: cur.daily.get(id)!.map(r2), move: p && Math.sign(p) === Math.sign(r) ? Math.abs(p) - Math.abs(r) : null };
+    return { id, n: shortName(names.get(id) ?? id), k: kindOf(names.get(id) ?? ""), cls: clsOf(id), v: r2(v), daily: cur.daily.get(id)!.map(r2), move: p && Math.sign(p) === Math.sign(r) ? Math.abs(p) - Math.abs(r) : null };
   };
   const all = [...cur.m].sort((a, b) => b[1] - a[1]);
   return {
@@ -301,7 +302,7 @@ export function brokerView(id: string, n: number) {
   }
   const rows = [...m].map(([c, y]) => ({ c, n: NAME.get(c) ?? c, lots: y.lots, amt: r2(y.amt) }));
   return {
-    id, name: shortName(names.get(id) ?? id), k: kindOf(names.get(id) ?? ""), from: w[0].date, to: w.at(-1)!.date, n: w.length,
+    id, name: shortName(names.get(id) ?? id), k: kindOf(names.get(id) ?? ""), cls: clsOf(id), from: w[0].date, to: w.at(-1)!.date, n: w.length,
     buy: rows.filter((r) => r.lots > 0).sort((a, b) => b.amt - a.amt).slice(0, 20),
     sell: rows.filter((r) => r.lots < 0).sort((a, b) => a.amt - b.amt).slice(0, 20),
   };
@@ -319,7 +320,7 @@ export function trackView(items: { c: string; id: string }[]) {
       const px = closeOf(c);
       const close = w.map((d) => px(d.date));
       return {
-        c, n: NAME.get(c) ?? c, id, b: shortName(names.get(id) ?? id), k: kindOf(names.get(id) ?? ""),
+        c, n: NAME.get(c) ?? c, id, b: shortName(names.get(id) ?? id), k: kindOf(names.get(id) ?? ""), cls: clsOf(id),
         last10: net.slice(-10), sum5: net.slice(-5).reduce((a, v) => a + v, 0), sum20: net.slice(-20).reduce((a, v) => a + v, 0),
         streak: streakOf(net), cost: costOf(net.slice(-20), close.slice(-20)), close: close.at(-1) ?? null,
       };

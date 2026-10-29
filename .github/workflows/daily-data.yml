@@ -41,7 +41,9 @@ jobs:
         # 補最近 5 個交易日裡還沒有的（16:30 富邦還沒更新的話，22:00 那次會補上）
         if: github.event.schedule != '0 1 * * 6'
         continue-on-error: true
-        run: npm run brokers -- --backfill 5
+        run: |
+          npm run brokers -- --backfill 5
+          npm run broker-class
       - name: 集保股權分散
         run: npm run tdcc
       - name: 法人買超提醒推播
