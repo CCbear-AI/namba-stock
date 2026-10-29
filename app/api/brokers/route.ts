@@ -7,7 +7,8 @@ export async function GET(req: Request) {
   const view = sp.get("view") ?? "market";
   const code = sp.get("code") ?? "";
   const days = Number(sp.get("days")) || 0;
-  const json = (v: unknown) => Response.json(v, { headers: { "Cache-Control": "public, max-age=0, s-maxage=600" } });
+  // 抓富邦失敗（null）不要被 CDN 快取住，下次重抓
+  const json = (v: unknown) => Response.json(v, { headers: { "Cache-Control": v == null ? "no-store" : "public, max-age=0, s-maxage=600" } });
   if (code && !/^\w{4,6}$/.test(code)) return Response.json({ error: "代號不對" }, { status: 400 });
   switch (view) {
     case "stock":
