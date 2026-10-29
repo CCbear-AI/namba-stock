@@ -46,6 +46,7 @@ export async function listFlowDays(): Promise<string[]> {
 // 盤中很多頁面都會讀當天紀錄，伺服器記憶體快取 15 秒
 const dayCache = new Map<string, { at: number; v: FlowDay | null }>();
 export async function getFlowDay(date?: string): Promise<FlowDay | null> {
+  if (date !== undefined && !/^\d{4}-\d\d-\d\d$/.test(date)) return null; // 日期格式不對就不查（也防 ../ 讀到別的檔）
   const k = date ?? "latest";
   const hit = dayCache.get(k);
   if (hit && Date.now() - hit.at < 15_000) return hit.v;

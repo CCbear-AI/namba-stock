@@ -93,3 +93,7 @@ main h1 { font-family: var(--font-serif); letter-spacing: .03em; }
 
 /* 首頁可拖曳面板：同一列的卡片等高 */
 .drag-cell > .card { height: 100%; }
+
+/* 登入頁密碼錯誤時左右晃一下 */
+@keyframes login-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.login-shake { animation: login-shake .4s ease; }
