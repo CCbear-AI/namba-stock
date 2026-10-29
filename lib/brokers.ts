@@ -113,7 +113,7 @@ export function stockView(code: string, n: 1 | 5 | 20) {
   const heat = [...m].map(([id, x]) => {
     const net = x.b.slice(-H).map((b, i) => b - x.s.slice(-H)[i]);
     const sum = net.reduce((p, q) => p + q, 0);
-    const cost = costOf(net, close.slice(-H));
+    const cost = sum > 0 ? costOf(net, close.slice(-H)) : null; // 整段淨賣的分點不算成本
     return { id, n: nm(id), k: kindOf(names.get(id) ?? ""), net, sum, cost, buyDays: net.filter((v) => v > 0).length, streak: streakOf(net) };
   }).sort((a, b) => Math.abs(b.sum) - Math.abs(a.sum)).slice(0, 16);
 
