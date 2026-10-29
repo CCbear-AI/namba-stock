@@ -1,4 +1,4 @@
-# 每個交易日 16:30（台灣時間）更新盤後資料、22:00 再補融資融券：全市場日 K、法人籌碼、融資券、期貨選擇權、類股指數、歷史高低、量能曲線、盤後 AI 摘要
+# 每個交易日 16:30（台灣時間）更新盤後資料、22:00 再補融資融券：全市場日 K、法人籌碼、融資券、期貨選擇權、類股指數、歷史高低、量能曲線、分點進出、盤後 AI 摘要
 # 週六早上另外跑一次抓集保股權分散（每週五晚上公布）
 name: daily-data
 
@@ -37,6 +37,11 @@ jobs:
           npm run ath -- update
           npm run volcurve
           npm run universe
+      - name: 分點進出
+        # 補最近 5 個交易日裡還沒有的（16:30 富邦還沒更新的話，22:00 那次會補上）
+        if: github.event.schedule != '0 1 * * 6'
+        continue-on-error: true
+        run: npm run brokers -- --backfill 5
       - name: 集保股權分散
         run: npm run tdcc
       - name: 法人買超提醒推播

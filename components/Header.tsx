@@ -24,6 +24,7 @@ const NAV = [
   { to: "/strategy", label: "AI 策略", tip: "說出選股想法，AI 畫成流程圖並回測，跟 0050 比" },
   { to: "/alerts", label: "提醒", tip: "到價、漲跌幅、法人與策略提醒" },
   { to: "/chips", label: "籌碼", tip: "法人與主力買賣超" },
+  { to: "/brokers", label: "分點", tip: "券商分點進出：個股分點 K 線與熱力圖、全市場大額買賣、分點河道、追蹤" },
   { to: "/limits", label: "漲跌停", tip: "漲停、跌停與打開" },
 ];
 

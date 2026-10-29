@@ -1,5 +1,6 @@
 "use client";
 // 個股籌碼：法人近 5 日、外資持股與信用交易、大戶持股／當沖／借券、主力分點
+import Link from "next/link";
 import { useState } from "react";
 import { usePoll } from "./hooks";
 import { cls, num } from "./fmt";
@@ -153,7 +154,7 @@ export function Branches({ code, head }: { code: string; head?: React.ReactNode 
               </table>
             ))}
           </div></div>
-          <div className="sub mt-2 leading-relaxed">統計區間 {md(b.from)}{b.from !== b.to ? ` – ${md(b.to)}` : ""}（近 {days} 個交易日）</div>
+          <div className="sub mt-2 leading-relaxed flex flex-wrap gap-x-3">統計區間 {md(b.from)}{b.from !== b.to ? ` – ${md(b.to)}` : ""}（近 {days} 個交易日）<Link href={`/brokers?tab=stock&code=${code}`} className="underline hover:text-text">看分點 K 線、熱力圖與近 20 日 →</Link></div>
         </>
       )}
     </div>

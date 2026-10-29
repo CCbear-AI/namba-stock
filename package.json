@@ -18,7 +18,8 @@
     "push-insti": "tsx scripts/push-insti.ts",
     "volcurve": "tsx scripts/volcurve.ts",
     "tdcc-backfill": "tsx scripts/tdcc-backfill.ts",
-    "ai-summary": "tsx scripts/ai-summary.ts"
+    "ai-summary": "tsx scripts/ai-summary.ts",
+    "brokers": "tsx scripts/brokers.ts"
   },
   "dependencies": {
     "@vercel/functions": "^3.10.3",
