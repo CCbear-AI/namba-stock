@@ -3,55 +3,16 @@
 //       npm run brokers -- 2026-10-28    掃指定日期
 //       npm run brokers -- --backfill 60 補最近 60 個交易日裡還沒有的日子
 //       npm run brokers -- --test 30     只抓 30 檔看速度、不存檔
-// 輸出 data/brokers/日期.json：{ date, n: {分點代號: 名稱}, s: {股票: [推算成交量(張), 分點, 買進, 賣出, 分點, 買進, 賣出, ...]} }
+// 輸出 data/brokers/日期.json：{ date, n: {分點代號: 名稱}, h: {分點代號: 富邦 BHID（不同才記）}, s: {股票: [推算成交量(張), 分點, 買進, 賣出, 分點, 買進, 賣出, ...]} }
 // 只保留最近 KEEP 個交易日
 import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { getDaily } from "../lib/history";
+import { fetchZco } from "../lib/fubon";
 
 const DIR = "data/brokers";
 const KEEP = 70;
 const MIN_VAL = 10; // 近 20 日平均成交值（百萬）至少 1,000 萬才掃，約 1,000 檔（不含 ETF）
 const WORKERS = 6;
-const num = (s: string) => Number(s.replace(/[,%]/g, "")) || 0;
-
-type Row = [id: string, buy: number, sell: number];
-type Got = { vol: number; rows: Row[]; names: Record<string, string> };
-
-async function fetchOne(code: string, date: string): Promise<Got | null> {
-  const url = `https://fubon-ebrokerdj.fbs.com.tw/z/zc/zco/zco.djhtm?a=${code}&e=${date}&f=${date}`;
-  for (let k = 0; k < 3; k++) {
-    try {
-      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(15_000) });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return parse(new TextDecoder("big5").decode(await r.arrayBuffer()));
-    } catch {
-      await new Promise((ok) => setTimeout(ok, 1000 * (k + 1)));
-    }
-  }
-  return null;
-}
-
-function parse(html: string): Got {
-  const rows: Row[] = [];
-  const names: Record<string, string> = {};
-  let absSum = 0, pctSum = 0;
-  for (const tr of html.split(/<tr[^>]*>/i)) {
-    // 一列：買超券商, 買進, 賣出, 買超, 佔比, 賣超券商, 買進, 賣出, 賣超, 佔比
-    const tds = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => m[1]);
-    if (tds.length !== 10) continue;
-    for (const o of [0, 5]) {
-      const id = tds[o].match(/[?&]b=([^&"]+)/)?.[1];
-      if (!id) continue;
-      const txt = (i: number) => tds[o + i].replace(/<[^>]+>/g, "").trim();
-      names[id] = txt(0);
-      rows.push([id, num(txt(1)), num(txt(2))]);
-      absSum += Math.abs(num(txt(3)));
-      pctSum += num(txt(4));
-    }
-  }
-  // 成交量用分點頁自己的「佔成交比」反推（跟 /api/branch 一樣）
-  return { vol: pctSum ? Math.round((absSum / pctSum) * 100) : 0, rows, names };
-}
 
 function universe(dateIdx: number) {
   const { s } = getDaily();
@@ -71,15 +32,17 @@ async function scanDay(date: string, limit?: number) {
   const codes = universe(i).slice(0, limit);
   const t0 = Date.now();
   const n: Record<string, string> = {};
+  const h: Record<string, string> = {};
   const s: Record<string, (string | number)[]> = {};
   const queue = [...codes];
   let fail = 0;
   await Promise.all(Array.from({ length: WORKERS }, async () => {
     for (let c = queue.shift(); c; c = queue.shift()) {
-      const g = await fetchOne(c, date);
+      const g = await fetchZco(c, date);
       if (!g) { fail++; continue; }
       if (!g.rows.length) continue;
       Object.assign(n, g.names);
+      Object.assign(h, g.bh);
       s[c] = [g.vol, ...g.rows.flat()];
     }
   }));
@@ -89,7 +52,7 @@ async function scanDay(date: string, limit?: number) {
   // 富邦還沒更新（或被擋）時大多是空的，不要存一個殘缺的檔
   if (got < codes.length * 0.8) throw new Error(`${date} 有資料的不到八成，先不存`);
   mkdirSync(DIR, { recursive: true });
-  writeFileSync(`${DIR}/${date}.json`, JSON.stringify({ date, n, s }));
+  writeFileSync(`${DIR}/${date}.json`, JSON.stringify({ date, n, h, s }));
 }
 
 async function main() {

@@ -1,7 +1,7 @@
-import { brokerView, findBrokers, marketView, riverView, stockView, trackView } from "@/lib/brokers";
+import { brokerDaily, brokerView, findBrokers, marketView, riverView, stockViewLive, trackView } from "@/lib/brokers";
 
 // 分點進出（盤後資料，每晚掃描一次）
-// ?view=stock&code=2330&days=1|5|20 · ?view=market&date= · ?view=river&days=5|10|25&code=&to= · ?view=broker&id=&days= · ?view=track&items=2330:1440,… · ?view=find&q=
+// ?view=stock&code=2330&days=1|5|20 · ?view=bk&code=&id=（分點 K 線逐日） · ?view=market&date= · ?view=river&days=5|10|25&code=&to= · ?view=broker&id=&days= · ?view=track&items=2330:1440,… · ?view=find&q=
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const view = sp.get("view") ?? "market";
@@ -11,7 +11,9 @@ export async function GET(req: Request) {
   if (code && !/^\w{4,6}$/.test(code)) return Response.json({ error: "代號不對" }, { status: 400 });
   switch (view) {
     case "stock":
-      return json(stockView(code, days === 1 || days === 20 ? days : 5));
+      return json(await stockViewLive(code, days === 1 || days === 20 ? days : 5));
+    case "bk":
+      return json(await brokerDaily(code, sp.get("id") ?? ""));
     case "market":
       return json(marketView(sp.get("date") ?? undefined));
     case "river":

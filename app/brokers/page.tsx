@@ -146,7 +146,10 @@ function BrokerK({ d, onBroker }: { d: SV; onBroker: (b: { id: string; n: string
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   // 換股票後原本選的分點不在清單裡就回到第一家
-  const b = d.brokers.find((x) => x.id === selId) ?? d.brokers[0];
+  const top = d.brokers.find((x) => x.id === selId) ?? d.brokers[0];
+  // 富邦單一分點明細（含沒進前 15 名的日子）比較完整，抓到就用它
+  const { data: full } = usePoll<Omit<Broker, "k" | "rangeNet"> | null>(top ? `/api/brokers?view=bk&code=${d.code}&id=${encodeURIComponent(top.id)}` : null);
+  const b = useMemo(() => (top && full?.id === top.id && full.net.length === d.dates.length ? { ...top, ...full } : top), [top, full, d.dates.length]);
   useEffect(() => {
     if (!box.current) return;
     const c = createChart(box.current, {
@@ -184,7 +187,7 @@ function BrokerK({ d, onBroker }: { d: SV; onBroker: (b: { id: string; n: string
       </div>
       <div className="px-4 flex flex-wrap gap-1.5">
         {shown.map((x) => (
-          <button key={x.id} onClick={() => setSelId(x.id)} className={`btn !py-0.5 !px-2.5 ${x.id === b.id ? "on" : ""}`}>
+          <button key={x.id} onClick={() => setSelId(x.id)} className={`btn !py-0.5 !px-2.5 ${x.id === top.id ? "on" : ""}`}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: x.rangeNet >= 0 ? "var(--up)" : "var(--down)" }} />{x.n}
           </button>
         ))}

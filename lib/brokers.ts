@@ -3,6 +3,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { getDaily } from "./history";
+import { fetchZco, fetchZco0, type Zco } from "./fubon";
 import universe from "@/data/universe.json";
 
 const DIR = path.join(process.cwd(), "data", "brokers");
@@ -10,16 +11,18 @@ const TTL = 10 * 60_000;
 const NAME = new Map((universe as { c: string; n: string }[]).map((u) => [u.c, u.n]));
 
 type Day = { date: string; s: Map<string, { vol: number; rows: [string, number, number][] }> };
-type Store = { days: Day[]; names: Map<string, string> };
+type Store = { days: Day[]; names: Map<string, string>; bhid: Map<string, string> };
 
 let hit: { at: number; v: Store } | null = null;
 export function getBrokerDays(): Store {
   if (hit && Date.now() - hit.at < TTL) return hit.v;
   const files = existsSync(DIR) ? readdirSync(DIR).filter((f) => /^\d{4}-\d\d-\d\d\.json$/.test(f)).sort() : [];
   const names = new Map<string, string>();
+  const bhid = new Map<string, string>();
   const days = files.map((f): Day => {
-    const j = JSON.parse(readFileSync(path.join(DIR, f), "utf8")) as { date: string; n: Record<string, string>; s: Record<string, (string | number)[]> };
+    const j = JSON.parse(readFileSync(path.join(DIR, f), "utf8")) as { date: string; n: Record<string, string>; h?: Record<string, string>; s: Record<string, (string | number)[]> };
     for (const [id, n] of Object.entries(j.n)) names.set(id, n);
+    for (const [id, h] of Object.entries(j.h ?? {})) bhid.set(id, h);
     const s: Day["s"] = new Map();
     for (const [c, a] of Object.entries(j.s)) {
       if (c.startsWith("00")) continue; // ETF 不算（只看個股）
@@ -29,7 +32,7 @@ export function getBrokerDays(): Store {
     }
     return { date: j.date, s };
   });
-  hit = { at: Date.now(), v: { days, names } };
+  hit = { at: Date.now(), v: { days, names, bhid } };
   return hit.v;
 }
 
@@ -74,6 +77,61 @@ const costOf = (net: number[], px: number[]) => {
   return w ? r2(a / w) : null;
 };
 
+/** 期間買超／賣超前 15、合計、佔成交量、前五合計 */
+function periodTable(rows: [string, number, number][], vol: number, nm: (id: string) => string, names: Map<string, string>) {
+  const agg = rows.map(([id, b, se]) => ({ id, n: nm(id), k: kindOf(names.get(id) ?? ""), buy: b, sell: se, net: b - se, pct: vol ? r2(((b - se) / vol) * 100) : 0 }));
+  const buy = agg.filter((x) => x.net > 0).sort((a, b) => b.net - a.net).slice(0, 15);
+  const sell = agg.filter((x) => x.net < 0).sort((a, b) => a.net - b.net).slice(0, 15);
+  const buySum = buy.reduce((a, x) => a + x.net, 0), sellSum = -sell.reduce((a, x) => a + x.net, 0);
+  const top5 = (a: typeof buy) => a.slice(0, 5).reduce((p, x) => p + Math.abs(x.net), 0);
+  return {
+    buy, sell, buySum, sellSum, vol,
+    buyPct: vol ? r2((buySum / vol) * 100) : 0, sellPct: vol ? r2((sellSum / vol) * 100) : 0,
+    top5Buy: top5(buy), top5Sell: top5(sell),
+  };
+}
+
+const live = new Map<string, { at: number; v: Zco }>();
+/** 個股：近 5／20 日的買賣超表改用富邦整段期間排名（跟里長伯一致）；抓不到就沿用每天前 15 名加總 */
+export async function stockViewLive(code: string, n: 1 | 5 | 20) {
+  const v = stockView(code, n);
+  if ("error" in v || v.days === 1) return v;
+  const key = `${code}:${v.from}:${v.to}`;
+  let z = live.get(key);
+  if (!z || Date.now() - z.at > 30 * 60_000) {
+    const got = await fetchZco(code, v.from, v.to);
+    if (!got?.rows.length) return v;
+    z = { at: Date.now(), v: got };
+    live.set(key, z);
+  }
+  const { names } = getBrokerDays();
+  const nm = (id: string) => shortName(z.v.names[id] ?? names.get(id) ?? id);
+  const nameMap = new Map([...names, ...Object.entries(z.v.names)]);
+  return { ...v, ...periodTable(z.v.rows, z.v.vol || v.vol, nm, nameMap) };
+}
+
+const daily = new Map<string, { at: number; v: Awaited<ReturnType<typeof fetchZco0>> }>();
+/** 分點 K 線：某家分點對這檔近 60 日逐日買賣（富邦單一分點明細，含沒進前 15 名的日子）；抓不到回 null 讓前端沿用前 15 名資料 */
+export async function brokerDaily(code: string, id: string) {
+  const { days, names, bhid } = getBrokerDays();
+  const key = `${code}:${id}:${days.at(-1)?.date}`;
+  let z = daily.get(key);
+  if (!z || Date.now() - z.at > 30 * 60_000) {
+    const got = await fetchZco0(code, id, bhid.get(id));
+    if (!got?.length) return null;
+    z = { at: Date.now(), v: got };
+    daily.set(key, z);
+  }
+  const by = new Map(z.v!.map((x) => [x.date, x]));
+  const w = days.slice(-60);
+  const px = closeOf(code);
+  const close = w.map((d) => px(d.date));
+  const b = w.map((d) => by.get(d.date)?.buy ?? 0), sl = w.map((d) => by.get(d.date)?.sell ?? 0);
+  const net = b.map((v, i) => v - sl[i]);
+  const wavg = (a: number[]) => { let p = 0, q = 0; a.forEach((v, i) => { if (v > 0 && close[i] > 0) { p += v * close[i]; q += v; } }); return q ? r2(p / q) : null; };
+  return { id, n: shortName(names.get(id) ?? id), net, sum: net.reduce((p, q) => p + q, 0), buyAvg: wavg(b), sellAvg: wavg(sl), streak: streakOf(net) };
+}
+
 export function stockView(code: string, n: 1 | 5 | 20) {
   const { days: all, names } = getBrokerDays();
   if (!all.length) return { error: "還沒有分點資料" };
@@ -90,15 +148,8 @@ export function stockView(code: string, n: 1 | 5 | 20) {
   const vol = range.reduce((a, d) => a + (d.s.get(code)?.vol ?? 0), 0);
   const nm = (id: string) => shortName(names.get(id) ?? id);
 
-  // 期間買賣超表
-  const agg = [...m].map(([id, x]) => {
-    const b = x.b.slice(-R).reduce((p, q) => p + q, 0), se = x.s.slice(-R).reduce((p, q) => p + q, 0);
-    return { id, n: nm(id), k: kindOf(names.get(id) ?? ""), buy: b, sell: se, net: b - se, pct: vol ? r2(((b - se) / vol) * 100) : 0 };
-  });
-  const buy = agg.filter((x) => x.net > 0).sort((a, b) => b.net - a.net).slice(0, 15);
-  const sell = agg.filter((x) => x.net < 0).sort((a, b) => a.net - b.net).slice(0, 15);
-  const buySum = buy.reduce((a, x) => a + x.net, 0), sellSum = -sell.reduce((a, x) => a + x.net, 0);
-  const top5 = (a: typeof buy) => a.slice(0, 5).reduce((p, x) => p + Math.abs(x.net), 0);
+  // 期間買賣超表（先用每天前 15 名加總；stockViewLive 會換成富邦整段期間的排名）
+  const table = periodTable([...m].map(([id, x]) => [id, x.b.slice(-R).reduce((p, q) => p + q, 0), x.s.slice(-R).reduce((p, q) => p + q, 0)]), vol, nm, names);
 
   // 60 日每家分點的逐日買賣超，給分點 K 線用（期間進出最大的 30 家）
   const brokers = [...m].map(([id, x]) => {
@@ -140,9 +191,7 @@ export function stockView(code: string, n: 1 | 5 | 20) {
   return {
     code, name: NAME.get(code) ?? code, close: lastC, chg: pi > 0 ? r2(((lastC - ser.c[pi - 1]) / ser.c[pi - 1]) * 100) : 0,
     from: range[0].date, to: last.date, days: R, dates: days.map((d) => d.date), bars,
-    buy, sell, buySum, sellSum, vol,
-    buyPct: vol ? r2((buySum / vol) * 100) : 0, sellPct: vol ? r2((sellSum / vol) * 100) : 0,
-    top5Buy: top5(buy), top5Sell: top5(sell),
+    ...table,
     conc: { pct: r2(todayConc), pctile, sellers: sellers5, buyers: buyers5 },
     brokers, heat: { dates: days.slice(-H).map((d) => d.date), rows: heat, close: lastC },
   };
