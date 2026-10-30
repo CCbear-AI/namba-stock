@@ -8,7 +8,7 @@ import { ETFS } from "@/lib/etfs";
 // 個股一眼體檢：燈號馬上回；AI 一句總結每檔每個交易日只問一次（存 Runtime Cache），
 // 學校 AI 慢的時候先回 pending，AI 在背景算完存快取，前端稍後再來拿（跟 /api/levels 同一套）
 export const maxDuration = 300;
-const WAIT_MS = 15_000;
+const WAIT_MS = 3_000; // 燈號先出來，AI 總結靠前端每 15 秒再問
 
 const cache = getCache({ namespace: "checkup" });
 const inflight = new Map<string, Promise<string>>();
