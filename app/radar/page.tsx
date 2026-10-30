@@ -135,7 +135,7 @@ export default function Radar() {
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
         <div className="card p-4 relative overflow-hidden" id="radar-grid">
           <div className="absolute right-3 top-3 z-10"><ExportBtn icon name="新高追蹤" target={() => document.getElementById("radar-grid")} /></div>
           {groups.map((g) => {

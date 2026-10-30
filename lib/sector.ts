@@ -170,8 +170,8 @@ export async function taiexDaily(): Promise<Bar[]> {
     const day = q ? new Date(q.time + 8 * 3600e3).toISOString().slice(0, 10) : "";
     if (q?.price && day === today) {
       const o = await misOhlc("TSE");
-      // MIS 的 tv 單位是萬股，只含一般交易（收盤後會被官方數字取代）
-      bars.push({ time: t, open: q.open || q.prev, high: q.high || q.price, low: q.low || q.price, close: q.price, volume: vol[today]?.[0] ?? Math.round((o.orders?.vol ?? 0) * 10) });
+      // MIS 的 tv 單位是張（成交金額 ÷ tv ≈ 每張 6 萬元＝均價 60 元左右），只含一般交易（收盤後會被官方數字取代）
+      bars.push({ time: t, open: q.open || q.prev, high: q.high || q.price, low: q.low || q.price, close: q.price, volume: vol[today]?.[0] ?? Math.round(o.orders?.vol ?? 0) });
     }
   }
   return bars;

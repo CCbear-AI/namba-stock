@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useScan } from "@/components/hooks";
-import { cls, pct } from "@/components/fmt";
+import { cls, pct, price } from "@/components/fmt";
 import ExportBtn from "@/components/ExportBtn";
 import Heatmap, { PERIODS, periodPct, heat, type Period } from "@/components/Heatmap";
 import { industryGroup } from "@/lib/industries";
@@ -54,15 +54,16 @@ export default function HeatmapPage() {
         <div className="card p-2 overflow-hidden">
           <Heatmap rows={shown} period={period} sizeBy={sizeBy} perGroup={TOP} groupPct={groupPct} ratio={0.72} maxH={1100} minH={480} />
         </div>
-        <div className="grid gap-4 content-start">
+        {/* 寬螢幕在熱力圖右邊直排；不夠寬掉到下面時三張並排，不要每張都拉滿整列 */}
+        <div className="grid gap-4 content-start items-start md:grid-cols-[1.3fr_1fr_1fr] xl:grid-cols-1">
           <div className="card">
             <div className="card-h">類股漲跌排行 <span className="sub">{pl}</span></div>
-            <div className="scroll-y max-h-[320px] px-4 pb-3">
+            <div className="scroll-y max-h-[164px] xl:max-h-[320px] px-4 pb-3 text-[13px]">
               {sectors.map((s) => (
-                <div key={s.k} className="flex items-center gap-2 py-1">
-                  <span className="w-20 truncate">{s.k}</span>
+                <div key={s.k} className="flex items-center gap-2 py-[3px]">
+                  <span className="w-[5.5em] shrink-0 truncate">{s.k}</span>
                   <div className="flex-1 h-2 bg-panel-2 rounded overflow-hidden"><div style={{ width: `${Math.min(100, Math.abs(s.pct) * (period === "d" ? 20 : 4))}%`, height: "100%", background: s.pct >= 0 ? "var(--up)" : "var(--down)" }} /></div>
-                  <span className={`mono w-16 text-right ${cls(s.pct)}`}>{pct(s.pct)}</span>
+                  <span className={`mono w-[4.2em] shrink-0 text-right ${cls(s.pct)}`}>{pct(s.pct)}</span>
                 </div>
               ))}
             </div>
@@ -72,9 +73,11 @@ export default function HeatmapPage() {
               <div className="card-h">{x.t} <span className="sub">{pl}</span></div>
               <div className="px-2 pb-2">
                 {x.l.map((r) => (
-                  <Link key={r.c} href={`/stock/${r.c}`} className="flex gap-3 px-2 py-1.5 rounded-lg hover:bg-panel-2">
-                    <span className="mono text-text-2 w-12 shrink-0">{r.c}</span><span className="w-[6.5em] truncate shrink-0">{r.n}</span>
-                    <span className={`mono ${cls(periodPct(r, period))}`}>{pct(periodPct(r, period))}</span>
+                  <Link key={r.c} href={`/stock/${r.c}`} className="flex items-baseline gap-2 px-2 py-1.5 rounded-lg hover:bg-panel-2 text-[13px]">
+                    <span className="mono text-text-2 w-[3.6em] shrink-0">{r.c}</span>
+                    <span className="flex-1 min-w-0 truncate">{r.n}</span>
+                    <span className="mono text-text-2">{price(r.vol > 0 ? r.price : r.prev)}</span>
+                    <span className={`mono w-[4.6em] shrink-0 text-right ${cls(periodPct(r, period))}`}>{pct(periodPct(r, period))}</span>
                   </Link>
                 ))}
               </div>
