@@ -89,6 +89,8 @@ export default function KChart({
 
   const apiTf = tf === "mk" ? mk : tf;
   const intraday = tf === "1m" || tf === "mk";
+  // 櫃買指數分 K 的量來自證交所每分鐘資料，給的是成交金額（百萬元），不是張數
+  const volIsValue = code === "OTC" && intraday;
   const { data, error } = usePoll<{ bars: Bar[] }>(`/api/candles?code=${encodeURIComponent(code)}&tf=${apiTf}`, intraday ? 30_000 : 60_000);
   // 分時/分K：時間加 8 小時，讓圖上顯示台灣時間
   const bars = useMemo(() => (data?.bars ?? []).map((b) => (intraday ? { ...b, time: b.time + 8 * 3600 } : b)), [data, intraday]);
@@ -386,7 +388,7 @@ export default function KChart({
             <span>低 <span className={cls(b.low - pc)}>{fp(b.low)}</span></span>
           </>}
           <span>收 <span className={cls(b.close - pc)}>{fp(b.close)}</span></span>
-          {b.volume > 0 && <span>量 <span className="text-text">{num(b.volume)}</span></span>}
+          {b.volume > 0 && <span>{volIsValue ? "成交值" : "量"} <span className="text-text">{num(b.volume)}</span>{volIsValue && " 百萬"}</span>}
           {!line && computed.filter((x) => x.ind.overlay).flatMap((x) => x.lines.filter((l) => l.type !== "dots").map((l) => <span key={x.s.id + l.name} style={{ color: l.color }}>{l.name} {val(l.data[i])}</span>))}
         </div>
       )}
@@ -414,7 +416,7 @@ export default function KChart({
           {/* 副圖說明 */}
           {subs.map((x, k) => paneTops[k + 1] != null && (
             <div key={x.s.id} className="absolute left-2 z-10 text-[11px] mono pointer-events-none flex gap-2 flex-wrap" style={{ top: paneTops[k + 1] + 2 }}>
-              <span className="text-text-2">{x.ind.abbr}{x.s.params.length ? `(${x.s.params.join(", ")})` : ""}</span>
+              <span className="text-text-2">{volIsValue && x.ind.id === "vol" ? "成交值(百萬)" : x.ind.abbr}{x.s.params.length ? `(${x.s.params.join(", ")})` : ""}</span>
               {x.lines.map((l) => <span key={l.name} style={{ color: l.color || "#9aa0a8" }}>{l.name} {val(l.data[i])}</span>)}
             </div>
           ))}

@@ -104,7 +104,7 @@ function Watchlist() {
             <div className="seg">{([["list", "列表"], ["heat", "熱力圖"], ["river", "河道"]] as const).map(([k, l]) => <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}</div>
             {view === "list" && <div className="seg">{([["custom", "自訂順序"], ["pct", "漲跌幅"], ["vol", "成交量"]] as const).map(([k, l]) => <button key={k} className={sort === k ? "on" : ""} onClick={() => setSort(k)}>{l}</button>)}</div>}
             <ExportBtn name={cur.name} target={() => area.current} />
-            {view !== "river" && <button className="btn" onClick={() => setView("river")} title="切到河道檢視後按「匯出影片」錄下重播">🎬 匯出影片</button>}
+            {view !== "river" && <button className="btn !px-2.5" onClick={() => setView("river")} title="匯出影片：先切到河道檢視，再按 🎬 錄下重播" aria-label="匯出影片">🎬</button>}
             {!isBuiltin && <button className="btn" onClick={() => setAdding(!adding)}>加入股票</button>}
           </div>
         </div>
@@ -207,7 +207,7 @@ function RiverView({ rows, title }: { rows: ScanRow[]; title: string }) {
       <div className="flex flex-wrap items-center gap-3 mb-3" data-noexport>
         <div className="seg">{SPAN.map((s) => <button key={s.k} className={span === s.k ? "on" : ""} onClick={() => setSpan(s.k)}>{s.l}</button>)}</div>
         {span === "d" && <div className="seg">{([[0, "全天"], [30, "30 分"], [15, "15 分"], [5, "5 分"]] as const).map(([k, l]) => <button key={k} className={win === k ? "on" : ""} onClick={() => setWin(k)}>{l}</button>)}</div>}
-        <button className="btn" onClick={exportVideo} disabled={prog != null}>🎬 {prog != null ? `${Math.round(prog * 100)}%` : "匯出影片"}</button>
+        <button className="btn !px-2.5" onClick={exportVideo} disabled={prog != null} title="匯出影片：錄下河道重播" aria-label="匯出影片">🎬{prog != null ? ` ${Math.round(prog * 100)}%` : ""}</button>
         <span className="ml-auto flex gap-3 sub">{Object.entries(GROUP_COLOR).map(([k, c]) => <span key={k}><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: c }} />{k}</span>)}</span>
       </div>
       <div className="grid grid-cols-3 gap-px bg-line rounded-lg overflow-hidden mb-3">

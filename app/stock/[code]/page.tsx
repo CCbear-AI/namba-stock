@@ -57,7 +57,7 @@ export default function StockPage() {
           </>}
           <div className="flex-1" />
           <span data-noexport className="flex gap-2">
-            <ExportBtn name={`${code}${q?.n ?? ""}`} target={() => document.getElementById("stock-area")} label="匯出圖片" />
+            <ExportBtn name={`${code}${q?.n ?? ""}`} target={() => document.getElementById("stock-area")} />
             <button className={`btn ${wl.has(code) ? "on" : "gold"}`} onClick={() => wl.toggle(code)}>{wl.has(code) ? "✓ 已加入自選" : "☆ 加入自選"}</button>
             <button className="btn" onClick={() => setAlert(true)} disabled={!q}>🔔 設定提醒</button>
           </span>

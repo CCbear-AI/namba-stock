@@ -60,7 +60,7 @@ export default function Header() {
         </Link>
         <Nav path={path} />
         <Search />
-        <span className="hidden md:inline-flex"><ExportBtn name="台股難波萬" label="匯出圖片" target={() => document.querySelector("main")} /></span>
+        <span className="hidden md:inline-flex"><ExportBtn name="台股難波萬" label="匯出圖片：整頁" target={() => document.querySelector("main")} /></span>
       </div>
       <Ticker m={data} fut={fut} />
     </header>

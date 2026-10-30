@@ -63,9 +63,9 @@ const IND_ALIAS: Record<string, string[]> = {
   紡纖: ["紡織纖維"], 機械: ["電機機械"], 營建: ["建材營造"], 化工: ["化學"],
 };
 /** 類股成交量（張）＝成分股官方日 K 成交量加總（跟里長伯一致）：日期 → 張 */
-function sectorVolume(short: string, market: "tse" | "otc") {
+function sectorVolume(short: string, market: "tse" | "otc", all = false) {
   const inds = new Set(IND_ALIAS[short] ?? [short]);
-  const codes = UNIVERSE.filter((u) => u.m === market && inds.has(u.ind)).map((u) => u.c);
+  const codes = UNIVERSE.filter((u) => u.m === market && (all || inds.has(u.ind))).map((u) => u.c);
   const { dates, s } = getDaily();
   const out = new Map<string, number>();
   dates.forEach((d, i) => {
@@ -83,7 +83,8 @@ export async function sectorDaily(id: string): Promise<Bar[]> {
   if (!q) return [];
   const key = historyKey(q.name, q.market);
   const raw = key ? load(q.market).bars[key] ?? [] : [];
-  const vol = sectorVolume(q.short, q.market);
+  // 櫃買指數（o00）沒有對應產業 → 用全部上櫃股票的成交量
+  const vol = sectorVolume(q.short, q.market, id === "o00");
   const bars: Bar[] = raw.map(([d, o, h, l, c]) => ({ time: Date.parse(d) / 1000, open: o, high: h, low: l, close: c, volume: vol.out.get(d) ?? 0 }));
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
   const t = Date.parse(today) / 1000;

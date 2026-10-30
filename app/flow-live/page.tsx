@@ -18,16 +18,25 @@ const SHOW = 8; // 河道顯示流入前 8、流出前 8
 const sec = (t: string) => { const [h, m, s] = t.split(":").map(Number); return h * 3600 + m * 60 + (s || 0); };
 const yi = (v: number, d = 2) => `${v > 0 ? "+" : ""}${v.toFixed(d)}`;
 
-/** 某幾輪報價缺了部分股票時，板塊成交值會突然掉下去再跳回來；這種斷層沿用前一筆 */
+/**
+ * 某幾輪報價缺了部分股票時，板塊成交值會突然掉下去再跳回來；這種斷層沿用前一筆。
+ * 13:25～13:30 是收盤集合競價，13:30 一次撮合的大量沒有主動買賣方向（Yahoo 會整筆算進外盤或內盤，淨額在 13:30 暴跳）
+ * → 13:27 之後淨額固定在競價前的數字，成交值照算
+ */
+const AUCTION = "13:27";
 function clean(points: FlowPoint[], key: "s" | "g" = "s"): FlowPoint[] {
   const good: Record<string, [number, number, number]> = {};
+  const pre: Record<string, number> = {};
   return points.map((p) => {
     const s: FlowPoint["s"] = {};
-    for (const [k, v] of Object.entries(p[key] ?? {})) {
+    const auction = p.t >= AUCTION;
+    for (const [k, v0] of Object.entries(p[key] ?? {})) {
       const g = good[k];
+      const v: [number, number, number] = auction && pre[k] != null ? [pre[k], v0[1], v0[2]] : v0;
       // 成交值是累計的，只會變大；變小就是那一輪漏抓了股票
       if (g && v[1] < g[1] - 0.05) s[k] = g;
       else { s[k] = v; good[k] = v; }
+      if (!auction) pre[k] = s[k][0];
     }
     for (const [k, g] of Object.entries(good)) if (!s[k]) s[k] = g;
     return { t: p.t, s };
@@ -202,10 +211,10 @@ export default function FlowLive() {
             );
           })}
         </div>}
-      </div>
-      <div className="flex gap-2">
-        <ExportBtn name="即時資金流" target={() => document.querySelector("main")} />
-        <button className="btn" disabled={pts.length < 2 || vprog != null} onClick={exportVideo}>🎬 {vprog != null ? `${Math.round(vprog * 100)}%` : "匯出影片"}</button>
+        <div className="flex gap-2">
+          <ExportBtn name="即時資金流" target={() => document.querySelector("main")} />
+          <button className="btn !px-2.5" title="匯出影片：重播今天的資金流" aria-label="匯出影片" disabled={pts.length < 2 || vprog != null} onClick={exportVideo}>🎬{vprog != null ? ` ${Math.round(vprog * 100)}%` : ""}</button>
+        </div>
       </div>
       {day?.note && <div className="rounded-xl border border-[#5a4a24] bg-[#1f1a10] px-3 py-2 text-[13px] text-[var(--gold-2)]">⚠ {day.note}</div>}
 
