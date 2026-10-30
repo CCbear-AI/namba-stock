@@ -98,16 +98,16 @@ export default function KChart({
   // 超級支撐壓力：伺服器端 AI 判讀（同一根 K 線只判讀一次）；M 頭／W 底在瀏覽器直接算
   const srOn = sr && tf !== "1m";
   const lastT = data?.bars?.length ? data.bars[data.bars.length - 1].time : 0;
-  const srKey = srOn && lastT ? `/api/levels?v=3&code=${encodeURIComponent(code)}&tf=${apiTf}&d=${intraday ? Math.floor(lastT / 1800) : lastT}` : null;
+  const srKey = srOn && lastT ? `/api/levels?v=4&code=${encodeURIComponent(code)}&tf=${apiTf}&d=${intraday ? Math.floor(lastT / 1800) : lastT}` : null;
   const [sres, setSres] = useState<{ key: string; r?: SrData; err?: string } | null>(null);
   useEffect(() => {
     if (!srKey) return;
     let stop = false, timer: ReturnType<typeof setTimeout> | undefined;
-    // AI 還在背景算（pending）：先畫公式版，每 15 秒再問一次，最多約 4 分鐘
+    // AI 還在背景算（pending）：先畫公式版，每 15 秒再問一次，最多約 5 分鐘
     const load = (n: number) => fetch(srKey, { cache: "no-store" }).then((r) => r.json()).then((j: SrData & { error?: string }) => {
       if (stop) return;
-      setSres(j.error ? { key: srKey, err: j.error } : { key: srKey, r: n >= 16 && j.pending ? { ...j, pending: false, aiError: "學校 AI 太久沒回應" } : j });
-      if (j.pending && n < 16) timer = setTimeout(() => load(n + 1), 15_000);
+      setSres(j.error ? { key: srKey, err: j.error } : { key: srKey, r: n >= 20 && j.pending ? { ...j, pending: false, aiError: "學校 AI 太久沒回應" } : j });
+      if (j.pending && n < 20) timer = setTimeout(() => load(n + 1), 15_000);
     }).catch((e) => { if (!stop) setSres({ key: srKey, err: (e as Error).message }); });
     load(0);
     return () => { stop = true; clearTimeout(timer); };
@@ -509,7 +509,7 @@ function SRPanel({ data, err, patterns, tf, onClose }: { data: SrData | null; er
       {err && <div className="sub mt-1.5">判讀失敗：{err}</div>}
       {data && levels.length === 0 && <div className="sub mt-1.5">這次沒有判讀出明確的價位。</div>}
       {data?.summary && <p className="mt-1.5 text-[12.5px] leading-relaxed text-text-2">{data.summary}</p>}
-      {data?.pending && <p className="mt-1 text-[11px] text-text-2 opacity-70 loading">AI 判讀中（學校主機較慢，約 1～2 分鐘），先顯示程式計算版，算好會自動換上。</p>}
+      {data?.pending && <p className="mt-1 text-[11px] text-text-2 opacity-70 loading">AI 判讀中（學校主機較慢，約 2～3 分鐘），先顯示程式計算版，算好會自動換上。</p>}
       {data?.model === "formula" && !data.pending && <p className="mt-1 text-[11px] text-text-2 opacity-70">AI 暫時無法使用（{data.aiError}），先顯示程式計算版。</p>}
     </div>
   );
