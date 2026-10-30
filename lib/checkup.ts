@@ -119,7 +119,10 @@ export async function checkup(code: string): Promise<Checkup | { error: string }
 
   // 4. 融資：近 5 日融資增減 vs 股價漲跌
   {
-    const p5 = chips.at(-6)?.s[code];
+    // 融資券約 21:00 才公布：最新一天還沒公布（全市場都是 0）就用前一次
+    let mi = chips.length - 1;
+    while (mi > 0 && !Object.values(chips[mi].s).some((v) => v[3] > 0)) mi--;
+    const cur = chips[mi]?.s[code], p5 = chips[mi - 5]?.s[code];
     if (!cur || !p5 || !cur[3] || !p5[3]) lights.push({ k: "margin", name: "融資", lv: "n", text: "沒有融資（或不能融資）" });
     else {
       const chg = (cur[3] / p5[3] - 1) * 100, px = (close / c[n - 5] - 1) * 100;

@@ -9,7 +9,7 @@ import StockPicker, { NAME } from "./StockPicker";
 import Help from "./Help";
 
 type C = {
-  error?: string; date: string; days: [string, number, number, number][]; fDays: number; tDays: number;
+  error?: string; date: string; dates?: { margin: string; qfii: string; sbl: string; dayTrade: string }; days: [string, number, number, number][]; fDays: number; tDays: number;
   qfii: { pct: number; chg: number | null } | null;
   margin: { bal: number; chg: number; use: number | null; short: number; shortChg: number; ratio: number } | null;
   dayTrade: number | null; sbl: { bal: number; chg: number | null } | null;
@@ -60,6 +60,7 @@ export function ChipsInst({ code }: { code: string }) {
   if (!c) return <div className="sub px-4 pb-4 loading">籌碼載入中…</div>;
   if (c.error) return <div className="sub px-4 pb-4">{c.error}</div>;
   const last5 = c.days.slice(-5).reverse();
+  const dt = c.dates ?? { margin: c.date, qfii: c.date, sbl: c.date, dayTrade: c.date };
   const sum = [1, 2, 3].map((k) => last5.reduce((a, d) => a + (d[k] as number), 0));
   return (
     <div className="@container px-4 pb-4"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
@@ -75,10 +76,10 @@ export function ChipsInst({ code }: { code: string }) {
         <div className="sub mt-1">外資{c.fDays > 0 ? `連買 ${c.fDays} 日` : c.fDays < 0 ? `連賣 ${-c.fDays} 日` : "—"} · 投信{c.tDays > 0 ? `連買 ${c.tDays} 日` : c.tDays < 0 ? `連賣 ${-c.tDays} 日` : "—"}</div>
       </div>
       <div>
-        <b className="text-[13px]">外資持股與信用交易<Help>融資券為 {md(c.date)} 餘額，增減是跟前一個交易日比。券資比＝融券餘額 ÷ 融資餘額。</Help></b>
-        <div className="flex items-baseline mt-2 text-[13px]"><span className="text-text-2">外資持股比例 · {md(c.date)}</span><span className="ml-auto mono">{c.qfii ? `${c.qfii.pct.toFixed(2)}%` : "上櫃股不提供"}</span>{c.qfii?.chg != null && <span className={`mono ml-2 text-[12px] ${cls(c.qfii.chg)}`}>{pctChg(c.qfii.chg)}</span>}</div>
+        <b className="text-[13px]">外資持股與信用交易<Help>融資券為 {md(dt.margin)} 餘額（約晚上 9 點公布，還沒公布時先顯示前一次），增減是跟前一個交易日比。券資比＝融券餘額 ÷ 融資餘額。</Help></b>
+        <div className="flex items-baseline mt-2 text-[13px]"><span className="text-text-2">外資持股比例 · {md(dt.qfii)}</span><span className="ml-auto mono">{c.qfii ? `${c.qfii.pct.toFixed(2)}%` : "上櫃股不提供"}</span>{c.qfii?.chg != null && <span className={`mono ml-2 text-[12px] ${cls(c.qfii.chg)}`}>{pctChg(c.qfii.chg)}</span>}</div>
         {c.qfii && <Bar pct={c.qfii.pct} />}
-        <KV l="融資餘額" v={c.margin ? `${num(c.margin.bal)} 張` : "—"} chg={chgText(c.margin?.chg)} c={c.margin?.chg ?? 0} />
+        <KV l={`融資餘額 · ${md(dt.margin)}`} v={c.margin ? `${num(c.margin.bal)} 張` : "—"} chg={chgText(c.margin?.chg)} c={c.margin?.chg ?? 0} />
         <KV l="融資使用率" v={c.margin?.use != null ? `${c.margin.use.toFixed(2)}%` : "—"} />
         <KV l="融券餘額" v={c.margin ? `${num(c.margin.short)} 張` : "—"} chg={chgText(c.margin?.shortChg)} c={c.margin?.shortChg ?? 0} />
         <KV l="券資比" v={c.margin ? `${c.margin.ratio.toFixed(2)}%` : "—"} />
@@ -92,6 +93,7 @@ export function ChipsBig({ code }: { code: string }) {
   const c = useChips(code);
   if (!c) return <div className="sub px-4 pb-4 loading">籌碼載入中…</div>;
   if (c.error) return <div className="sub px-4 pb-4">{c.error}</div>;
+  const dt = c.dates ?? { margin: c.date, qfii: c.date, sbl: c.date, dayTrade: c.date };
   return (
     <div className="@container px-4 pb-4"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
       <div>
@@ -106,8 +108,8 @@ export function ChipsBig({ code }: { code: string }) {
         )}
       </div>
       <div>
-        <KV l={<>當沖比 · {md(c.date)}<Help>當沖比＝當沖成交量 ÷ 當日成交量。</Help></>} v={c.dayTrade != null ? `${c.dayTrade.toFixed(2)}%` : "—"} />
-        <KV l={<>借券賣出餘額 · {md(c.date)}<Help>借券賣出還沒回補的張數；後面是跟前一天比的增減。</Help></>} v={c.sbl ? `${num(c.sbl.bal)} 張` : "上櫃股不提供"} chg={chgText(c.sbl?.chg)} c={-(c.sbl?.chg ?? 0)} />
+        <KV l={<>當沖比 · {md(dt.dayTrade)}<Help>當沖比＝當沖成交量 ÷ 當日成交量。</Help></>} v={c.dayTrade != null ? `${c.dayTrade.toFixed(2)}%` : "—"} />
+        <KV l={<>借券賣出餘額 · {md(dt.sbl)}<Help>借券賣出還沒回補的張數；後面是跟前一天比的增減。</Help></>} v={c.sbl ? `${num(c.sbl.bal)} 張` : "上櫃股不提供"} chg={chgText(c.sbl?.chg)} c={-(c.sbl?.chg ?? 0)} />
       </div>
     </div></div>
   );

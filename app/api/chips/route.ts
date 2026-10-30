@@ -25,7 +25,15 @@ export async function GET(req: Request) {
 
   if (code) {
     const rows = chips.map((d) => ({ date: d.date, v: d.s[code] }));
-    const cur = last.s[code], pv = prev?.s[code];
+    // 融資券（約 21:00）、外資持股、借券、當沖比公布得比法人晚：每一欄各自找最近兩個「官方已公布」的交易日
+    // （全市場有任何一檔 > 0 才算公布；還沒公布時那天會是 0 或 -1），還沒出來就先顯示前一次的
+    const latest2 = (i: number) => {
+      const out: typeof chips = [];
+      for (let k = chips.length - 1; k >= 0 && out.length < 2; k--) if (Object.values(chips[k].s).some((v) => v[i] > 0)) out.push(chips[k]);
+      return { date: out[0]?.date ?? last.date, cur: out[0]?.s[code], pv: out[1]?.s[code] };
+    };
+    const mg = latest2(3), qf = latest2(6), sb = latest2(7), dt = latest2(8);
+    const cur = mg.cur, pv = mg.pv;
     const tdcc = getTdcc();
     const t1 = tdcc.at(-1), t0 = tdcc.at(-2);
     // 大戶持股歷史：用存好的每週集保資料（一次性從神秘金字塔回補 26 週，之後每週累積）；
@@ -35,13 +43,13 @@ export async function GET(req: Request) {
     if (hist.length < 3) hist = await holderHistory(code).catch((e) => { holdersError = (e as Error).message; return hist; });
     const h1 = hist.at(-1), h0 = hist.at(-2);
     return Response.json({
-      code, date: last.date,
+      code, date: last.date, dates: { margin: mg.date, qfii: qf.date, sbl: sb.date, dayTrade: dt.date },
       days: rows.slice(-20).map((x) => [x.date, x.v?.[0] ?? 0, x.v?.[1] ?? 0, x.v?.[2] ?? 0]),
       fDays: streak(rows.map((x) => x.v?.[0] ?? 0)), tDays: streak(rows.map((x) => x.v?.[1] ?? 0)),
-      qfii: cur && cur[6] >= 0 ? { pct: cur[6], chg: pv && pv[6] >= 0 ? r2(cur[6] - pv[6]) : null } : null,
+      qfii: qf.cur && qf.cur[6] >= 0 ? { pct: qf.cur[6], chg: qf.pv && qf.pv[6] >= 0 ? r2(qf.cur[6] - qf.pv[6]) : null } : null,
       margin: cur ? { bal: cur[3], chg: pv ? cur[3] - pv[3] : 0, use: cur[5] ? r2((cur[3] / cur[5]) * 100) : null, short: cur[4], shortChg: pv ? cur[4] - pv[4] : 0, ratio: cur[3] ? r2((cur[4] / cur[3]) * 100) : 0 } : null,
-      dayTrade: cur && cur[8] >= 0 ? cur[8] : null,
-      sbl: cur && cur[7] >= 0 ? { bal: cur[7], chg: pv && pv[7] >= 0 ? cur[7] - pv[7] : null } : null,
+      dayTrade: dt.cur && dt.cur[8] >= 0 ? dt.cur[8] : null,
+      sbl: sb.cur && sb.cur[7] >= 0 ? { bal: sb.cur[7], chg: sb.pv && sb.pv[7] >= 0 ? sb.cur[7] - sb.pv[7] : null } : null,
       tdcc: h1 ? { date: h1.date, big: h1.big, holders: h1.holders, bigChg: h0 ? r2(h1.big - h0.big) : null, holdersChg: h0 ? h1.holders - h0.holders : null, big400: h1.big400 || undefined }
         : t1?.s[code] ? { date: t1.date, big: t1.s[code][0], holders: t1.s[code][1], bigChg: t0?.s[code] ? r2(t1.s[code][0] - t0.s[code][0]) : null, holdersChg: t0?.s[code] ? t1.s[code][1] - t0.s[code][1] : null } : null,
       holders: hist.slice(-26).map((w) => [w.date, w.big, w.holders, w.close]),
