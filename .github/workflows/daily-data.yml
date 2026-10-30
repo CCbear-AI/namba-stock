@@ -1,4 +1,4 @@
-# 每個交易日 16:30（台灣時間）更新盤後資料、22:00 再補融資融券：全市場日 K、法人籌碼、融資券、期貨選擇權、類股指數、歷史高低、量能曲線、分點進出、盤後 AI 摘要、分點晚報
+# 每個交易日 16:30（台灣時間）更新盤後資料、22:00 再補融資融券：全市場日 K、法人籌碼、融資券、期貨選擇權、類股指數、歷史高低、量能曲線、分點進出、盤後 AI 摘要、分點晚報、自選收盤報告推播
 # 週六早上另外跑一次抓集保股權分散（每週五晚上公布）
 name: daily-data
 
@@ -72,6 +72,15 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: npm run broker-report
+      - name: 自選收盤報告推播
+        # 分點資料進來後，替有開「自選收盤報告」提醒的裝置各推一則（同一天只推一次）
+        if: github.event.schedule != '0 1 * * 6'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: npm run wl-push
       - name: 存檔
         id: save
         run: |

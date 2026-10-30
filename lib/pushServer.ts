@@ -45,6 +45,27 @@ export async function pushKind(kind: Rule["kind"], msg: { title: string; body: s
   return sent;
 }
 
+/** 每台裝置的每條這類規則各自決定要推什麼（例如自選收盤報告，每個群組內容不同）；msg 回 null 就不推 */
+export async function pushPerRule(kind: Rule["kind"], msg: (r: Rule) => { title: string; body: string; url: string; tag: string } | null) {
+  if (!pushReady) return 0;
+  let sent = 0;
+  for (const s of await loadSubs()) {
+    for (const r of (s.rules ?? []).filter((x) => x.on && x.kind === kind)) {
+      const m = msg(r);
+      if (!m) continue;
+      try {
+        await webpush.sendNotification(s.sub, JSON.stringify(m), { TTL: 12 * 3600 });
+        sent++;
+      } catch (e) {
+        const code = (e as { statusCode?: number }).statusCode;
+        if (code === 404 || code === 410) { await sb(`push_subs?device=eq.${encodeURIComponent(s.device)}`, { method: "DELETE" }); subs.at = 0; break; }
+        console.error("推播失敗", code, (e as Error).message);
+      }
+    }
+  }
+  return sent;
+}
+
 /** kinds：這次要檢查哪些類型（盤中不檢查法人買超，盤後只檢查法人買超） */
 export async function checkAndPush(rows: ScanRow[], day: string, kinds: (k: Rule["kind"]) => boolean) {
   if (!pushReady) return 0;

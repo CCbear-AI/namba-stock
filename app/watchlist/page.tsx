@@ -14,6 +14,7 @@ import { builtinCodes } from "@/components/scopes";
 import type { ScanRow } from "@/lib/scan";
 import Help from "@/components/Help";
 import BrokerTrack from "@/components/BrokerTrack";
+import WlReport from "@/components/WlReport";
 import { useTrack } from "@/components/brokerUi";
 
 type View = "list" | "heat" | "river";
@@ -90,6 +91,7 @@ function Watchlist() {
           <BrokerTrack onStock={(c) => router.push(`/brokers?tab=stock&code=${c}`)} />
         </div>
       ) : (
+      <div className="grid gap-4 content-start min-w-0">
       <div className="card" ref={area}>
         <div className="card-h flex-wrap">
           <div className="flex items-center gap-2">
@@ -141,6 +143,8 @@ function Watchlist() {
         )}
         {view === "heat" && <HeatView rows={rows} />}
         {view === "river" && <RiverView rows={rows} title={cur.name} />}
+      </div>
+      <WlReport codes={cur.codes.slice(0, 40)} name={cur.name} />
       </div>
       )}
     </div>

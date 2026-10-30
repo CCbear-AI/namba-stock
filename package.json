@@ -21,7 +21,8 @@
     "ai-summary": "tsx scripts/ai-summary.ts",
     "broker-report": "tsx scripts/broker-report.ts",
     "brokers": "tsx scripts/brokers.ts",
-    "broker-class": "tsx scripts/broker-class.ts"
+    "broker-class": "tsx scripts/broker-class.ts",
+    "wl-push": "tsx scripts/wl-push.ts"
   },
   "dependencies": {
     "@vercel/functions": "^3.10.3",
