@@ -11,6 +11,8 @@ export type Quote = {
   low: number;
   vol: number; // 累積成交量（張；指數為成交金額百萬）
   tickVol: number; // 最近一筆成交量
+  /** 這一刻 MIS 沒給成交價，price 是推估的（全市場快照會再用 Yahoo 成交價補） */
+  est?: boolean;
   ask: number[];
   askV: number[];
   bid: number[];
@@ -45,15 +47,28 @@ function parse(x: any): Quote {
   const bid = arr(x.b), ask = arr(x.a);
   const prev = n(x.y);
   const time = n(x.tlong) || Date.now();
-  let price = n(x.z) || n(x.pz);
+  const high = n(x.h), low = n(x.l);
+  // 個股今天還沒成交（量 0）：8:30～9:00 的 z 是試撮價（常掛在漲跌停），不能當成交價也不能記成最後成交 → 用昨收（算平盤）
+  const noTradeYet = x.v !== undefined && !n(x.v);
+  let price = noTradeYet ? 0 : n(x.z) || n(x.pz);
+  const est = !price && !noTradeYet;
   if (price) lastTrade.set(x.c, price);
-  else price = noTradePrice(x.c, time, n(x.h), n(x.l)) || (bid[0] && ask[0] ? (bid[0] + ask[0]) / 2 : bid[0] || ask[0] || prev);
+  else if (noTradeYet) price = prev;
+  else {
+    price = noTradePrice(x.c, time, high, low);
+    if (!price) {
+      // 最後退路：買賣價中間值，但限制在今天的最高、最低之間
+      const mid = bid[0] && ask[0] ? (bid[0] + ask[0]) / 2 : bid[0] || ask[0] || prev;
+      price = high && low ? Math.min(high, Math.max(low, mid)) : mid;
+    }
+  }
   return {
     c: x.c, n: x.n, m: x.ex === "otc" ? "otc" : "tse",
     price, prev,
     open: n(x.o) || price, high: n(x.h) || price, low: n(x.l) || price,
     vol: x.v !== undefined ? n(x.v) : n(x.m) / 1e6 /* 指數：成交金額 → 百萬 */,
     tickVol: n(x.tv),
+    ...(est ? { est } : {}),
     ask, askV: arr(x.f), bid, bidV: arr(x.g),
     up: n(x.u), down: n(x.w),
     time,

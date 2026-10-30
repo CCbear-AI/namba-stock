@@ -4,6 +4,7 @@ import { UNIVERSE, BY_CODE } from "./universe";
 import type { Market, Row, IndexQuote } from "./types";
 import { getDaily, lastIdx } from "./history";
 import { misOhlc } from "./misStats";
+import { yahooPrices } from "./yahooFlow";
 
 const INDEX_CH = ["tse_t00.tw", "otc_o00.tw", "tse_0050.tw"];
 let cache: { at: number; data: Market } | null = null;
@@ -77,6 +78,15 @@ function fromDaily(): Market {
 async function load(): Promise<Market> {
   const list = await getQuotes([...INDEX_CH, ...UNIVERSE.map((s) => ch(s.m, s.c))]);
   if (list.length < 50 && !lastRow.size) return fromDaily();
+  // MIS 這一刻沒給成交價（z 是 "-"，盤中很常見）的股票：用 Yahoo 的最新成交價，不用買賣價中間值
+  const est = list.filter((q) => q.est && BY_CODE.has(q.c));
+  if (est.length) {
+    const yp = await yahooPrices(est.map((q) => ({ c: q.c, m: BY_CODE.get(q.c)!.m }))).catch(() => new Map<string, number>());
+    for (const q of est) {
+      const p = yp.get(q.c);
+      if (p && (!q.up || p <= q.up) && (!q.down || p >= q.down)) q.price = p;
+    }
+  }
   const indices: IndexQuote[] = [];
   const stocks: Row[] = [];
   for (const q of list) {
