@@ -7,6 +7,7 @@ import StockPicker from "@/components/StockPicker";
 import AlertDialog from "@/components/AlertDialog";
 import ExportBtn from "@/components/ExportBtn";
 import Fundamental from "@/components/Fundamental";
+import Checkup from "@/components/Checkup";
 import Help from "@/components/Help";
 import { ChipsSummary, Branches } from "@/components/StockChips";
 import { usePoll, useRecent, useWatchlist } from "@/components/hooks";
@@ -77,6 +78,8 @@ export default function StockPage() {
         )}
         {(error || q?.error) && <div className="sub mt-2">{q?.error ?? error}</div>}
       </div>
+
+      <Checkup code={code} />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         <div className="card overflow-hidden"><KChart code={code} title={`${code}${q?.n ?? ""}`} prev={q?.prev} height={500} /></div>
