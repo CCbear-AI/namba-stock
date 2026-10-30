@@ -161,7 +161,7 @@ export function dtView() {
   const ixT = x.di[L - 1];
   const todayBuy = new Map<string, { k: number; amt: number }>();
   for (const [c, d] of x.days[L - 1].s) for (const [id, b, sl] of d.rows) if (b - sl > 0) { const t = todayBuy.get(id) ?? { k: 0, amt: 0 }; t.k++; t.amt += ((b - sl) * (x.s.get(c)?.c[ixT] ?? 0)) / 1e5; todayBuy.set(id, t); }
-  const list = [...x.cls].filter(([, v]) => v.cls === "dt").map(([id, v]) => ({ id, n: x.nm(id), sell1: r1(v.sell1 * 100), recent: r1(v.recent * 100), cnt: v.n, k: todayBuy.get(id)?.k ?? 0, amt: r2(todayBuy.get(id)?.amt ?? 0) }))
+  const list = [...x.cls].filter(([, v]) => v.cls === "dt").map(([id, v]) => ({ id, n: x.nm(id), sell1: r1(v.dump * 100), recent: r1(v.recent * 100), cnt: v.n, k: todayBuy.get(id)?.k ?? 0, amt: r2(todayBuy.get(id)?.amt ?? 0) }))
     .sort((a, b) => b.sell1 - a.sell1);
   return { date: x.days[L - 1].date, prev: L >= 2 ? x.days[L - 2].date : null, statFrom: x.days[from].date, today, dumped, stats, list };
 }

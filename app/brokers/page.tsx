@@ -591,7 +591,7 @@ function DtTab({ onStock, onBroker }: { onStock: (c: string) => void; onBroker: 
   const pc = (v: number) => <span className={`mono ${cls(v)}`}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
   const desc = k === "today" ? `${md(data.date)} 收盤 · 今天隔日沖分點買超的股票，依「買掉近 20 天平均成交量幾 %」排（高 ≥20%、中 10–20%、低 5–10%）。這些貨常常隔天一開盤就賣，追價要小心開高走低。`
     : k === "dumped" ? `${data.prev ? md(data.prev) : ""} 隔日沖分點買的，${md(data.date)} 那幾家賣了多少（只看得到賣超前 15 名，實際可能倒更多）。`
-    : "隔日沖分點：買進的張數裡隔天就賣掉的比例高（外資不算）。點名字看它今天買了什麼。";
+    : "隔日沖分點：買超之後，隔天就在同一檔賣掉一半以上的「次數」比例 22.5% 以上（外資不算，高周轉多半是程式交易）。點名字看它今天買了什麼。";
   return (
     <div className="grid gap-4">
       <div className="card">
@@ -630,7 +630,7 @@ function DtTab({ onStock, onBroker }: { onStock: (c: string) => void; onBroker: 
           )}
           {k === "list" && (
             <table className="tbl text-[13px]">
-              <thead><tr><th>#</th><th style={{ textAlign: "left" }}>分點</th><th>隔日賣出率</th><th>近 25 天</th><th>買進次數</th><th>今天買幾檔</th><th>今天買超（億）</th></tr></thead>
+              <thead><tr><th>#</th><th style={{ textAlign: "left" }}>分點</th><th>隔日倒貨率</th><th>近 25 天</th><th>買進次數</th><th>今天買幾檔</th><th>今天買超（億）</th></tr></thead>
               <tbody>{data.list.map((r, i) => (
                 <tr key={r.id} className="click" onClick={() => onBroker(r)}>
                   <td className="sub">{i + 1}</td><td style={{ textAlign: "left", color: DT }}>{r.n}</td>

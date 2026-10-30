@@ -3,12 +3,13 @@
 //
 // 事件＝某家分點某天在某檔淨買（有進那檔的買超前 15 名）。每家分點統計（都依張數加權）：
 //   隔日賣出率：買進的張數裡，隔天就在同一檔賣掉的比例（只看得到賣超前 15 名，實際可能更高）
+//   隔日倒貨率：買超事件裡，隔天在同一檔賣掉一半以上的「次數」比例（不看張數，大分點不會被少數長抱的大單稀釋）
 //   續抱率：之後 5 天累計賣回不到買進量一半的事件比例
 //   上漲日買進比例：買在當天上漲的張數比例
 //   10 日超額報酬：買超那天收盤到 10 天後收盤的漲跌，扣掉同期間全市場平均（依金額加權）
 // 分類（依序判斷，門檻是用 10/28 里長伯標好的約 20 家分點對過的）：
 //   沒成績：可評分的事件不到 20 次
-//   隔日沖：隔日賣出率 ≥ 25%
+//   隔日沖：本土分點、隔日倒貨率 ≥ 22.5%（10/30 對里長伯 12 家隔日沖名單：全部落在我們前 15 名）
 //   壞分點：10 日超額報酬 ≤ −1.5%
 //   追漲：上漲日買進比例 ≥ 70%
 //   跌時買：上漲日買進比例 < 40%
@@ -16,6 +17,7 @@
 //   放長：其他
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { getDaily } from "../lib/history";
+import { kindOf } from "../lib/brokers";
 
 const DIR = "data/brokers";
 const files = readdirSync(DIR).filter((f) => /^\d{4}-\d\d-\d\d\.json$/.test(f)).sort();
@@ -57,7 +59,7 @@ const mkt = days.map((_, k) => [5, 10].map((h) => {
   return n ? sum / n : NaN;
 }));
 
-type Acc = { n5: number; hold: number; b: number; sold1: number; up: number; bw: number; xw: number; xs: number; rb: number; rs: number; rn: number };
+type Acc = { n5: number; hold: number; b: number; sold1: number; ev: number; evS: number; up: number; bw: number; xw: number; xs: number; rb: number; rs: number; rn: number };
 const acc = new Map<string, Acc>();
 const RECENT = L - 25;
 for (const [c, m] of net) {
@@ -65,15 +67,16 @@ for (const [c, m] of net) {
   if (!x) continue;
   for (const [id, v] of m) {
     let a = acc.get(id);
-    if (!a) acc.set(id, (a = { n5: 0, hold: 0, b: 0, sold1: 0, up: 0, bw: 0, xw: 0, xs: 0, rb: 0, rs: 0, rn: 0 }));
+    if (!a) acc.set(id, (a = { n5: 0, hold: 0, b: 0, sold1: 0, ev: 0, evS: 0, up: 0, bw: 0, xw: 0, xs: 0, rb: 0, rs: 0, rn: 0 }));
     for (let k = 0; k < L; k++) {
       if (v[k] <= 0) continue;
       const cl = x.c[di[k]], pc = x.c[di[k] - 1];
       if (cl > 0 && pc > 0) { a.bw += v[k]; if (cl > pc) a.up += v[k]; }
       if (k + 1 < L) {
         const sold = Math.min(Math.max(0, -v[k + 1]), v[k]);
-        a.b += v[k]; a.sold1 += sold;
-        if (k >= RECENT) { a.rb += v[k]; a.rs += sold; a.rn++; }
+        const dumped = sold >= 0.5 * v[k] ? 1 : 0;
+        a.b += v[k]; a.sold1 += sold; a.ev++; a.evS += dumped;
+        if (k >= RECENT) { a.rb++; a.rs += dumped; a.rn++; }
       }
       if (k + 5 < L) {
         a.n5++;
@@ -88,20 +91,20 @@ for (const [c, m] of net) {
 }
 
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
-/** 分點代號 → [分類, 隔日賣出率, 事件數, 續抱率, 10 日超額報酬%, 上漲日買進比例, 近 25 天隔日賣出率, 近 25 天事件數] */
-const out: Record<string, [string, number, number, number, number, number, number, number]> = {};
+/** 分點代號 → [分類, 隔日賣出率, 事件數, 續抱率, 10 日超額報酬%, 上漲日買進比例, 近 25 天隔日倒貨率, 近 25 天事件數, 隔日倒貨率] */
+const out: Record<string, [string, number, number, number, number, number, number, number, number]> = {};
 const count: Record<string, number> = {};
 for (const [id, a] of acc) {
-  const sell1 = a.b ? a.sold1 / a.b : 0, hold = a.n5 ? a.hold / a.n5 : 0, x10 = a.xw ? a.xs / a.xw : 0, upR = a.bw ? a.up / a.bw : 0;
+  const sell1 = a.b ? a.sold1 / a.b : 0, ev1 = a.ev ? a.evS / a.ev : 0, hold = a.n5 ? a.hold / a.n5 : 0, x10 = a.xw ? a.xs / a.xw : 0, upR = a.bw ? a.up / a.bw : 0;
   const cls = a.n5 < 20 ? "none"
-    : sell1 >= 0.25 ? "dt"
+    : ev1 >= 0.225 && kindOf(names[id] ?? "") === "l" ? "dt"
     : x10 <= -1.5 ? "bad"
     : upR >= 0.7 ? "chase"
     : upR < 0.4 ? "dip"
     : sell1 <= 0.1 && hold >= 0.7 ? "rel"
     : "long";
   count[cls] = (count[cls] ?? 0) + 1;
-  out[id] = [cls, r3(sell1), a.n5, r3(hold), r3(x10), r3(upR), r3(a.rb ? a.rs / a.rb : 0), a.rn];
+  out[id] = [cls, r3(sell1), a.n5, r3(hold), r3(x10), r3(upR), r3(a.rb ? a.rs / a.rb : 0), a.rn, r3(ev1)];
 }
 writeFileSync("data/broker-class.json", JSON.stringify({ asOf: days.at(-1)!.date, from: days[0].date, b: out }));
 console.log("分點分類", days[0].date, "~", days.at(-1)!.date, Object.keys(out).length, "家", count);
