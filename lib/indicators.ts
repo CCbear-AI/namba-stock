@@ -9,10 +9,13 @@ export type Ind = {
   levels?: number[]; // 副圖參考線（例如 RSI 30/70）
 };
 export type Cat = "均線" | "通道與帶狀" | "趨勢" | "動能與震盪" | "趨勢強度" | "量能" | "波動" | "基本";
-export const CATS: Cat[] = ["均線", "通道與帶狀", "趨勢", "動能與震盪", "趨勢強度", "量能", "波動"];
+export const CATS: Cat[] = ["基本", "均線", "通道與帶狀", "趨勢", "動能與震盪", "趨勢強度", "量能", "波動"];
 
 const C = ["#e0b341", "#5aa9ff", "#b48cff", "#4fd1c5", "#f2994a", "#f06292", "#9ccc65"];
 const UPC = "#f0505a", DNC = "#22b573";
+// 通道／帶狀的上下軌、中線：一律灰色虛線，疊在 K 線和均線上才不會太花
+const BAND = "#8b919a";
+const band = (name: string, data: V) => L(name, data, BAND, "line", true);
 
 // ---------- 基本運算 ----------
 const close = (b: Bar[]) => b.map((x) => x.close);
@@ -120,19 +123,19 @@ export const INDICATORS: Ind[] = [
   // 通道與帶狀
   { id: "boll", name: "布林通道", abbr: "BOLL", cat: "通道與帶狀", overlay: true, params: [20, 2], desc: "均線 ± 幾倍標準差", calc: (b, [n, k]) => {
     const m = sma(close(b), n), sd = stdev(close(b), n);
-    return [L("上軌", op(m, sd, (x, y) => x + k * y), "#f2994a"), L("中軌", m, "#e0b341"), L("下軌", op(m, sd, (x, y) => x - k * y), "#5aa9ff")];
+    return [band("上軌", op(m, sd, (x, y) => x + k * y)), band("中軌", m), band("下軌", op(m, sd, (x, y) => x - k * y))];
   } },
   { id: "kc", name: "Keltner 通道", abbr: "KC", cat: "通道與帶狀", overlay: true, params: [20, 2, 10], desc: "EMA ± 幾倍 ATR", calc: (b, [n, k, an]) => {
     const m = ema(close(b), n), a = atrV(b, an);
-    return [L("上軌", op(m, a, (x, y) => x + k * y), "#f2994a"), L("中線", m, "#e0b341"), L("下軌", op(m, a, (x, y) => x - k * y), "#5aa9ff")];
+    return [band("上軌", op(m, a, (x, y) => x + k * y)), band("中線", m), band("下軌", op(m, a, (x, y) => x - k * y))];
   } },
   { id: "dc", name: "唐奇安通道", abbr: "DC", cat: "通道與帶狀", overlay: true, params: [20], desc: "N 根的最高價與最低價", calc: (b, [n]) => {
     const h = highest(b.map((x) => x.high), n), l = lowest(b.map((x) => x.low), n);
-    return [L("上軌", h, "#f2994a"), L("中線", op(h, l, (x, y) => (x + y) / 2), "#e0b341", "line", true), L("下軌", l, "#5aa9ff")];
+    return [band("上軌", h), band("中線", op(h, l, (x, y) => (x + y) / 2)), band("下軌", l)];
   } },
   { id: "env", name: "包絡線", abbr: "ENV", cat: "通道與帶狀", overlay: true, params: [20, 10], desc: "均線上下各幾 %", calc: (b, [n, k]) => {
     const m = sma(close(b), n);
-    return [L("上軌", map(m, (x) => x * (1 + k / 100)), "#f2994a"), L("中線", m, "#e0b341"), L("下軌", map(m, (x) => x * (1 - k / 100)), "#5aa9ff")];
+    return [band("上軌", map(m, (x) => x * (1 + k / 100))), band("中線", m), band("下軌", map(m, (x) => x * (1 - k / 100)))];
   } },
   { id: "ichimoku", name: "一目均衡表", abbr: "Ichimoku", cat: "通道與帶狀", overlay: true, params: [9, 26, 52, 26], desc: "轉換線、基準線、雲帶與遲行線", calc: (b, [a, k, s, d]) => {
     const mid = (n: number) => op(highest(b.map((x) => x.high), n), lowest(b.map((x) => x.low), n), (x, y) => (x + y) / 2);
@@ -167,7 +170,7 @@ export const INDICATORS: Ind[] = [
   { id: "cks", name: "Chande Kroll 停損", abbr: "CKS", cat: "趨勢", overlay: true, params: [10, 1, 9], desc: "用 ATR 算的多空停損線", calc: (b, [p, x, q]) => {
     const a = atrV(b, p);
     const fh = op(highest(b.map((y) => y.high), p), a, (h, t) => h - x * t), fl = op(lowest(b.map((y) => y.low), p), a, (l, t) => l + x * t);
-    return [L("空方停損", highest(fh, q), DNC), L("多方停損", lowest(fl, q), UPC)];
+    return [L("空方停損", highest(fh, q), DNC, "line", true), L("多方停損", lowest(fl, q), UPC, "line", true)];
   } },
 
   // 動能與震盪
