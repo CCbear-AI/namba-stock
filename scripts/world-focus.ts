@@ -1,7 +1,7 @@
 // 早上國際焦點：美股收盤後，把國際行情、美股權值股漲跌、台積電 ADR 溢價和鉅亨網國際新聞交給學校 AI，
 // 挑出今天台股開盤前該知道的幾件事，存到 data/world/日期.json（台灣日期），首頁顯示最新一份。
 // 數字由程式算、新聞只用鉅亨網標題與摘要，AI 只負責挑重點和寫白話，每點附來源新聞。
-// 用法：npm run world-focus（world-focus workflow 台灣週一～六 07:00 跑；週一那份涵蓋週末新聞）
+// 用法：npm run world-focus（world-focus workflow 台灣每天 07:00 跑；新聞從上一份之後開始抓）
 import fs from "node:fs";
 import path from "node:path";
 import { INTL, worldQuote, type WorldQ } from "@/lib/world";

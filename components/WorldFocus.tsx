@@ -24,7 +24,7 @@ export default function WorldFocus() {
   return (
     <div className="card" id="world">
       <div className="card-h">國際焦點<span className="sub mr-auto">{w?.date && `${md(w.date)} · `}每天早上 07:00 更新</span>
-        <Help align="right">美股收盤後（台灣週一～六早上 07:00），把國際行情、美股權值股漲跌、台積電 ADR 和鉅亨網國際新聞交給 AI，挑出台股開盤前該知道的幾件事。利多／利空是 AI 判斷對台股的可能影響，點「原文」可看新聞來源；不構成買賣建議。</Help>
+        <Help align="right">每天台灣早上 07:00（美股收盤後；週日那份整理週末新聞），把國際行情、美股權值股漲跌、台積電 ADR 和鉅亨網國際新聞交給 AI，挑出台股開盤前該知道的幾件事。利多／利空是 AI 判斷對台股的可能影響，點「原文」可看新聞來源；不構成買賣建議。</Help>
       </div>
       <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
         {w && !w.error ? (
