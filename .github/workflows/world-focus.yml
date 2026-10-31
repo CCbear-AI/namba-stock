@@ -3,6 +3,7 @@
 # 2. 重大訊息：證交所／櫃買開放資料約 05:30 放出前一個交易日的公告，AI 每則寫一句摘要 → data/news
 # 3. 個股新聞：鉅亨網台股新聞，有新消息的個股 AI 寫近一週重點 → data/stocknews
 # 4. 全市場體檢：前一晚的融資券、分點、集保都齊了，成交值前 400 檔＋有新聞的個股預先算燈號與 AI 總結 → data/checkup
+# 5. 一週回顧：週六 daily-data 沒寫成（排程延遲或失敗）的話，週日早上這裡補寫；已寫過就略過
 # GitHub 排程常延遲，Supabase pg_cron 會準時用 workflow_dispatch 觸發，這裡的排程當備援
 name: world-focus
 
@@ -75,13 +76,23 @@ jobs:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
           IAI_MODEL: ${{ vars.IAI_MODEL }}
         run: npm run checkup-all
+      - name: 一週回顧
+        # 週六 daily-data 寫過就略過；只在週六、日寫
+        continue-on-error: true
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+          IAI_MODEL: ${{ vars.IAI_MODEL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: npm run weekly-review
       - name: 存檔（新聞、體檢）
         id: save2
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/news data/stocknews data/checkup
+          git add data/news data/stocknews data/checkup data/weekly
           if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
           git commit -m "新聞與體檢 $(TZ=Asia/Taipei date +%F)"
           git pull --rebase

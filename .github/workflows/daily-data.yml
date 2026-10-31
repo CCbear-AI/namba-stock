@@ -1,5 +1,5 @@
 # 每個交易日 16:30（台灣時間）更新盤後資料、22:00 再補融資融券：全市場日 K、法人籌碼、融資券、期貨選擇權、類股指數、歷史高低、量能曲線、分點進出、盤後 AI 摘要、重大訊息、分點晚報、自選收盤報告推播
-# 週六早上另外跑一次抓集保股權分散（每週五晚上公布）
+# 週六早上另外跑一次抓集保股權分散（每週五晚上公布），接著寫一週回顧
 name: daily-data
 
 on:
@@ -46,6 +46,16 @@ jobs:
           npm run broker-class
       - name: 集保股權分散
         run: npm run tdcc
+      - name: 一週回顧
+        # 集保進來後寫這週的回顧並推播；只在週六、日寫，同一週寫過就略過（平日這步直接結束）
+        continue-on-error: true
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+          IAI_MODEL: ${{ vars.IAI_MODEL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: npm run weekly-review
       - name: 法人買超提醒推播
         if: github.event.schedule != '0 1 * * 6'
         continue-on-error: true

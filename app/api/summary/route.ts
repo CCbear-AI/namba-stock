@@ -4,7 +4,8 @@ import path from "node:path";
 // 最新一份盤後 AI 摘要（scripts/ai-summary.ts 產生的 data/summary/日期.json）
 // ?kind=report：分點晚報（scripts/broker-report.ts 產生的 data/report/日期.json）
 // ?kind=world：早上國際焦點（scripts/world-focus.ts 產生的 data/world/日期.json）
-const KINDS: Record<string, [string, string]> = { summary: ["summary", "還沒有盤後摘要"], report: ["report", "還沒有分點晚報"], world: ["world", "還沒有國際焦點"] };
+// ?kind=weekly：一週回顧（scripts/weekly-review.ts 產生的 data/weekly/週最後交易日.json）
+const KINDS: Record<string, [string, string]> = { summary: ["summary", "還沒有盤後摘要"], report: ["report", "還沒有分點晚報"], world: ["world", "還沒有國際焦點"], weekly: ["weekly", "還沒有一週回顧"] };
 
 export async function GET(req: Request) {
   const [sub, empty] = KINDS[new URL(req.url).searchParams.get("kind") ?? ""] ?? KINDS.summary;

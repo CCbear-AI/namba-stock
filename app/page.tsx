@@ -16,6 +16,7 @@ import type { FlowEvent } from "@/lib/flow";
 import Help, { Term } from "@/components/Help";
 import Highlight from "@/components/Highlight";
 import WorldFocus from "@/components/WorldFocus";
+import WeeklyReview from "@/components/WeeklyReview";
 import { RVOL_HELP, tagHelp } from "@/components/glossary";
 
 type Summary = { date: string; headline: string; points: string[]; watch: string; model: string };
@@ -115,8 +116,8 @@ export default function Home() {
       </div>
     ) },
     summary: { span: "md:col-span-12", node: (
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-      <div className="lg:col-span-2 xl:col-span-1 grid"><WorldFocus /></div>
+      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid"><WorldFocus /></div>
       <div className="card">
         <div className="card-h">盤後重點<span className="sub mr-auto">{sum?.date && `${md(sum.date)} · `}每個交易日台灣 16:30 更新</span>
           <Help align="right">收盤後由 AI 依當天數字（大盤、漲跌家數、族群、法人、期貨、國際行情）整理的重點。每個交易日台灣 16:30 開始整理，通常 17:00 前更新完成。數字都是程式算的，AI 只負責寫成白話；不構成買賣建議。</Help>
@@ -147,6 +148,7 @@ export default function Home() {
           ) : <div className="sub py-2">{rep?.error ?? "載入中…"}（每個交易日 22:00 後更新）</div>}
         </div>
       </div>
+      <div className="grid"><WeeklyReview /></div>
       </div>
     ) },
     gainers: { span: "md:col-span-6 lg:col-span-3", node: <Rank title="漲幅排行" rows={gainers.map((r) => ({ c: r.c, n: r.n, p: r, v: <span className={cls(r.pct)}>{pct(r.pct)}</span> }))} /> },
