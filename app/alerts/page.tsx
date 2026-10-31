@@ -14,7 +14,7 @@ import Help, { Term } from "@/components/Help";
 import { RVOL_HELP } from "@/components/glossary";
 
 type Kind = Rule["kind"];
-const KINDS: Kind[] = ["price", "pct", "limit", "insti", "strategy", "rvol", "stall", "report", "wlreport", "weekly"];
+const KINDS: Kind[] = ["price", "pct", "limit", "insti", "strategy", "rvol", "stall", "report", "wlreport", "weekly", "surge"];
 
 export default function Page() {
   return <Suspense><Alerts /></Suspense>;
@@ -51,7 +51,7 @@ function Alerts() {
     if (kind === "insti") return v > 0 ? { ...base, who, value: v } : null;
     if (kind === "strategy") { const s = STRATEGIES.find((x) => x.id === strat)!; return { kind, conds: s.conds, label: s.label }; }
     if (kind === "rvol") return v > 0 ? { kind, value: v, scope } : null;
-    if (kind === "report" || kind === "weekly") return { kind };
+    if (kind === "report" || kind === "weekly" || kind === "surge") return { kind };
     if (kind === "wlreport") return { kind, scope, label: groupList.find((x) => x.id === scope)?.name };
     return { kind, scope };
   })();
@@ -116,7 +116,7 @@ function Alerts() {
         )}
         <div className="flex items-center gap-2 text-[13px]"><span className="sub">通知方式</span><b>{push ? "網頁通知 ＋ 背景推播" : "網頁通知"}</b></div>
         <div className="rounded-lg bg-panel-2 px-3 py-2 text-[13px] leading-relaxed">
-          {draft ? <>{describe({ ...draft, id: "", created: 0, on: true } as Rule)}時，用{push ? "通知" : "網頁通知"}提醒我。{(kind === "rvol" || kind === "stall") && <div className="sub mt-1">盤中檢查，每檔每個交易日最多通知一次，跌回再上來不重複；只描述量價現象，不代表誰在買賣。{!scope.startsWith("b-") && !scopeCount && "（這個群組目前是空的）"}</div>}{kind === "wlreport" && <div className="sub mt-1">分點資料進來後（通常台灣晚上 22:00～23:30）推一則：漲跌家數、最強最弱、法人大買、隔日沖、重大訊息；點開看完整報告。要開「背景推播」才收得到。{!push && <b className="text-[var(--gold-2)]"> 目前背景推播還沒開。</b>}{!scope.startsWith("b-") && !scopeCount && "（這個群組目前是空的）"}</div>}{kind === "weekly" && <div className="sub mt-1">每週六早上集保資料公布後（約 09:30～10:30）寫好一週回顧就推一則；要開「背景推播」才收得到。{!push && <b className="text-[var(--gold-2)]"> 目前背景推播還沒開。</b>}</div>}{kind === "report" && <div className="sub mt-1">晚報要等富邦分點資料出來，通常台灣晚上 22:00～23:30 寫好；要開「背景推播」才收得到（網頁沒開著也會通知）。{!push && <b className="text-[var(--gold-2)]"> 目前背景推播還沒開。</b>}</div>}</>
+          {draft ? <>{describe({ ...draft, id: "", created: 0, on: true } as Rule)}時，用{push ? "通知" : "網頁通知"}提醒我。{(kind === "rvol" || kind === "stall") && <div className="sub mt-1">盤中檢查，每檔每個交易日最多通知一次，跌回再上來不重複；只描述量價現象，不代表誰在買賣。{!scope.startsWith("b-") && !scopeCount && "（這個群組目前是空的）"}</div>}{kind === "wlreport" && <div className="sub mt-1">分點資料進來後（通常台灣晚上 22:00～23:30）推一則：漲跌家數、最強最弱、法人大買、隔日沖、重大訊息；點開看完整報告。要開「背景推播」才收得到。{!push && <b className="text-[var(--gold-2)]"> 目前背景推播還沒開。</b>}{!scope.startsWith("b-") && !scopeCount && "（這個群組目前是空的）"}</div>}{kind === "surge" && <div className="sub mt-1">分點、融資資料進來後（通常台灣晚上 22:00～23:30）寫好飆股晚報就推一則；要開「背景推播」才收得到。{!push && <b className="text-[var(--gold-2)]"> 目前背景推播還沒開。</b>}</div>}{kind === "weekly" && <div className="sub mt-1">每週六早上集保資料公布後（約 09:30～10:30）寫好一週回顧就推一則；要開「背景推播」才收得到。{!push && <b className="text-[var(--gold-2)]"> 目前背景推播還沒開。</b>}</div>}{kind === "report" && <div className="sub mt-1">晚報要等富邦分點資料出來，通常台灣晚上 22:00～23:30 寫好；要開「背景推播」才收得到（網頁沒開著也會通知）。{!push && <b className="text-[var(--gold-2)]"> 目前背景推播還沒開。</b>}</div>}</>
             : <span className="sub">{needStock && !code ? "先選一檔股票，這裡會顯示提醒內容。" : "填好條件，這裡會顯示提醒內容。"}</span>}
         </div>
         <button className="btn gold justify-center py-2.5" disabled={!draft} onClick={() => draft && add(draft)}>建立提醒</button>

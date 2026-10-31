@@ -4,7 +4,7 @@ import { matchAll, STRATEGIES, COND, isLimitUp, isLimitDown, volStall } from "./
 
 export type Rule = {
   id: string;
-  kind: "price" | "pct" | "limit" | "insti" | "strategy" | "rvol" | "stall" | "report" | "wlreport" | "weekly";
+  kind: "price" | "pct" | "limit" | "insti" | "strategy" | "rvol" | "stall" | "report" | "wlreport" | "weekly" | "surge";
   code?: string; name?: string;
   dir?: "above" | "below" | "up" | "down";
   value?: number;
@@ -16,7 +16,7 @@ export type Rule = {
 };
 export type Fired = { t: number; ruleId: string; code?: string; msg: string; link: string };
 
-export const KIND_LABEL: Record<Rule["kind"], string> = { price: "到價", pct: "漲跌幅", limit: "漲跌停", insti: "法人買超", strategy: "選股策略", rvol: "RVOL 突破", stall: "爆量卡關", report: "分點晚報", wlreport: "自選收盤報告", weekly: "一週回顧" };
+export const KIND_LABEL: Record<Rule["kind"], string> = { price: "到價", pct: "漲跌幅", limit: "漲跌停", insti: "法人買超", strategy: "選股策略", rvol: "RVOL 突破", stall: "爆量卡關", report: "分點晚報", wlreport: "自選收盤報告", weekly: "一週回顧", surge: "飆股晚報" };
 
 export function describe(r: Rule) {
   const n = r.name ?? r.code ?? "";
@@ -31,6 +31,7 @@ export function describe(r: Rule) {
     case "report": return "每個交易日晚上分點晚報寫好";
     case "wlreport": return "每個交易日晚上自選群組的收盤報告整理好";
     case "weekly": return "每週六一週回顧寫好";
+    case "surge": return "每個交易日晚上飆股晚報寫好";
   }
 }
 

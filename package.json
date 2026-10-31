@@ -27,7 +27,8 @@
     "world-focus": "tsx scripts/world-focus.ts",
     "stock-news": "tsx scripts/stock-news.ts",
     "checkup-all": "tsx scripts/checkup-all.ts",
-    "weekly-review": "tsx scripts/weekly-review.ts"
+    "weekly-review": "tsx scripts/weekly-review.ts",
+    "surge": "tsx scripts/surge.ts"
   },
   "dependencies": {
     "@vercel/functions": "^3.10.3",
