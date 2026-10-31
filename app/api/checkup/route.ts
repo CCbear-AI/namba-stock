@@ -4,6 +4,8 @@ import { aiReady } from "@/lib/ai";
 import { checkup, checkupAi } from "@/lib/checkup";
 import { BY_CODE } from "@/lib/universe";
 import { ETFS } from "@/lib/etfs";
+import { precomputed } from "@/lib/checkupStore";
+import { getDaily } from "@/lib/history";
 
 // 個股一眼體檢：燈號馬上回；AI 一句總結每檔每個交易日只問一次（存 Runtime Cache），
 // 學校 AI 慢的時候先回 pending，AI 在背景算完存快取，前端稍後再來拿（跟 /api/levels 同一套）
@@ -18,6 +20,9 @@ export async function GET(req: Request) {
   const code = new URL(req.url).searchParams.get("code") ?? "";
   if (!/^\d{4,6}[A-Z]?$/.test(code)) return Response.json({ error: "代號格式不對" }, { status: 400 });
   try {
+    // 每天早上排程預先算好的（含 AI 總結）直接回
+    const pre = precomputed(code, getDaily().dates.at(-1) ?? "");
+    if (pre?.ai) return Response.json(pre, { headers: { "Cache-Control": "public, max-age=0, s-maxage=600, stale-while-revalidate=86400" } });
     const x = await checkup(code);
     if ("error" in x) return Response.json(x, { status: 404 });
     const noStore = { headers: { "Cache-Control": "no-store" } };

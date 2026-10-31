@@ -8,7 +8,8 @@ import { getDaily } from "@/lib/history";
 import { getQuotes, ch } from "@/lib/mis";
 
 // ?code=2330 | TAIEX | OTC | sector:t24  &tf=1m|5m|15m|30m|60m|1d|1wk|1mo
-export async function getBars(code: string, tf: TF): Promise<Bar[]> {
+// live=false：不用即時報價補今天那根（批次體檢用，避免一次打幾百次 MIS）
+export async function getBars(code: string, tf: TF, { live = true } = {}): Promise<Bar[]> {
   let bars: Bar[];
   if (code === "OTC") {
     // 櫃買指數：分時用 MIS 每分鐘資料，日 K 用櫃買歷史（data/sector-otc.json）＋今天即時
@@ -42,7 +43,7 @@ export async function getBars(code: string, tf: TF): Promise<Bar[]> {
     let m: "tse" | "otc" = s?.m ?? "tse";
     bars = await yahooBars(yahooSymbol(code, m), tf);
     if (!bars.length && !s) { m = "otc"; bars = await yahooBars(yahooSymbol(code, m), tf); }
-    if (tf === "1d") bars = await withOfficial(code, m, bars);
+    if (tf === "1d") bars = await withOfficial(code, m, bars, live);
     if (tf === "1m") bars = await closingAuction(code, m, bars);
   }
   return bars;
@@ -63,7 +64,7 @@ function groupMinutes(bars: Bar[], n: number): Bar[] {
  * 個股日 K：有官方日 K（data/daily）的日子改用官方開高低收量（成交量含盤後、鉅額，Yahoo 的量常對不上）；
  * 今天還沒有官方資料就用即時報價補（跟里長伯一致）
  */
-async function withOfficial(code: string, m: "tse" | "otc", bars: Bar[]): Promise<Bar[]> {
+async function withOfficial(code: string, m: "tse" | "otc", bars: Bar[], live: boolean): Promise<Bar[]> {
   const { dates, s } = getDaily();
   const x = s.get(code);
   // Yahoo 在休市日（例如 10/23 颱風）也會補一根量 0、價格沿用前一天的 K 棒，會拉偏均線 → 官方日 K 涵蓋期間只留官方交易日
@@ -76,7 +77,7 @@ async function withOfficial(code: string, m: "tse" | "otc", bars: Bar[]): Promis
     map.set(t, { time: t, open: x.o[i], high: x.h[i], low: x.l[i], close: x.c[i], volume: x.v[i] });
   });
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
-  if (dates.at(-1) !== today) {
+  if (live && dates.at(-1) !== today) {
     const [q] = await getQuotes([ch(m, code)]).catch(() => []);
     if (q?.price && q.vol && new Date(q.time + 8 * 3600e3).toISOString().slice(0, 10) === today) {
       const t = Date.parse(today) / 1000;

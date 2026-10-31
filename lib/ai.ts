@@ -65,3 +65,12 @@ function closeArrays(s: string): string {
   }
   return out;
 }
+
+/** 學校 API 可以同時處理好幾個請求（3 個並行跟 1 個差不多快），批次工作用這個同時送 par 批 */
+export const AI_PAR = Number(process.env.IAI_PAR) || 4;
+export async function pool<T>(list: T[], par: number, fn: (x: T, i: number) => Promise<void>) {
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(par, list.length) }, async () => {
+    while (next < list.length) { const k = next++; await fn(list[k], k); }
+  }));
+}

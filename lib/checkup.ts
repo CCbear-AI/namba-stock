@@ -4,9 +4,10 @@ import { getChips, getDaily, getTdcc } from "./history";
 import { getBars } from "./bars";
 import { stockHandoff } from "./brokerFlow";
 import { superLevels } from "./levels";
-import { chat } from "./ai";
+import { chat, parseJson } from "./ai";
 import { ETFS } from "./etfs";
 import type { Bar } from "./types";
+import { readDigests, type Digest } from "./stockNews";
 
 /** g＝偏好、y＝留意、r＝偏弱、n＝沒資料或只是參考 */
 export type Lv = "g" | "y" | "r" | "n";
@@ -70,11 +71,12 @@ async function revenueYoy(code: string): Promise<{ ym: string; yoy: number } | n
   }
 }
 
-export async function checkup(code: string): Promise<Checkup | { error: string }> {
+/** opts.rev：批次時先抓好全市場月營收（官方開放資料），不逐檔問 FinMind；opts.batch：不用即時報價；opts.digest：個股新聞 AI 近一週重點 */
+export async function checkup(code: string, opts: { rev?: Map<string, { ym: string; yoy: number }>; batch?: boolean; digest?: Digest | null } = {}): Promise<Checkup | { error: string }> {
   // 日K用 getBars（官方日K＋更早的 Yahoo，ETF 官方日K只有最近幾天），只取到最新一份盤後資料那天，盤中燈號不跟著跳
   const { dates } = getDaily();
   const end = Date.parse(dates.at(-1) ?? "") / 1000;
-  const bars = (await getBars(code, "1d").catch(() => [] as Bar[])).filter((b) => b.time <= end && b.close > 0);
+  const bars = (await getBars(code, "1d", { live: !opts.batch }).catch(() => [] as Bar[])).filter((b) => b.time <= end && b.close > 0);
   if (bars.length < 61) return { error: `${code} 日K資料不夠，無法體檢` };
   const c = bars.map((b) => b.close);
   const n = c.length - 1;
@@ -161,12 +163,18 @@ export async function checkup(code: string): Promise<Checkup | { error: string }
 
   // 7. 營收：最新月營收年增
   if (!ETFS[code] && !code.startsWith("00")) {
-    const rv = await revenueYoy(code);
+    const rv = opts.rev ? opts.rev.get(code) ?? null : await revenueYoy(code);
     if (!rv) lights.push({ k: "rev", name: "營收", lv: "n", text: "月營收抓不到" });
     else lights.push({ k: "rev", name: "營收", lv: rv.yoy >= 10 ? "g" : rv.yoy <= -10 ? "r" : "y", text: `${rv.ym}營收年增 ${sg(rv.yoy, 1)}%` });
   }
 
-  // 8. 支撐壓力（只當參考，不算分）：程式計算版最近的上下價位
+  // 8. 消息面：個股新聞 AI 近一週重點（7 天內才算）
+  {
+    const dg = opts.digest === undefined ? readDigests()[code] : opts.digest;
+    if (dg && Date.now() - dg.at < 7 * 86400e3) lights.push({ k: "news", name: "消息面", lv: dg.tone === "多" ? "g" : dg.tone === "空" ? "r" : "y", text: dg.text });
+  }
+
+  // 9. 支撐壓力（只當參考，不算分）：程式計算版最近的上下價位
   {
     const lv = superLevels(bars).levels;
     const res = lv.filter((l) => l.price > close).sort((a, b) => a.price - b.price)[0];
@@ -197,4 +205,14 @@ export async function checkupAi(x: Checkup, name: string): Promise<string> {
   const s = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim().replace(/^["「]|["」]$/g, "").split("\n").filter(Boolean).at(-1) ?? "";
   if (!s) throw new Error("AI 沒有回應內容");
   return s.slice(0, 120);
+}
+
+const BATCH_SYSTEM = SYSTEM.replace("請寫一句總結。", "請替每一檔各寫一句總結。").replace("只輸出那一句話。", '只輸出 JSON：{"items":[{"c":"代號","text":"總結"}]}');
+
+/** 批次版：一次問好幾檔（scripts/checkup-all.ts 每天預先算），回傳 代號 → 一句總結 */
+export async function checkupAiBatch(list: { x: Checkup; name: string }[]): Promise<Map<string, string>> {
+  const facts = list.map(({ x, name }) => [`## ${x.code} ${name}，${x.date} 收盤 ${x.close}，程式判斷：${x.verdict}（綠 ${x.good}、紅 ${x.bad}）`, ...x.lights.map((l) => `${l.name}（${LV_NAME[l.lv]}）：${l.text}`)].join("\n")).join("\n\n");
+  const j = parseJson<{ items: { c: string; text: string }[] }>(await chat([{ role: "system", content: BATCH_SYSTEM }, { role: "user", content: facts }], { timeout: 240_000 }));
+  const ok = new Set(list.map((l) => l.x.code));
+  return new Map((j.items ?? []).filter((r) => ok.has(String(r.c)) && r.text).map((r) => [String(r.c), String(r.text).trim().slice(0, 120)]));
 }

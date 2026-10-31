@@ -22,8 +22,11 @@
     "broker-report": "tsx scripts/broker-report.ts",
     "brokers": "tsx scripts/brokers.ts",
     "broker-class": "tsx scripts/broker-class.ts",
+    "news": "tsx scripts/news.ts",
     "wl-push": "tsx scripts/wl-push.ts",
-    "world-focus": "tsx scripts/world-focus.ts"
+    "world-focus": "tsx scripts/world-focus.ts",
+    "stock-news": "tsx scripts/stock-news.ts",
+    "checkup-all": "tsx scripts/checkup-all.ts"
   },
   "dependencies": {
     "@vercel/functions": "^3.10.3",

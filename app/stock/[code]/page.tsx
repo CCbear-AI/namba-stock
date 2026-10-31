@@ -8,6 +8,7 @@ import AlertDialog from "@/components/AlertDialog";
 import ExportBtn from "@/components/ExportBtn";
 import Fundamental from "@/components/Fundamental";
 import Checkup from "@/components/Checkup";
+import NewsCard from "@/components/NewsCard";
 import Help from "@/components/Help";
 import { ChipsSummary, Branches } from "@/components/StockChips";
 import { usePoll, useRecent, useWatchlist } from "@/components/hooks";
@@ -99,6 +100,7 @@ export default function StockPage() {
           <Branches code={code} />
         </div>
       </div>
+      <NewsCard code={code} />
       <div className="card">
         <div className="card-h">基本面 <Help>資料來源：證交所、櫃買中心、公開資訊觀測站（經 FinMind）。財報一季更新一次，月營收每月 10 日前公布。</Help></div>
         <Fundamental code={code} />

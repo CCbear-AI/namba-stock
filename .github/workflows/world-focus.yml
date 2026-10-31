@@ -1,4 +1,8 @@
-# 早上國際焦點：美股收盤後（台灣週一～六 07:00）整理國際行情＋鉅亨網國際新聞，學校 AI 寫重點 → data/world/日期.json
+# 早上排程（台灣週一～六 07:00）：
+# 1. 國際焦點：美股收盤後整理國際行情＋鉅亨網國際新聞 → data/world/日期.json（先存檔部署，開盤前一定看得到）
+# 2. 重大訊息：證交所／櫃買開放資料約 05:30 放出前一個交易日的公告，AI 每則寫一句摘要 → data/news
+# 3. 個股新聞：鉅亨網台股新聞，有新消息的個股 AI 寫近一週重點 → data/stocknews
+# 4. 全市場體檢：前一晚的融資券、分點、集保都齊了，成交值前 400 檔＋有新聞的個股預先算燈號與 AI 總結 → data/checkup
 # GitHub 排程常延遲，Supabase pg_cron 會準時用 workflow_dispatch 觸發，這裡的排程當備援
 name: world-focus
 
@@ -17,7 +21,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,12 +30,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: 國際焦點
+        continue-on-error: true
         env:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
           IAI_MODEL: ${{ vars.IAI_MODEL }}
         run: npm run world-focus
-      - name: 存檔
-        id: save
+      - name: 存檔（國際焦點）
+        id: save1
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -41,8 +46,49 @@ jobs:
           git pull --rebase
           git push
           echo "pushed=true" >> "$GITHUB_OUTPUT"
-      - name: 通知 Vercel 部署
-        if: ${{ steps.save.outputs.pushed == 'true' }}
+      - name: 通知 Vercel 部署（國際焦點）
+        if: ${{ steps.save1.outputs.pushed == 'true' }}
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
+          curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
+      - name: 重大訊息
+        # 學校 AI 慢，寫不完的 16:30、22:00 daily-data 和隔天再補（中途會存檔）
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+          IAI_MODEL: ${{ vars.IAI_MODEL }}
+        run: npm run news
+      - name: 個股新聞
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+          IAI_MODEL: ${{ vars.IAI_MODEL }}
+        run: npm run stock-news
+      - name: 全市場體檢
+        continue-on-error: true
+        timeout-minutes: 50
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+          IAI_MODEL: ${{ vars.IAI_MODEL }}
+        run: npm run checkup-all
+      - name: 存檔（新聞、體檢）
+        id: save2
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/news data/stocknews data/checkup
+          if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
+          git commit -m "新聞與體檢 $(TZ=Asia/Taipei date +%F)"
+          git pull --rebase
+          git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+      - name: 通知 Vercel 部署（新聞、體檢）
+        if: ${{ always() && steps.save2.outputs.pushed == 'true' }}
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: |
