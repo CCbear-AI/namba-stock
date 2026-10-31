@@ -7,7 +7,7 @@ import { checkup, checkupAiBatch, type Checkup } from "@/lib/checkup";
 import { CHECKUP_FILE, type CheckupAll } from "@/lib/checkupStore";
 import { readDigests } from "@/lib/stockNews";
 import { getDaily } from "@/lib/history";
-import { aiReady, pool, AI_PAR } from "@/lib/ai";
+import { aiReady, pool, withSplit, AI_PAR } from "@/lib/ai";
 import { BY_CODE } from "@/lib/universe";
 
 const arg = (k: string, d: number) => { const i = process.argv.indexOf(k); return i > 0 ? Number(process.argv[i + 1]) : d; };
@@ -72,8 +72,10 @@ async function main() {
   await pool(batches, AI_PAR, async (b, bi) => {
     if (fail >= 6) return; // 連續失敗太多次，剩下的下次排程再補
     try {
-      const m = await checkupAiBatch(b.map((c) => ({ x: items[c], name: BY_CODE.get(c)?.n ?? "" })));
-      for (const [c, t] of m) { items[c].ai = t; done++; }
+      await withSplit(b, async (part) => {
+        const m = await checkupAiBatch(part.map((c) => ({ x: items[c], name: BY_CODE.get(c)?.n ?? "" })));
+        for (const [c, t] of m) { items[c].ai = t; done++; }
+      });
       fail = 0;
     } catch (e) { fail++; console.log(`第 ${bi + 1} 批失敗：${(e as Error).message}`); }
     if (++n % 5 === 0) { save(); console.log(`AI ${done}/${todo.length}`); }

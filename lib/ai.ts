@@ -33,12 +33,35 @@ export function parseJson<T>(text: string): T {
   const a = body.indexOf("{"), b = body.lastIndexOf("}");
   if (a < 0 || b < a) throw new Error("AI 回覆不是 JSON");
   const s = body.slice(a, b + 1);
-  try {
-    return JSON.parse(s) as T;
-  } catch (e) {
-    const fixed = closeArrays(s);
-    if (fixed === s) throw e;
-    return JSON.parse(fixed) as T;
+  let err: unknown;
+  // 依序試：整段、補陣列括號、只取第一個完整的 {…}（模型有時 JSON 後面又多寫一段）
+  for (const t of [s, closeArrays(s), firstObject(s), closeArrays(firstObject(s))]) {
+    try { return JSON.parse(t) as T; } catch (e) { err ??= e; }
+  }
+  throw err;
+}
+
+/** 從開頭的 { 開始，取到括號配對結束為止 */
+function firstObject(s: string): string {
+  let depth = 0, inStr = false, esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === "\"") inStr = false; continue; }
+    if (c === "\"") inStr = true;
+    else if (c === "{" || c === "[") depth++;
+    else if ((c === "}" || c === "]") && --depth === 0) return s.slice(0, i + 1);
+  }
+  return s;
+}
+
+/** 一批失敗（思考字數用光、JSON 壞掉）就拆成兩半各重試一次，兩半都跑完才把錯誤丟出去 */
+export async function withSplit<T>(b: T[], fn: (b: T[]) => Promise<void>, depth = 1): Promise<void> {
+  try { await fn(b); } catch (e) {
+    if (depth <= 0 || b.length < 2) throw e;
+    const h = Math.ceil(b.length / 2);
+    const r = await Promise.allSettled([withSplit(b.slice(0, h), fn, depth - 1), withSplit(b.slice(h), fn, depth - 1)]);
+    const bad = r.find((x) => x.status === "rejected");
+    if (bad) throw (bad as PromiseRejectedResult).reason;
   }
 }
 

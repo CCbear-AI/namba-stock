@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { SNEWS_DIR, DIGEST_FILE, snewsDates, readSnewsDay, readDigests, type SNews, type Digest } from "@/lib/stockNews";
 import { newsFor } from "@/lib/news";
-import { aiReady, chat, parseJson, pool, AI_PAR } from "@/lib/ai";
+import { aiReady, chat, parseJson, pool, withSplit, AI_PAR } from "@/lib/ai";
 import { BY_CODE } from "@/lib/universe";
 import { ETFS } from "@/lib/etfs";
 
@@ -85,8 +85,7 @@ async function main() {
   const batches = Array.from({ length: Math.ceil(run.length / BATCH) }, (_, i) => run.slice(i * BATCH, (i + 1) * BATCH));
   const left = new Set(todo); // 還沒寫好的，存檔時記成 pending 下次補
   let done = 0, fail = 0, n = 0;
-  await pool(batches, AI_PAR, async (batch, bi) => {
-    if (fail >= 6) return; // 連續失敗太多次，剩下的下次排程再補
+  const digestBatch = async (batch: string[]) => {
     const ids = new Map<string, Set<number>>();
     const text = batch.map((c) => {
       const ns = weekNews.filter((x) => x.c.includes(c)).sort((a, b) => b.at - a.at).slice(0, 8);
@@ -96,21 +95,25 @@ async function main() {
         ...ns.map((x) => `[${x.id}] ${tw(x.at).slice(5, 10)} ${x.t}${x.s ? `｜${x.s}` : ""}`),
         ...ann.map((x) => `重大訊息 ${x.d.slice(5)} ${x.sum || x.title}`)].join("\n");
     }).join("\n\n");
+    const j = parseJson<{ items: { c: string; text: string; tone: string; src: number[] }[] }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: text }], { timeout: 240_000 }));
+    for (const r of j.items ?? []) {
+      const c = String(r.c);
+      if (!ids.has(c)) continue;
+      const t = clean(r.text ?? "").slice(0, 100);
+      if (!t) { delete items[c]; continue; }
+      items[c] = {
+        d: tw(now).slice(0, 10), text: t, at: now,
+        tone: (["多", "空", "中"].includes(r.tone) ? r.tone : "中") as Digest["tone"],
+        src: (Array.isArray(r.src) ? r.src : []).map(Number).filter((n) => ids.get(c)!.has(n)).slice(0, 3),
+      };
+      done++;
+    }
+    for (const c of batch) left.delete(c);
+  };
+  await pool(batches, AI_PAR, async (batch, bi) => {
+    if (fail >= 6) return; // 連續失敗太多次，剩下的下次排程再補
     try {
-      const j = parseJson<{ items: { c: string; text: string; tone: string; src: number[] }[] }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: text }], { timeout: 240_000 }));
-      for (const r of j.items ?? []) {
-        const c = String(r.c);
-        if (!ids.has(c)) continue;
-        const t = clean(r.text ?? "").slice(0, 100);
-        if (!t) { delete items[c]; continue; }
-        items[c] = {
-          d: tw(now).slice(0, 10), text: t, at: now,
-          tone: (["多", "空", "中"].includes(r.tone) ? r.tone : "中") as Digest["tone"],
-          src: (Array.isArray(r.src) ? r.src : []).map(Number).filter((n) => ids.get(c)!.has(n)).slice(0, 3),
-        };
-        done++;
-      }
-      for (const c of batch) left.delete(c);
+      await withSplit(batch, digestBatch);
       fail = 0;
     } catch (e) {
       fail++;

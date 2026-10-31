@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { NEWS_DIR, NEWS_TAGS, newsDates, readNewsDay, type News, type NewsDay } from "@/lib/news";
-import { aiReady, chat, parseJson, pool, AI_PAR, AI_MODEL } from "@/lib/ai";
+import { aiReady, chat, parseJson, pool, withSplit, AI_PAR, AI_MODEL } from "@/lib/ai";
 import { getDaily } from "@/lib/history";
 import { BY_CODE } from "@/lib/universe";
 
@@ -119,7 +119,7 @@ async function main() {
   let done = 0, fail = 0, n = 0;
   await pool(batches, AI_PAR, async (b, i) => {
     if (fail >= 8) return; // 連續失敗太多次，剩下的下次排程再補
-    try { const k = await summarize(b); done += k; fail = 0; }
+    try { await withSplit(b, async (part) => { const k = await summarize(part); done += k; }); fail = 0; }
     catch (e) { fail++; console.log(`第 ${i + 1} 批失敗：${(e as Error).message}`); }
     if (++n % 5 === 0) { save(); console.log(`${n}/${batches.length} 批`); } // 中途存檔，排程被砍也不會白做
   });
