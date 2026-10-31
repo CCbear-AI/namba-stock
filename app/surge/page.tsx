@@ -137,7 +137,14 @@ export default function Page() {
 
           <div className="card">
             <div className="card-h"><span className="mr-auto flex items-center gap-1">過去名單成績單<Help>每天名單前 10 名，隔天開盤買進、抱到最新收盤，跟全市場同一段期間的平均比。跑贏＝報酬比全市場平均好的檔數；飆 20%＝期間最高價曾比買進價高 20% 的檔數。最近幾天的期間短，參考就好。</Help></span></div>
-            <div className="overflow-x-auto px-2 pb-3">
+            {ok && (() => {
+              // 抱超過 20 個交易日的名單合起來看，比較不受單日運氣影響
+              const long = data.track.filter((t) => t.days >= 20);
+              if (!long.length) return null;
+              const avg = (f: (t: Track) => number) => long.reduce((s, t) => s + f(t), 0) / long.length;
+              return <div className="px-4 pb-1 text-[12.5px] text-text-2">抱 20 天以上的 {long.length} 份名單平均：前 10 檔 <span className={`mono ${cls(avg((t) => t.ret))}`}>{sg(avg((t) => t.ret))}%</span>、全市場 <span className={`mono ${cls(avg((t) => t.mkt))}`}>{sg(avg((t) => t.mkt))}%</span>、每份平均 {avg((t) => t.hit).toFixed(1)} 檔曾飆 20%</div>;
+            })()}
+            <div className="overflow-x-auto scroll-y max-h-[460px] px-2 pb-3">
               <table className="tbl text-[13px]">
                 <thead><tr><th>名單日</th><th>抱幾天</th><th>前 10 平均</th><th>全市場</th><th>跑贏</th><th>飆 20%</th><th>最強</th></tr></thead>
                 <tbody>

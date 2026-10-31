@@ -69,7 +69,13 @@ const big = (v: number) => {
 const CUR: Record<string, string> = { 美金: "美元", 美元: "美元", USD: "美元", 人民幣: "人民幣", CNY: "人民幣", RMB: "人民幣", 韓圜: "韓圜", 日圓: "日圓", 日幣: "日圓", 歐元: "歐元", 港幣: "港幣" };
 const num = (n: string) => Number(n.replace(/,/g, ""));
 export function withAmt(body: string) {
+  // 財報的「1月1日累計至本期止」AI 常寫成單季（志聖前三季營收寫成第3季），依報導期間直接標好
+  const end = body.match(/起訖日期[^:：]*[:：]\s*\d{2,3}\/01\/01\s*~\s*\d{2,3}\/(\d\d)\/\d\d/)?.[1];
+  const span = ({ "03": "第1季", "06": "上半年累計", "09": "前三季累計", "12": "全年累計" } as Record<string, string>)[end ?? ""];
+  if (span) body = body.replace(/1月1日累計至本期止/g, `${span}`);
   return body
+    // 「US$ 110,000,000」（後面沒寫元）
+    .replace(/(US\$|USD)\s*(\d[\d,]{4,})(?![\d,]|\s*(?:仟元|元))/g, (m, _c, n) => `${m}（約 ${big(num(n))}美元）`)
     // 「…(仟元):153,513,764」（財報欄位，新台幣）
     .replace(/(\(仟元\)\s*[:：]\s*)(-?[\d,]+)(?![\d,])/g, (m, a, n) => (Math.abs(num(n)) >= 10 ? `${a}${n}（約 ${big(num(n) * 1000)}元）` : m))
     // 「人民幣 65,000,000元」「16,143仟元」「20,000,000股」：萬以上才換

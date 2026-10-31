@@ -14,7 +14,7 @@ let memo: { key: string; v: unknown } | null = null;
 function track(files: string[]) {
   const { dates, s } = getDaily();
   const N = dates.length, last = N - 1;
-  return files.map((f) => f.slice(0, 10)).filter((d) => d < dates[last]).slice(-30).reverse().map((d) => {
+  return files.map((f) => f.slice(0, 10)).filter((d) => d < dates[last]).slice(-60).reverse().map((d) => {
     const day: SurgeDay = JSON.parse(fs.readFileSync(path.join(DIR, `${d}.json`), "utf8"));
     const i = dates.indexOf(d);
     if (i < 0 || i + 1 > last) return null;

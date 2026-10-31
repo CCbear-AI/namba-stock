@@ -143,7 +143,7 @@ async function writeAi(out: SurgeDay, save: () => void, ctx: Ctx, push: boolean)
   ].join("\n");
   for (let k = 0; k < 3; k++) {
     try {
-      const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SUM_SYSTEM }, { role: "user", content: sumFacts }], { timeout: 240_000, maxTokens: 12000 }));
+      const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SUM_SYSTEM }, { role: "user", content: sumFacts }], { timeout: 300_000, maxTokens: 16000 }));
       if (!j.headline || !Array.isArray(j.points) || !j.points.length) throw new Error("格式不對");
       Object.assign(out, { model: AI_MODEL, headline: j.headline, points: j.points.slice(0, 4), watch: j.watch ?? "", generated: Date.now() });
       save();

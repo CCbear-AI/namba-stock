@@ -1,6 +1,6 @@
 // 個股新聞：抓鉅亨網台股新聞（公開 API，每則標好相關個股）存到 data/stocknews/發布日期.json，
 // 有新消息的個股交給學校 AI 寫「近一週重點」（新聞＋重大訊息），存到 data/stocknews/digest.json。
-// 用法：npm run stock-news [-- --no-ai 只抓不寫重點]（world-focus workflow 早上 07:00 跑；寫不完的下次補）
+// 用法：npm run stock-news [-- --no-ai 只抓不寫重點] [-- --redo 現有的重點全部重寫]（world-focus workflow 早上 07:00 跑；寫不完的下次補）
 import fs from "node:fs";
 import path from "node:path";
 import { SNEWS_DIR, DIGEST_FILE, snewsDates, readSnewsDay, readDigests, type SNews, type Digest } from "@/lib/stockNews";
@@ -11,6 +11,8 @@ import { ETFS } from "@/lib/etfs";
 
 const BATCH = 6;
 const MAX_AI = 200; // 一次最多寫幾檔（新聞多的先寫）
+// 重點用 Furen-max：10/31 同 30 檔比較，large 會把賣方的消息寫到買方（台積電買友達廠寫成「售出」）、金額差十倍，max 較準也較快
+const MODEL = process.env.IAI_DIGEST_MODEL || "Furen-max";
 const KEEP_DAYS = 70;
 const tw = (t: number) => new Date(t + 8 * 3600e3).toISOString();
 // 制式快訊：盤中速報不收；Factset 目標價收進清單但不給 AI（量多又沒內容）
@@ -70,7 +72,7 @@ async function main() {
 
   const items: Record<string, Digest> = readDigests();
   // 上次沒寫完的（pending）也一起補
-  const todo = [...new Set([...(dg0.pending ?? []), ...[...changed].sort((a, b) => b[1] - a[1]).map(([c]) => c)])];
+  const todo = [...new Set([...(process.argv.includes("--redo") ? Object.keys(readDigests()) : []), ...(dg0.pending ?? []), ...[...changed].sort((a, b) => b[1] - a[1]).map(([c]) => c)])];
   const save = (pending: string[]) => {
     const cut = tw(now - 30 * 86400e3).slice(0, 10);
     for (const [c, x] of Object.entries(items)) if (x.d < cut) delete items[c];
@@ -95,7 +97,7 @@ async function main() {
         ...ns.map((x) => `[${x.id}] ${tw(x.at).slice(5, 10)} ${x.t}${x.s ? `｜${x.s}` : ""}`),
         ...ann.map((x) => `重大訊息 ${x.d.slice(5)} ${x.sum || x.title}`)].join("\n");
     }).join("\n\n");
-    const j = parseJson<{ items: { c: string; text: string; tone: string; src: number[] }[] }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: text }], { timeout: 240_000 }));
+    const j = parseJson<{ items: { c: string; text: string; tone: string; src: number[] }[] }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: text }], { model: MODEL, timeout: 300_000, maxTokens: 12000 }));
     for (const r of j.items ?? []) {
       const c = String(r.c);
       if (!ids.has(c)) continue;
