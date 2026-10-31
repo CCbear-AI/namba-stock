@@ -1,0 +1,50 @@
+# 早上國際焦點：美股收盤後（台灣週一～六 07:00）整理國際行情＋鉅亨網國際新聞，學校 AI 寫重點 → data/world/日期.json
+# GitHub 排程常延遲，Supabase pg_cron 會準時用 workflow_dispatch 觸發，這裡的排程當備援
+name: world-focus
+
+on:
+  schedule:
+    - cron: "0 23 * * 0-5" # UTC 週日～五 23:00 = 台灣週一～六 07:00
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: world-focus
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: 國際焦點
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+          IAI_MODEL: ${{ vars.IAI_MODEL }}
+        run: npm run world-focus
+      - name: 存檔
+        id: save
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/world
+          if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
+          git commit -m "國際焦點 $(TZ=Asia/Taipei date +%F)"
+          git pull --rebase
+          git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+      - name: 通知 Vercel 部署
+        if: ${{ steps.save.outputs.pushed == 'true' }}
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
+          curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
