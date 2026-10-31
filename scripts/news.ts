@@ -59,19 +59,40 @@ async function fetchAll(): Promise<News[]> {
   return out;
 }
 
+// 原文金額多半是「仟元」或一長串「元」「股」，AI 自己換算常差十倍（光寶科 1535 億寫成 1.54 兆、9,758 萬寫成 9,758 千元、
+// 2,000 萬股寫成 200 萬股、4,200 萬美元寫成 4.2 億），程式先換成「億／萬」附在後面括號，幣別一起寫進去
+const big = (v: number) => {
+  const a = Math.abs(v), s = v < 0 ? "-" : "";
+  if (a >= 1e8) return `${s}${(a / 1e8).toLocaleString("en-US", { maximumFractionDigits: a >= 1e10 ? 1 : 2 })} 億`;
+  return `${s}${(a / 1e4).toLocaleString("en-US", { maximumFractionDigits: 1 })} 萬`;
+};
+const CUR: Record<string, string> = { 美金: "美元", 美元: "美元", USD: "美元", 人民幣: "人民幣", CNY: "人民幣", RMB: "人民幣", 韓圜: "韓圜", 日圓: "日圓", 日幣: "日圓", 歐元: "歐元", 港幣: "港幣" };
+const num = (n: string) => Number(n.replace(/,/g, ""));
+export function withAmt(body: string) {
+  return body
+    // 「…(仟元):153,513,764」（財報欄位，新台幣）
+    .replace(/(\(仟元\)\s*[:：]\s*)(-?[\d,]+)(?![\d,])/g, (m, a, n) => (Math.abs(num(n)) >= 10 ? `${a}${n}（約 ${big(num(n) * 1000)}元）` : m))
+    // 「人民幣 65,000,000元」「16,143仟元」「20,000,000股」：萬以上才換
+    .replace(/(美金|美元|USD|人民幣|CNY|RMB|韓圜|日圓|日幣|歐元|港幣)?(\s*)(-?\d[\d,]*(?:\.\d+)?)(\s*)(仟元|元|股)(?!\s*（約)/g, (m, cur, sp, n, sp2, u) => {
+      const v = num(n) * (u === "仟元" ? 1000 : 1);
+      if (!Number.isFinite(v) || Math.abs(v) < 1e4) return m;
+      return `${m}（約 ${big(v)}${u === "股" ? "股" : cur ? CUR[cur] : "元"}）`;
+    });
+}
+
 const SYSTEM = `你是台股新聞編輯。使用者會給你幾則上市櫃公司的「重大訊息」原文（主旨＋說明），請每則寫一句給散戶看的白話摘要。
 規則：
 - 只用原文裡的事實與數字，不要捏造、不要推測股價，不要給買賣建議。
 - 摘要 40 字內，講重點：發生什麼事、關鍵數字（金額、EPS、股利、年增率、日期）。不用重複公司名稱。
 - 財報類公告常同時列「當季」和「累計（前三季、上半年）」數字，一定要標清楚是哪一個（例如「第3季 EPS 17.5 元」「前三季累計 EPS 47.94 元」），不確定就寫原文的期間名稱，不要把累計寫成單季。
-- 原文金額單位多半是「仟元」，換算成億元要小心（1 億＝100,000 仟元）；不確定單位就照抄原文數字和單位。
+- 原文的金額、股數，程式已經在後面括號換算好（例如「153,513,764（約 1,535.1 億元）」「美金42,000,000元（約 4,200 萬美元）」「20,000,000股（約 2,000 萬股）」），一律直接照抄括號裡的數字與單位，不要自己換算；人民幣、美元等外幣要寫出幣別。
 - tag 從這些挑一個：${NEWS_TAGS.join("、")}
 - imp 重要程度：3＝可能影響股價的實質消息（獲利或營收大幅變化、重大合約或訂單、併購、增資減資、處置股票、澄清媒體報導、重大災損或訴訟）；2＝一般營運消息（董事會決議、投資、人事異動、法說會）；1＝例行公告（更名或面額變更期間公告、股東會日期、注意交易資訊、取得少量有價證券）。
 只輸出 JSON：{"items":[{"i":編號,"sum":"摘要","tag":"分類","imp":1到3}]}`;
 
-async function summarize(batch: News[]) {
-  const text = batch.map((x, i) => `#${i} ${x.n}（${x.c}）\n主旨：${x.title}\n說明：${(x.body ?? "").slice(0, 700)}`).join("\n\n");
-  const j = parseJson<{ items: { i: number; sum: string; tag: string; imp: number }[] }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: text }], { model: MODEL, timeout: 240_000 }));
+export async function summarize(batch: News[]) {
+  const text = batch.map((x, i) => `#${i} ${x.n}（${x.c}）\n主旨：${x.title}\n說明：${withAmt(x.body ?? "").slice(0, 800)}`).join("\n\n");
+  const j = parseJson<{ items: { i: number; sum: string; tag: string; imp: number }[] }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: text }], { model: MODEL, timeout: 240_000, maxTokens: 12000 }));
   let n = 0;
   for (const r of j.items ?? []) {
     const x = batch[Number(r.i)];
@@ -129,4 +150,5 @@ async function main() {
   console.log(`摘要完成 ${done}／${todo.length} 則`);
 }
 
-main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
+// 被別的腳本 import（例如測試換算）時不要自己跑
+if (/news\.ts$/.test(process.argv[1] ?? "")) main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });

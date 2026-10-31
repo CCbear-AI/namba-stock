@@ -38,7 +38,7 @@ export default function Page() {
       <div className="card">
         <div className="card-h text-[16px]">
           <span className="mr-auto flex items-center gap-1">飆股晚報<Help>{PAGE_HELP}</Help>
-            {ok && <span className="sub ml-2">{md(data.date)} 收盤後{data.backfill ? " · 回補名單（沒有 AI 說明）" : ""}</span>}
+            {ok && <span className="sub ml-2">{md(data.date)} 收盤後{data.backfill ? (data.headline ? " · 回補（AI 只用當天以前的資料補寫）" : " · 回補名單（沒有 AI 說明）") : ""}</span>}
           </span>
           {ok && data.dates.length > 1 && (
             <select className="btn !py-1" value={date ?? data.date} onChange={(e) => setDate(e.target.value === data.dates[0] ? null : e.target.value)} aria-label="選日期">
