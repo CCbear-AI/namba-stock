@@ -329,8 +329,8 @@ function NetLine({ data }: { data: { t: string; v: number }[] }) {
       <path d={`${d}L${x(last.t)},${y(0)}L${x(data[0].t)},${y(0)}Z`} fill={col} opacity={0.1} />
       <path d={d} fill="none" stroke={col} strokeWidth={1.6} strokeLinejoin="round" />
       <circle cx={x(last.t)} cy={y(last.v)} r={3.5} fill={col} />
-      {hours.map((t) => <text key={t} x={x(t)} y={H - 1} fontSize={9.5} fill="#646a73" textAnchor="middle">{t.slice(0, 5)}</text>)}
-      <text x={P} y={10} fontSize={9.5} fill="#646a73">{mx.toFixed(1)} 億</text>
+      {hours.map((t) => <text key={t} x={x(t)} y={H - 1} fontSize={9.5} fill="#80868f" textAnchor="middle">{t.slice(0, 5)}</text>)}
+      <text x={P} y={10} fontSize={9.5} fill="#80868f">{mx.toFixed(1)} 億</text>
     </svg>
   );
 }

@@ -181,10 +181,10 @@ function OrdersLine({ line }: { line: [string, number, number][] }) {
   const last = v[v.length - 1];
   return (
     <svg viewBox={`0 0 ${W} ${H + 14}`} className="w-full mt-3">
-      <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="#3a3f47" strokeDasharray="3 3" /><text x={W / 2} y={y(0) - 3} fill="#646a73" fontSize={10} textAnchor="middle">買賣平衡</text>
+      <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="#3a3f47" strokeDasharray="3 3" /><text x={W / 2} y={y(0) - 3} fill="#80868f" fontSize={10} textAnchor="middle">買賣平衡</text>
       <path d={d} fill="none" stroke={last >= 0 ? "var(--up)" : "var(--down)"} strokeWidth={1.5} />
-      <text x={0} y={H + 12} fill="#646a73" fontSize={10}>{line[0][0]}</text><text x={W} y={H + 12} fill="#646a73" fontSize={10} textAnchor="end">{line[line.length - 1][0]}</text>
-      <text x={W} y={10} fill="#646a73" fontSize={10} textAnchor="end">{last >= 0 ? "+" : ""}{last.toFixed(0)} 萬張</text>
+      <text x={0} y={H + 12} fill="#80868f" fontSize={10}>{line[0][0]}</text><text x={W} y={H + 12} fill="#80868f" fontSize={10} textAnchor="end">{line[line.length - 1][0]}</text>
+      <text x={W} y={10} fill="#80868f" fontSize={10} textAnchor="end">{last >= 0 ? "+" : ""}{last.toFixed(0)} 萬張</text>
     </svg>
   );
 }

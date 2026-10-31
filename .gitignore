@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# impeccable 設計技能（本機用，不進 repo）
+.claude/
+
+# impeccable live 模式的本機暫存（工作階段紀錄等）
+.impeccable/live/
+.impeccable/hook.cache.json

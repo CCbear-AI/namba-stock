@@ -10,6 +10,10 @@ export const pushSupported = () => typeof window !== "undefined" && "serviceWork
 export const pushOn = () => { try { return localStorage.getItem(ON_KEY) === "on"; } catch { return false; } };
 const listeners = new Set<() => void>();
 const changed = () => listeners.forEach((f) => f());
+/** 畫面上要判斷「支不支援」用這個：伺服器先當作支援，瀏覽器接手後再改成實際結果（避免前後畫面不一致） */
+export function usePushSupported() {
+  return useSyncExternalStore(() => () => {}, pushSupported, () => true);
+}
 /** 背景推播開關（給 React 訂閱） */
 export function usePushOn() {
   return useSyncExternalStore((cb) => { listeners.add(cb); return () => { listeners.delete(cb); }; }, pushOn, () => false);

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useRules, useFired, firedStore } from "@/components/alerts";
 import { useGroups, useScan } from "@/components/hooks";
 import StockPicker, { NAME } from "@/components/StockPicker";
-import { enablePush, disablePush, pushSupported, usePushOn } from "@/components/push";
+import { enablePush, disablePush, usePushSupported, usePushOn } from "@/components/push";
 import { resolveRules } from "@/components/AlertWatcher";
 import { BUILTIN } from "@/components/hooks";
 import { describe, KIND_LABEL, type Rule } from "@/lib/alertRules";
@@ -34,6 +34,7 @@ function Alerts() {
   const [strat, setStrat] = useState(STRATEGIES[0].id);
   const [scope, setScope] = useState("my");
   const push = usePushOn();
+  const canPush = usePushSupported();
   const [pushMsg, setPushMsg] = useState("");
   const live = code ? scan?.rows.find((r) => r.c === code) : undefined;
   const pickKind = (k: Kind) => { setKind(k); setDir(k === "pct" ? "up" : "above"); setValue(k === "pct" ? "3" : k === "insti" ? "1000" : k === "rvol" ? "2" : ""); };
@@ -142,9 +143,9 @@ function Alerts() {
         <div className="card p-4">
           <div className="flex items-center font-semibold">背景推播<Help>開啟時，提醒規則會傳到伺服器（不含任何個人資料、沒有帳號）；關閉後伺服器會刪除。iPhone 要先把網站「加入主畫面」，從主畫面打開才能收推播。</Help> <span className={`ml-auto sub ${push ? "text-[var(--gold-2)]" : ""}`}>{push ? "已開啟" : "未開啟"}</span></div>
           <p className="text-[13px] mt-2 leading-relaxed">{push ? "網頁關掉也會收到通知：盤中 09:00–13:30 由資金流記錄器每 30 秒檢查一次規則。" : "現在只有這個網頁開著時才會檢查提醒。開啟後，網頁關掉也會收到通知（盤中由資金流記錄器檢查）。"}</p>
-          <button className={`btn w-full justify-center mt-3 py-2 ${push ? "" : "gold"}`} disabled={!pushSupported() && !push} onClick={togglePush}>{push ? "關閉背景推播" : "開啟背景推播"}</button>
+          <button className={`btn w-full justify-center mt-3 py-2 ${push ? "" : "gold"}`} disabled={!canPush && !push} onClick={togglePush}>{push ? "關閉背景推播" : "開啟背景推播"}</button>
           {pushMsg && <div className="sub mt-2">{pushMsg}</div>}
-          {!pushSupported() && <div className="sub mt-2">這個瀏覽器不支援背景推播。</div>}
+          {!canPush && <div className="sub mt-2">這個瀏覽器不支援背景推播。</div>}
         </div>
         <div className="card">
           <div className="card-h">觸發紀錄 {fired.length > 0 && <button className="sub hover:text-text" onClick={() => firedStore.write([])}>清除</button>}</div>

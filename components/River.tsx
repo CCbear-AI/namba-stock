@@ -20,7 +20,7 @@ export default function River({ rows }: { rows: RiverRow[] }) {
             <Link href={`/stock/${r.c}`} className="flex items-center gap-2 min-w-0">
               <i className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: GROUP_COLOR[industryGroup(r.ind)] }} />
               <span className="truncate">{r.n}</span>
-              {r.rankChg ? <span className={`text-[10.5px] ${r.rankChg > 0 ? "up" : "down"}`}>{r.rankChg > 0 ? "▲" : "▼"}{Math.abs(r.rankChg)}</span> : null}
+              {r.rankChg ? <span className={`text-[11px] ${r.rankChg > 0 ? "up" : "down"}`}>{r.rankChg > 0 ? "▲" : "▼"}{Math.abs(r.rankChg)}</span> : null}
             </Link>
             <div className="relative h-3">
               <div className="absolute left-1/2 top-[-6px] bottom-[-6px] border-l border-dashed border-line" />

@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-31T12:00:00+08:00",
+  "title": "Design System: 台股難波萬",
+  "extensions": {
+    "colorMeta": {
+      "gold": { "role": "primary", "displayName": "書籤金", "tonalRamp": ["#2a2416", "#4a3c1c", "#6e5826", "#977831", "#bf9844", "#d9b45a", "#f0d08a", "#f8e8c4"] },
+      "up-red": { "role": "tertiary", "displayName": "漲紅", "tonalRamp": ["#2e1211", "#55201e", "#86302c", "#b8403b", "#f2554f", "#f57d78", "#f9aaa6", "#fcd7d5"] },
+      "down-green": { "role": "tertiary", "displayName": "跌綠", "tonalRamp": ["#0b2a1d", "#114632", "#176849", "#1c8e5f", "#22b573", "#52c793", "#8adbb6", "#c4eedb"] },
+      "ink-black": { "role": "neutral", "displayName": "墨黑", "tonalRamp": ["#0b0d11", "#10141a", "#171c23", "#1f252e", "#3a3f47", "#80868f", "#9aa0a8", "#ebe7de"] },
+      "paper-white": { "role": "neutral", "displayName": "紙白" }
+    },
+    "typographyMeta": {
+      "page-title": { "displayName": "頁面標題", "purpose": "各頁 h1，襯線。" },
+      "card-title": { "displayName": "卡片標題", "purpose": "卡片頂端標題列，襯線。" },
+      "body": { "displayName": "內文", "purpose": "全站基準 13px。" },
+      "numeric": { "displayName": "數字", "purpose": "價格、漲跌幅、張數，等寬右對齊。" }
+    },
+    "shadows": [
+      { "name": "card", "value": "inset 0 1px 0 rgba(255,255,255,.035), 0 4px 14px rgba(0,0,0,.32)", "purpose": "所有卡片：頂邊微亮線＋柔和落影。" }
+    ],
+    "motion": [
+      { "name": "shimmer", "value": "opacity .4→1, 1s ease-in-out alternate", "purpose": "載入中文字。" },
+      { "name": "marquee", "value": "translateX 45s linear infinite", "purpose": "大盤跑馬燈，滑過暫停，減少動態時停止。" }
+    ],
+    "breakpoints": [ { "name": "sm", "value": "640px" }, { "name": "md", "value": "768px" }, { "name": "max", "value": "1440px" } ]
+  },
+  "components": [
+    { "name": "按鈕", "kind": "button", "refersTo": "button", "description": "一般動作。",
+      "html": "<button class=\"ds-btn\">匯出圖片</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--line,#1f252e);background:var(--panel-2,#171c23);color:var(--text,#ebe7de);font-size:13px;cursor:pointer}.ds-btn:hover{border-color:var(--dim,#646a73)}.ds-btn:focus-visible{outline:2px solid var(--gold,#d9b45a);outline-offset:2px}" },
+    { "name": "主要按鈕（金）", "kind": "button", "refersTo": "button-gold", "description": "頁面上最主要的一個動作。",
+      "html": "<button class=\"ds-btn-gold\">開始掃描</button>",
+      "css": ".ds-btn-gold{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;border:0;background:linear-gradient(180deg,#f0d08a,#d9b45a);color:#1b1608;font-size:13px;font-weight:600;cursor:pointer}.ds-btn-gold:hover{filter:brightness(1.06)}.ds-btn-gold:focus-visible{outline:2px solid #f0d08a;outline-offset:2px}" },
+    { "name": "分段切換", "kind": "custom", "refersTo": "segmented-on", "description": "當日／5 日／20 日之類的切換。",
+      "html": "<div class=\"ds-seg\"><button class=\"on\">當日</button><button>5 日</button><button>20 日</button></div>",
+      "css": ".ds-seg{display:inline-flex;background:#171c23;border-radius:999px;padding:3px;gap:2px}.ds-seg button{padding:4px 12px;border-radius:999px;color:#9aa0a8;font-size:13px;background:none;border:0;cursor:pointer}.ds-seg button:hover{color:#ebe7de}.ds-seg button.on{background:#ebe7de;color:#111;font-weight:600}" },
+    { "name": "標籤", "kind": "chip", "refersTo": "chip", "description": "訊號與分類標籤。",
+      "html": "<span class=\"ds-chip\">爆量推進</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;padding:1px 8px;border-radius:6px;background:#2a2416;color:#f0d08a;font-size:12px}" },
+    { "name": "卡片", "kind": "card", "refersTo": "card", "description": "所有內容區塊。",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-h\">外資買超<span class=\"ds-sub\">億元</span></div><div class=\"ds-row\"><span>2330 台積電</span><span class=\"ds-up\">+42.1</span></div><div class=\"ds-row\"><span>2317 鴻海</span><span class=\"ds-down\">-8.3</span></div></div>",
+      "css": ".ds-card{background:#10141a;border-radius:22px;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 4px 14px rgba(0,0,0,.32);color:#ebe7de;font-size:13px;padding-bottom:8px;width:280px}.ds-card-h{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;letter-spacing:.04em}.ds-sub{color:#9aa0a8;font-size:12px;font-weight:400;font-family:sans-serif;letter-spacing:0}.ds-row{display:flex;justify-content:space-between;padding:6px 16px;border-top:1px solid #1c1f24}.ds-up{color:#f2554f;font-family:'IBM Plex Mono',monospace}.ds-down{color:#22b573;font-family:'IBM Plex Mono',monospace}" },
+    { "name": "導覽分頁", "kind": "nav", "refersTo": "nav-pill-active", "description": "頂部導覽群組。",
+      "html": "<nav class=\"ds-nav\"><a class=\"on\">市場 <small>· 大盤</small></a><a>排行</a><a>籌碼</a><a>選股</a></nav>",
+      "css": ".ds-nav{display:flex;gap:4px}.ds-nav a{padding:6px 12px;border-radius:999px;font-size:13px;color:#9aa0a8;cursor:pointer;text-decoration:none}.ds-nav a:hover{color:#ebe7de}.ds-nav a.on{background:#2a2416;color:#f0d08a}.ds-nav small{font-size:11.5px;opacity:.8}" },
+    { "name": "輸入框", "kind": "input", "refersTo": "input", "description": "搜尋代號、輸入數值。",
+      "html": "<input class=\"ds-input\" placeholder=\"代號或名稱\">",
+      "css": ".ds-input{background:#171c23;border:1px solid #1f252e;border-radius:4px;padding:4px 8px;color:#ebe7de;font-size:12px}.ds-input:focus{outline:none;border-color:#d9b45a}" }
+  ],
+  "narrative": {
+    "northStar": "金籤研究筆記",
+    "overview": "難波萬像一本老手的研究筆記：深色紙面上，用襯線字寫下每一張卡片的題目，底下是排得整整齊齊的數字表格，每個結論旁邊都附著依據。金色是夾在筆記裡的書籤，只標在真正要回頭看的地方。資訊密度高是刻意的；說明靠術語旁的浮框就地補充。紅與綠只用來表示漲跌。",
+    "keyCharacteristics": ["深色墨黑底（不做淺色主題）", "卡片標題與頁面標題用 Noto Serif TC，其餘用 IBM Plex Sans／Noto Sans TC", "所有數字用 IBM Plex Mono 等寬字", "金色是唯一品牌色，用量克制", "大圓角卡片（22px）、膠囊形按鈕與分段切換", "術語就地說明（虛線底線＋浮框）"],
+    "rules": [
+      { "name": "紅綠只說漲跌", "body": "漲紅、跌綠只能表示行情方向，不可用在警告、成功訊息、按鈕或裝飾；台股紅漲綠跌的慣例絕不反轉。", "section": "colors" },
+      { "name": "金色是書籤", "body": "金色只標選中狀態、主要動作、重點標籤，不鋪大面積底色。", "section": "colors" },
+      { "name": "數字一律等寬", "body": "任何會上下比較的數字都用 IBM Plex Mono 的等寬數字，欄位右對齊。", "section": "typography" },
+      { "name": "襯線只給標題", "body": "Noto Serif TC 只用在頁面標題與卡片標題。", "section": "typography" }
+    ],
+    "dos": ["Do 用漲紅 #f2554f 表示上漲、跌綠 #22b573 表示下跌，全站一致。", "Do 把所有可比較的數字放進等寬字欄位並右對齊。", "Do 卡片標題用襯線字，標題列裡的按鈕與副標回到無襯線。", "Do 遇到專有名詞時，用虛線底線或問號浮框就地說明。", "Do 動畫遵守 prefers-reduced-motion。"],
+    "donts": ["Don't 做淺色主題或淺色底的頁面。", "Don't 把紅綠用在漲跌以外的意思，或反轉成綠漲紅跌。", "Don't 用金色鋪大面積底色；它是書籤，不是背景。", "Don't 為了簡潔刪掉老手需要的資料欄位；用說明浮框補，不用刪減補。"]
+  }
+}

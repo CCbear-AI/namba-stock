@@ -73,8 +73,9 @@ export default function Heatmap({ rows, period = "d", sizeBy = "cap", byIndustry
   return (
     <div ref={box} className="relative w-full" style={{ height: H }} onMouseLeave={() => setHover(null)}>
       {sectors.map((s) => (
-        <div key={s.d.k} className="absolute border border-[#0b0c0e] text-[11px] px-1 truncate text-text-2" style={{ left: s.x, top: s.y, width: s.w, height: s.h }}>
-          {s.w > 50 && <>{s.d.k} <span className={cls(s.d.pct)}>{pct(s.d.pct)}</span></>}
+        <div key={s.d.k} className="absolute border border-[#0b0c0e]" style={{ left: s.x, top: s.y, width: s.w, height: s.h }}>
+          {/* 產業名稱只佔頂端 18px（方格從 y+18 開始），不和方格重疊 */}
+          {s.w > 50 && <div className="h-[17px] leading-[17px] text-[11px] px-1 truncate text-text-2">{s.d.k} <span className={cls(s.d.pct)}>{pct(s.d.pct)}</span></div>}
         </div>
       ))}
       {cells.map((c) => {

@@ -38,7 +38,7 @@ export default function Distribution({ rows, height = 200 }: { rows: ScanRow[]; 
         <div key={b.l} className="flex-1 flex flex-col items-center justify-end h-full min-w-0">
           <span className="mono text-[11px]" style={{ color: b.c }}>{n[i]}</span>
           <div className="w-full rounded-t" style={{ height: `${(n[i] / max) * 80}%`, minHeight: 3, background: b.c, opacity: i === 6 ? 0.6 : 1 }} />
-          <span className="text-[10.5px] text-text-2 mt-1 whitespace-nowrap">{b.l}</span>
+          <span className="text-[11px] text-text-2 mt-1 whitespace-nowrap">{b.l}</span>
         </div>
       ))}
     </div>
