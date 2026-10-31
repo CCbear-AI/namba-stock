@@ -190,8 +190,8 @@ function Search() {
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onKeyDown={(e) => { if (e.key === "Enter") go(hits[0]?.c ?? q.trim()); }}
-        placeholder="代號 / 名稱"
-        className="w-32 sm:w-48 bg-panel-2 border border-line rounded-full px-3 py-1.5 text-[13px] outline-none focus:border-[var(--gold)]"
+        placeholder="代號/名稱"
+        className="w-[5.5rem] focus:w-36 sm:w-48 sm:focus:w-48 transition-[width] duration-200 bg-panel-2 border border-line rounded-full px-3 py-1.5 text-[13px] outline-none focus:border-[var(--gold)]"
       />
       {open && hits.length > 0 && (
         <div className="absolute right-0 mt-1 w-56 card overflow-hidden z-40">

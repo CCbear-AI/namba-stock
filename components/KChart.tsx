@@ -54,13 +54,20 @@ type InTF = "1m" | "5m" | "1d" | "1wk" | "1mo";
 const toTF = (t: InTF): TF => (t === "5m" ? "mk" : t);
 
 export default function KChart({
-  code, height = 420, tfs = ["1m", "5m", "1d", "1wk", "1mo"], defaultTf = "1d", showVolume = true, compact = false, prev, title,
-}: { code: string; height?: number; tfs?: InTF[]; defaultTf?: InTF; showVolume?: boolean; compact?: boolean; prev?: number; title?: string }) {
+  code, height = 420, tfs = ["1m", "5m", "1d", "1wk", "1mo"], defaultTf = "1d", showVolume = true, compact = false, prev, title, tf: tfProp, line: lineProp,
+}: { code: string; height?: number; tfs?: InTF[]; defaultTf?: InTF; showVolume?: boolean; compact?: boolean; prev?: number; title?: string;
+  /** 由外層控制週期（外層自己放切換按鈕，圖上就不再畫一排） */
+  tf?: InTF;
+  /** 由外層控制是否改成折線 */
+  line?: boolean }) {
   const router = useRouter();
-  const [tf, setTf] = useState<TF>(toTF(defaultTf));
+  const [tfOwn, setTf] = useState<TF>(toTF(defaultTf));
+  const tf = tfProp ? toTF(tfProp) : tfOwn;
+  const ownBar = !tfProp; // 外層控制週期時，簡易模式不畫上方工具列
   const [mk, setMk] = useState<MK>("5m");
   const [range, setRange] = useState(130);
-  const [line, setLine] = useState(false);
+  const [lineOwn, setLine] = useState(false);
+  const line = lineProp ?? lineOwn;
   const [sr, setSr] = useState(false);
   const [hover, setHover] = useState<number | null>(null);
   const [hoverY, setHoverY] = useState<number | null>(null);
@@ -351,8 +358,8 @@ export default function KChart({
 
   return (
     <div ref={wrap} className={`relative ${full ? "bg-[var(--bg)] p-3" : ""}`}>
-      <div className={`flex flex-wrap items-center gap-2 ${compact ? "px-3 pt-2" : "px-4 pt-3"}`}>
-        {tfs.length > 1 && <div className="seg">
+      {(ownBar || !compact) && <div className={`flex flex-wrap items-center gap-2 ${compact ? "px-3 pt-2" : "px-4 pt-3"}`}>
+        {ownBar && tfs.length > 1 && <div className="seg">
           {tfs.map((t) => toTF(t)).map((t) => <button key={t} className={tf === t ? "on" : ""} onClick={() => setTf(t)}>{TF_LABEL[t]}</button>)}
         </div>}
         {tf === "mk" && <div className="seg">{(Object.keys(MK_LABEL) as MK[]).map((m) => <button key={m} className={mk === m ? "on" : ""} onClick={() => setMk(m)}>{MK_LABEL[m]}</button>)}</div>}
@@ -377,7 +384,7 @@ export default function KChart({
           <IconBtn title="全螢幕" onClick={toggleFull} d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" />
         </>}
         {compact && tf !== "1m" && <button className={`btn ${line ? "on" : ""}`} onClick={() => setLine(!line)}>折線</button>}
-      </div>
+      </div>}
       {b && (
         <div className="px-4 pt-2 text-[12px] mono flex flex-nowrap whitespace-nowrap scroll-x gap-x-3 text-text-2">
           {/* 固定單行：滑鼠移到不同 K 線時數字長短會變，換行會把整張圖往下推（看起來在跳），太長就左右滑 */}

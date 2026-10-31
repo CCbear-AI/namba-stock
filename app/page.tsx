@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import KChart from "@/components/KChart";
 import Spark from "@/components/Spark";
@@ -33,6 +33,9 @@ export default function Home() {
   const { data: rep } = usePoll<Summary & { error?: string }>("/api/summary?kind=report", 10 * 60_000);
   const wl = useWatchlist();
   const [idx, setIdx] = useState<"t00" | "o00">("t00");
+  const [idxTf, setIdxTf] = useState<"1m" | "1d">("1m");
+  const phone = usePhone();
+  const [idxLine, setIdxLine] = useState(false);
   const [adding, setAdding] = useState(false);
   const stocks = useMemo(() => (scan?.rows ?? []).filter((s) => s.vol > 0), [scan]);
   const by = (f: (a: ScanRow, b: ScanRow) => number, n = 30) => [...stocks].sort(f).slice(0, n);
@@ -64,8 +67,10 @@ export default function Home() {
             <span className={`mono ${cls(q.chg)}`}>{q.chg > 0 ? "+" : ""}{price(q.chg)} ({pct(q.pct)})</span>
           </>}
           <span className="sub ml-auto">{m ? (m.open ? "盤中" : "已收盤") : ""}</span>
+          <div className="seg"><button className={idxTf === "1m" ? "on" : ""} onClick={() => setIdxTf("1m")}>分時</button><button className={idxTf === "1d" ? "on" : ""} onClick={() => setIdxTf("1d")}>日 K</button></div>
+          {idxTf === "1d" && <button className={`btn ${idxLine ? "on" : ""}`} onClick={() => setIdxLine(!idxLine)}>折線</button>}
         </div>
-        <KChart key={idx} code={idx === "t00" ? "TAIEX" : "OTC"} prev={q?.prev} height={300} tfs={["1m", "1d"]} defaultTf="1m" showVolume={false} compact />
+        <KChart key={idx} code={idx === "t00" ? "TAIEX" : "OTC"} prev={q?.prev} tf={idxTf} line={idxLine} height={phone ? 200 : 300} showVolume={false} compact />
         {b && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 pb-4 pt-2 text-[13px]">
             <div><div className="sub">成交金額</div><div className="mono text-lg">{num(b.value)} 億</div></div>
@@ -222,5 +227,15 @@ function PriceCell({ r }: { r: { chg: number; pct: number; price: number } }) {
       <span className={`block mono ${cls(r.chg)}`}>{price(r.price)}</span>
       <span className={`block mono text-[11px] ${cls(r.pct)}`}>{pct(r.pct)}</span>
     </span>
+  );
+}
+
+/** 手機寬度（窄於 640px）：首頁大盤圖改矮一點 */
+const PHONE_MQ = "(max-width: 639px)";
+function usePhone() {
+  return useSyncExternalStore(
+    (cb) => { const m = window.matchMedia(PHONE_MQ); m.addEventListener("change", cb); return () => m.removeEventListener("change", cb); },
+    () => window.matchMedia(PHONE_MQ).matches,
+    () => false,
   );
 }

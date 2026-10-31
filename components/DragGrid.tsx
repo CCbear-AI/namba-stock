@@ -28,9 +28,9 @@ export default function DragGrid({ panels, storageKey }: { panels: Record<string
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-12">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-12">
       {order.map((id) => (
-        <div key={id} className={`drag-cell relative ${panels[id].span} ${dragging === id ? "opacity-40" : ""} ${over === id && dragging && dragging !== id ? "outline outline-2 outline-[var(--gold)] rounded-[22px]" : ""}`}
+        <div key={id} className={`drag-cell relative min-w-0 ${panels[id].span} ${dragging === id ? "opacity-40" : ""} ${over === id && dragging && dragging !== id ? "outline outline-2 outline-[var(--gold)] rounded-[22px]" : ""}`}
           draggable={armed === id}
           onDragStart={(e) => { setDragging(id); e.dataTransfer.effectAllowed = "move"; }}
           onDragEnd={() => { setDragging(null); setOver(null); setArmed(null); }}
