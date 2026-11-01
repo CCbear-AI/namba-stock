@@ -68,16 +68,82 @@ async function full() {
   console.log("完成", Object.keys(store).length, "檔");
 }
 
-function update() {
-  if (!existsSync(FILE)) return full();
-  const { upTo, s, prev: oldPrev } = JSON.parse(readFileSync(FILE, "utf8")) as { upTo: string; s: Record<string, Rec>; prev?: Record<string, Rec> };
-  const files = dailyFiles().filter((f) => f.slice(0, 10) > upTo);
-  if (!files.length) return console.log("沒有新的日 K");
-  for (const f of files.slice(0, -1)) applyDay(s, f);
-  const prev = files.length ? JSON.parse(JSON.stringify(s)) : oldPrev; // 最後一天之前的版本
-  applyDay(s, files[files.length - 1]);
-  writeFileSync(FILE, JSON.stringify({ upTo: dailyFiles().at(-1)?.slice(0, 10) ?? upTo, s, prev }));
-  console.log("更新", files.length, "天");
+/** Yahoo 日 K（含興櫃時期）：[日期, 最高, 最低] */
+async function yahooDaily(c: string, m: "tse" | "otc") {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${c}.${m === "otc" ? "TWO" : "TW"}?range=max&interval=1d`;
+  for (let k = 0; k < 3; k++) {
+    try {
+      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(20_000) });
+      if (r.status === 404) return [];
+      if (!r.ok) throw new Error(String(r.status));
+      const res = (await r.json()).chart?.result?.[0];
+      if (!res?.timestamp) return [];
+      const q = res.indicators.quote[0];
+      return (res.timestamp as number[]).map((t, i) => [new Date((t + 8 * 3600) * 1000).toISOString().slice(0, 10), q.high[i], q.low[i]] as [string, number | null, number | null]);
+    } catch { await sleep(3000 * (k + 1)); }
+  }
+  return null;
 }
 
-(process.argv[2] === "update" ? Promise.resolve(update()) : full()).catch((e) => { console.error(e); process.exit(1); });
+/**
+ * 新上市櫃／興櫃轉上市櫃的股票：建檔時還不在清單裡，紀錄只從進 data/daily 那天開始，
+ * 會把上市後幾天的高點誤當歷史高點。用 Yahoo 日 K 把「進 data/daily 之前」的高低補上（只補一次，記在 bf）。
+ */
+async function backfill(s: Record<string, Rec>, prev: Record<string, Rec> | undefined, bf: string[]) {
+  const files = dailyFiles();
+  if (!files.length) return 0;
+  const d0 = files[0].slice(0, 10), done = new Set(bf);
+  // 高低點都落在日 K 期間內、又還沒補過的才需要查
+  const cand = Object.entries(s).filter(([c, r]) => !done.has(c) && r[1] >= d0 && r[3] >= d0).map(([c]) => c);
+  if (!cand.length) return 0;
+  // 每檔第一次出現在 data/daily 的日期
+  const first = new Map<string, string>(), want = new Set(cand);
+  for (const f of files) {
+    const day = JSON.parse(readFileSync(`data/daily/${f}`, "utf8")) as { date: string; s: Record<string, number[]> };
+    for (const c of Object.keys(day.s)) if (want.has(c) && !first.has(c)) first.set(c, day.date);
+    if (first.size === want.size) break;
+  }
+  // 從第一天就在的老股票不用補
+  // ETF（00 開頭）不補：Yahoo 沒處理分割（0052 2025/11 一拆七前後價格直接接在一起）
+  const todo = cand.filter((c) => !c.startsWith("00") && (first.get(c) ?? d0) > d0);
+  const mk = new Map(universe.map((u) => [u.c, u.m]));
+  let n = 0;
+  for (const c of todo) {
+    const bars = await yahooDaily(c, mk.get(c) ?? "tse");
+    if (bars == null) continue; // 抓失敗下次再試
+    const fd = first.get(c)!;
+    for (const [d, h, l] of bars) {
+      if (d >= fd || !h || !l || h <= 0 || l <= 0) continue;
+      for (const st of [s, prev]) {
+        const r = st?.[c];
+        if (!r) continue;
+        if (h > r[0]) { r[0] = Math.round(h * 100) / 100; r[1] = d; }
+        if (l < r[2]) { r[2] = Math.round(l * 100) / 100; r[3] = d; }
+      }
+    }
+    bf.push(c); n++;
+    console.log(`補歷史 ${c}：最高 ${s[c][0]}（${s[c][1]}）最低 ${s[c][2]}（${s[c][3]}）`);
+    await sleep(500);
+  }
+  // 從第一天就在的也記起來，下次不用再查
+  for (const c of cand) if (!todo.includes(c)) bf.push(c);
+  return n;
+}
+
+async function update() {
+  if (!existsSync(FILE)) return full();
+  const { upTo, s, prev: oldPrev, bf = [] } = JSON.parse(readFileSync(FILE, "utf8")) as { upTo: string; s: Record<string, Rec>; prev?: Record<string, Rec>; bf?: string[] };
+  const files = dailyFiles().filter((f) => f.slice(0, 10) > upTo);
+  let prev = oldPrev;
+  if (files.length) {
+    for (const f of files.slice(0, -1)) applyDay(s, f);
+    prev = JSON.parse(JSON.stringify(s)); // 最後一天之前的版本
+    applyDay(s, files[files.length - 1]);
+  }
+  const n = await backfill(s, prev, bf);
+  if (!files.length && !n) return console.log("沒有新的日 K");
+  writeFileSync(FILE, JSON.stringify({ upTo: dailyFiles().at(-1)?.slice(0, 10) ?? upTo, s, prev, bf }));
+  console.log("更新", files.length, "天，補歷史", n, "檔");
+}
+
+(process.argv[2] === "update" ? update() : full()).catch((e) => { console.error(e); process.exit(1); });

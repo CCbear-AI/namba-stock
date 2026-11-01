@@ -23,7 +23,7 @@ async function facts() {
   ]);
   const date = new Date(m.time + 8 * 3600e3).toISOString().slice(0, 10);
   const L: string[] = [`日期：${date}`];
-  for (const q of m.indices as Q[]) L.push(`${q.n}：${q.price}（${sign(q.chg)}，${sign(q.pct)}%）`);
+  for (const q of m.indices as Q[]) L.push(`${q.n.replace("發行量加權股價指數", "加權指數")}：${q.price}（${sign(q.chg)}，${sign(q.pct)}%）`);
   const b = m.breadth;
   L.push(`上市櫃漲跌家數：上漲 ${b.up}（漲停 ${b.limitUp}）、平盤 ${b.flat}、下跌 ${b.down}（跌停 ${b.limitDown}），成交金額 ${Math.round(b.value)} 億`);
 
