@@ -2,14 +2,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  createChart, CandlestickSeries, HistogramSeries, LineSeries, AreaSeries, LineStyle, CrosshairMode, TickMarkType,
+  createChart, createSeriesMarkers, CandlestickSeries, HistogramSeries, LineSeries, AreaSeries, LineStyle, CrosshairMode, TickMarkType,
   type IChartApi, type ISeriesApi, type Time, type SeriesType, type IPriceLine, type UTCTimestamp, type MouseEventParams, type Logical,
 } from "lightweight-charts";
 import { usePoll } from "./hooks";
 import { price as fp, num, cls } from "./fmt";
 import { doublePatterns, type DoublePattern } from "@/lib/patterns";
-import { IND, DEFAULT_INDS, type IndSetting, type Line } from "@/lib/indicators";
+import { IND, INDICATORS, DEFAULT_INDS, type IndSetting, type Line } from "@/lib/indicators";
 import DrawLayer, { TOOLS, type Tool } from "./chart/DrawLayer";
+import ShapeLayer from "./chart/ShapeLayer";
 import IndicatorMenu from "./chart/IndicatorMenu";
 import type { Bar, Level } from "@/lib/types";
 
@@ -134,6 +135,7 @@ export default function KChart({
   }, [tf, compact, inds, hasVol]);
   const computed = useMemo(() => active.map((s) => ({ s, ind: IND[s.id], lines: IND[s.id].calc(bars, s.params) as Line[] })), [active, bars]);
   const subs = useMemo(() => computed.filter((x) => !x.ind.overlay), [computed]);
+  const shapes = useMemo(() => (line ? [] : computed.filter((x) => x.ind.overlay).flatMap((x) => x.lines.flatMap((l) => l.shapes ?? []))), [computed, line]);
   const want = Math.max(0, subs.length - 1);
   if (!compact && want !== extraSubs) setExtraSubs(want);
 
@@ -190,27 +192,34 @@ export default function KChart({
     const addLines = (lines: Line[], pane: number, levelsAt?: number[]) => {
       let first: ISeriesApi<SeriesType> | null = null;
       for (const l of lines) {
+        if (l.type === "marks" || l.type === "shapes") continue;
         const pts = l.data.map((v, i) => ({ i, time: bars[i].time as UTCTimestamp, v })).filter((x) => x.v != null && Number.isFinite(x.v));
         if (l.type === "hist") {
           const isVol = l.name === "量";
           const s = c.addSeries(HistogramSeries, { priceFormat: isVol ? { type: "volume" } : { type: "price", precision: 2, minMove: 0.01 }, priceLineVisible: false, lastValueVisible: false }, pane);
           s.setData(pts.map((x) => ({
             time: x.time, value: x.v!,
-            color: isVol ? (bars[x.i].close >= bars[x.i].open ? UP : DOWN) + "99" : (x.v! >= 0 ? UP : DOWN) + "bb",
+            color: l.colors?.[x.i] ?? (isVol ? (bars[x.i].close >= bars[x.i].open ? UP : DOWN) + "99" : (x.v! >= 0 ? UP : DOWN) + "bb"),
           })));
           first ??= s;
         } else {
           const s = c.addSeries(LineSeries, {
             color: l.color, lineWidth: 1, lineStyle: l.dash ? LineStyle.Dashed : LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
             ...(l.type === "dots" ? { lineVisible: false, pointMarkersVisible: true, pointMarkersRadius: 2 } : {}),
+            ...(l.noScale ? { autoscaleInfoProvider: () => null } : {}),
           }, pane);
-          s.setData(pts.map((x) => ({ time: x.time, value: x.v! })));
+          s.setData(pts.map((x) => (l.colors?.[x.i] ? { time: x.time, value: x.v!, color: l.colors[x.i]! } : { time: x.time, value: x.v! })));
           first ??= s;
         }
       }
       if (first && levelsAt) for (const v of levelsAt) first.createPriceLine({ price: v, color: "#646a73", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false });
     };
     for (const x of computed.filter((y) => y.ind.overlay)) addLines(x.lines, 0);
+    // 買賣訊號：畫在主圖 K 棒上下（同一根有多個指標的訊號就都標）
+    const marks = computed.flatMap((x) => x.lines.flatMap((l) => l.marks ?? []))
+      .filter((m) => bars[m.i]).sort((a, b) => a.i - b.i)
+      .map((m) => ({ time: bars[m.i].time as UTCTimestamp, position: m.buy ? "belowBar" as const : "aboveBar" as const, color: m.buy ? UP : DOWN, shape: m.buy ? "arrowUp" as const : "arrowDown" as const, text: m.text }));
+    if (marks.length && mainSeries.current) createSeriesMarkers(mainSeries.current, marks);
     if (tf === "1m" && hasVol) addLines([{ name: "量", data: bars.map((b) => b.volume), color: "", type: "hist" }], 1);
     subs.forEach((x, k) => addLines(x.lines, k + 1, x.ind.levels));
     c.panes().forEach((p, k) => p.setStretchFactor(k > 0 ? 0.28 : 1));
@@ -378,7 +387,7 @@ export default function KChart({
           {tf !== "1m" && <>
             <IconBtn title="超級支撐壓力：依這個週期的 K 線標出支撐與壓力價位" on={sr} onClick={() => setSr(!sr)} d="M10 2l1.8 4.6L16.5 8l-4.7 1.4L10 14l-1.8-4.6L3.5 8l4.7-1.4zM16 13l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
             <IconBtn title="改成折線（收盤價連線）" on={line} onClick={() => setLine(!line)} d="M3 15l4-5 3 3 7-8" />
-            <IconBtn title="技術指標：均線、通道、動能、量能、波動…共 74 個" on={menu} onClick={() => setMenu(!menu)} d="M3 16h14M4 13l3-4 3 2 3-5 3 3" />
+            <IconBtn title={`技術指標：熱門腳本、均線、通道、動能、量能、波動…共 ${INDICATORS.length} 個`} on={menu} onClick={() => setMenu(!menu)} d="M3 16h14M4 13l3-4 3 2 3-5 3 3" />
           </>}
           <IconBtn title="把目前的圖存成圖片" onClick={saveImage} d="M10 3v10M6 9l4 4 4-4M4 16h12" />
           <IconBtn title="全螢幕" onClick={toggleFull} d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" />
@@ -396,7 +405,7 @@ export default function KChart({
           </>}
           <span>收 <span className={cls(b.close - pc)}>{fp(b.close)}</span></span>
           {b.volume > 0 && <span>{volIsValue ? "成交值" : "量"} <span className="text-text">{num(b.volume)}</span>{volIsValue && " 百萬"}</span>}
-          {!line && computed.filter((x) => x.ind.overlay).flatMap((x) => x.lines.filter((l) => l.type !== "dots").map((l) => <span key={x.s.id + l.name} style={{ color: l.color }}>{l.name} {val(l.data[i])}</span>))}
+          {!line && computed.filter((x) => x.ind.overlay).flatMap((x) => x.lines.filter((l) => l.type !== "dots" && !l.hide).map((l) => <span key={x.s.id + l.name} style={{ color: l.color }}>{l.name} {val(l.data[i])}</span>))}
         </div>
       )}
       {srOn && <SRPanel data={levels} err={srState?.err} patterns={patterns} tf={TF_LABEL[tf]} onClose={() => setSr(false)} />}
@@ -420,11 +429,12 @@ export default function KChart({
               key={`${drawKey}:${clearSig}`} height={mainH} onCount={setDrawCount} fmt={fp}
               onPattern={(a, z) => router.push(`/pattern?code=${code}&from=${new Date(a * 1000).toISOString().slice(0, 10)}&to=${new Date(z * 1000).toISOString().slice(0, 10)}`)} />
           )}
+          <ShapeLayer chart={chartApi} series={mainApi} shapes={shapes} height={mainH} />
           {/* 副圖說明 */}
           {subs.map((x, k) => paneTops[k + 1] != null && (
             <div key={x.s.id} className="absolute left-2 z-10 text-[11px] mono pointer-events-none flex gap-2 flex-wrap" style={{ top: paneTops[k + 1] + 2 }}>
               <span className="text-text-2">{volIsValue && x.ind.id === "vol" ? "成交值(百萬)" : x.ind.abbr}{x.s.params.length ? `(${x.s.params.join(", ")})` : ""}</span>
-              {x.lines.map((l) => <span key={l.name} style={{ color: l.color || "#9aa0a8" }}>{l.name} {val(l.data[i])}</span>)}
+              {x.lines.filter((l) => !l.hide).map((l) => <span key={l.name} style={{ color: l.color || "#9aa0a8" }}>{l.name} {val(l.data[i])}</span>)}
             </div>
           ))}
           {/* 超級支撐壓力：區間畫半透明色帶、M 頭／W 底畫出形狀，文字放線的左上方（跟線同色、不塗底） */}

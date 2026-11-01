@@ -1,15 +1,28 @@
-// 技術指標（74 個）。全部回傳跟 bars 對齊的陣列，算不出來的位置是 null
+// 技術指標（87 個）。全部回傳跟 bars 對齊的陣列，算不出來的位置是 null
 import type { Bar } from "./types";
 
 export type V = (number | null)[];
-export type Line = { name: string; data: V; color: string; type?: "line" | "hist" | "dots" | "area"; dash?: boolean };
+/** 主圖上的方框／線段（i2 = null 代表延伸到最右邊） */
+export type Shape =
+  | { k: "box"; i1: number; i2: number | null; top: number; bot: number; color: string; alpha?: number; text?: string }
+  | { k: "seg"; i1: number; p1: number; i2: number | null; p2: number; color: string; dash?: boolean; width?: number; text?: string; textAt?: "mid" | "end"; below?: boolean; small?: boolean };
+/** 買賣訊號記號（畫在主圖 K 棒上下） */
+export type Mark = { i: number; buy: boolean; text: string };
+export type Line = {
+  name: string; data: V; color: string; type?: "line" | "hist" | "dots" | "area" | "marks" | "shapes"; dash?: boolean;
+  colors?: (string | null)[]; // 每一點自己的顏色（柱、點、線都可用）
+  marks?: Mark[]; // type = "marks" 時用
+  shapes?: Shape[]; // type = "shapes" 時用
+  hide?: boolean; // 不顯示在說明列
+  noScale?: boolean; // 不參與價格軸縮放（離股價很遠的線不要把 K 線壓扁）
+};
 export type Ind = {
   id: string; name: string; abbr: string; cat: Cat; overlay: boolean; params: number[]; labels?: string[]; desc: string;
   calc: (b: Bar[], p: number[]) => Line[];
   levels?: number[]; // 副圖參考線（例如 RSI 30/70）
 };
-export type Cat = "均線" | "通道與帶狀" | "趨勢" | "動能與震盪" | "趨勢強度" | "量能" | "波動" | "基本";
-export const CATS: Cat[] = ["基本", "均線", "通道與帶狀", "趨勢", "動能與震盪", "趨勢強度", "量能", "波動"];
+export type Cat = "熱門腳本" | "均線" | "通道與帶狀" | "趨勢" | "動能與震盪" | "趨勢強度" | "量能" | "波動" | "基本";
+export const CATS: Cat[] = ["基本", "熱門腳本", "均線", "通道與帶狀", "趨勢", "動能與震盪", "趨勢強度", "量能", "波動"];
 
 const C = ["#e0b341", "#5aa9ff", "#b48cff", "#4fd1c5", "#f2994a", "#f06292", "#9ccc65"];
 const UPC = "#f0505a", DNC = "#22b573";
@@ -87,6 +100,8 @@ const map = (a: V, f: (x: number, i: number) => number | null): V => a.map((x, i
 const shift = (a: V, k: number): V => a.map((_, i) => (i - k >= 0 && i - k < a.length ? a[i - k] : null));
 const change = (a: V, k = 1): V => a.map((x, i) => (i < k || x == null || a[i - k] == null ? null : x - a[i - k]!));
 const sum = (a: V, n: number): V => map(sma(a, n), (x) => x * n);
+/** 柱狀：正值變大亮紅、變小淡紅；負值變小亮綠、變大淡綠 */
+const dimHist = (v: V) => v.map((x, i) => (x == null ? null : x >= 0 ? (x > nz(v[i - 1], x) ? UPC : UPC + "66") : x < nz(v[i - 1], x) ? DNC : DNC + "66"));
 const L = (name: string, data: V, color = C[0], type: Line["type"] = "line", dash = false): Line => ({ name, data, color, type, dash });
 
 // ---------- 指標 ----------
@@ -340,10 +355,295 @@ export const INDICATORS: Ind[] = [
   { id: "hv", name: "歷史波動率", abbr: "HV", cat: "波動", overlay: false, params: [20, 252], desc: "年化的報酬率標準差（%）", calc: (b, [n, y]) => { const r = close(b).map((x, i) => (i ? Math.log(x / b[i - 1].close) : null)); return [L("HV", map(stdev(r, n), (x) => x * Math.sqrt(y) * 100), "#e0b341")]; } },
   { id: "bbw", name: "布林帶寬", abbr: "BBW", cat: "波動", overlay: false, params: [20, 2], desc: "布林上下軌距離 ÷ 中軌（%），越小越壓縮", calc: (b, [n, k]) => [L("BBW", op(stdev(close(b), n), sma(close(b), n), (s, m) => ((2 * k * s) / m) * 100), "#e0b341")] },
   { id: "cv", name: "蔡金波動", abbr: "CV", cat: "波動", overlay: false, params: [10, 10], desc: "高低差 EMA 的變化率", levels: [0], calc: (b, [n, k]) => { const e = ema(b.map((x) => x.high - x.low), n); return [L("CV", e.map((x, i) => (x == null || i < k || e[i - k] == null ? null : ((x - e[i - k]!) / e[i - k]!) * 100)), "#e0b341")]; } },
+  // 熱門腳本：TradingView 上常用的社群指標，照公開的概念自己重寫（不是原作者程式碼，訊號可能略有差異）
+  { id: "sqz", name: "擠壓動能", abbr: "SQZMOM", cat: "熱門腳本", overlay: false, params: [20, 2, 20, 1.5], labels: ["布林週期", "布林倍數", "Keltner 週期", "Keltner 倍數"],
+    desc: "布林縮進 Keltner 通道＝擠壓中（橘點），放開（灰點）後看動能柱往哪邊（LazyBear 概念）", levels: [0], calc: (b, [bn, bk, kn, kk]) => {
+    const c = close(b), bm = sma(c, bn), bs = stdev(c, bn), km = sma(c, kn), kr = sma(tr(b), kn);
+    const hh = highest(b.map((x) => x.high), kn), ll = lowest(b.map((x) => x.low), kn);
+    const val = linreg(c.map((x, i) => (hh[i] == null || km[i] == null ? null : x - ((hh[i]! + ll[i]!) / 2 + km[i]!) / 2)), kn);
+    const state = b.map((_, i) => {
+      if (bm[i] == null || km[i] == null) return null;
+      const ub = bm[i]! + bk * bs[i]!, lb = bm[i]! - bk * bs[i]!, uk = km[i]! + kk * kr[i]!, lk = km[i]! - kk * kr[i]!;
+      return lb > lk && ub < uk ? "#f2994a" : lb < lk && ub > uk ? "#646a73" : "#5aa9ff";
+    });
+    return [
+      { name: "動能", data: val, color: "", type: "hist", colors: dimHist(val) },
+      { name: "擠壓", data: state.map((x) => (x ? 0 : null)), color: "#f2994a", type: "dots", colors: state, hide: true },
+    ];
+  } },
+  { id: "wt", name: "波浪趨勢震盪", abbr: "WaveTrend", cat: "熱門腳本", overlay: false, params: [10, 21], labels: ["通道週期", "平均週期"],
+    desc: "WT1 與 WT2 交叉（紅點金叉、綠點死叉），在 −60 以下金叉、60 以上死叉較有參考價值（LazyBear 概念）", levels: [-60, 60], calc: (b, [n1, n2]) => {
+    const ap = hlc3(b), esa = ema(ap, n1), d = ema(op(ap, esa, (x, y) => Math.abs(x - y)), n1);
+    const wt1 = ema(ap.map((x, i) => (esa[i] == null || d[i] == null ? null : d[i] ? (x - esa[i]!) / (0.015 * d[i]!) : 0)), n2), wt2 = sma(wt1, 4);
+    const diff = op(wt1, wt2, (x, y) => x - y);
+    const cross = diff.map((x, i) => (!i || x == null || diff[i - 1] == null || x === 0 || x > 0 === diff[i - 1]! > 0 ? null : wt2[i]));
+    return [
+      { name: "差", data: diff, color: "", type: "hist", colors: diff.map((x) => (x == null ? null : (x >= 0 ? UPC : DNC) + "55")), hide: true },
+      L("WT1", wt1, "#4fd1c5"), L("WT2", wt2, "#f06292", "line", true),
+      { name: "交叉", data: cross, color: "", type: "dots", colors: cross.map((x, i) => (x == null ? null : diff[i]! > 0 ? UPC : DNC)), hide: true },
+    ];
+  } },
+  { id: "wvf", name: "威廉 VIX 恐慌指標", abbr: "WVF", cat: "熱門腳本", overlay: false, params: [22, 20, 2, 50, 0.85], labels: ["高點回看", "布林週期", "布林倍數", "百分位回看", "百分位"],
+    desc: "模擬 VIX：近期最高收盤到今天低點跌了幾 %；柱子變橘＝恐慌異常，常出現在底部附近（CM Williams Vix Fix 概念）", calc: (b, [pd, bl, mult, lb, ph]) => {
+    const hc = highest(close(b), pd);
+    const wvf = b.map((x, i) => (hc[i] == null ? null : ((hc[i]! - x.low) / hc[i]!) * 100));
+    const ub = op(sma(wvf, bl), stdev(wvf, bl), (m, s) => m + mult * s);
+    const rh = map(highest(wvf.map((x) => nz(x)), lb), (x) => x * ph);
+    const hot = wvf.map((x, i) => x != null && ((ub[i] != null && x >= ub[i]!) || (rh[i] != null && x >= rh[i]!)));
+    return [
+      { name: "WVF", data: wvf, color: "", type: "hist", colors: wvf.map((x, i) => (x == null ? null : hot[i] ? "#f2994a" : "#646a73")) },
+      L("布林上軌", ub, "#5aa9ff", "line", true), L("高百分位", rh, "#b48cff", "line", true),
+    ];
+  } },
+  { id: "utbot", name: "UT Bot 買賣訊號", abbr: "UT Bot", cat: "熱門腳本", overlay: true, params: [1, 10], labels: ["敏感度（越大訊號越少）", "ATR 週期"],
+    desc: "ATR 移動停損線（紅＝多方、綠＝空方），收盤穿越時標「買／賣」（QuantNomad 概念）", calc: (b, [k, n]) => {
+    const a = atrV(b, n), c = close(b), ts: V = [];
+    let prev = 0;
+    c.forEach((x, i) => {
+      if (a[i] == null) { ts.push(null); return; }
+      const loss = k * a[i]!, x1 = i ? c[i - 1] : x;
+      const s = x > prev && x1 > prev ? Math.max(prev, x - loss) : x < prev && x1 < prev ? Math.min(prev, x + loss) : x > prev ? x - loss : x + loss;
+      ts.push(s); prev = s;
+    });
+    const marks: Mark[] = [];
+    ts.forEach((s, i) => {
+      if (s == null || !i || ts[i - 1] == null) return;
+      if (c[i] > s && c[i - 1] <= ts[i - 1]!) marks.push({ i, buy: true, text: "買" });
+      else if (c[i] < s && c[i - 1] >= ts[i - 1]!) marks.push({ i, buy: false, text: "賣" });
+    });
+    return [
+      { name: "停損", data: ts, color: "#e0b341", colors: ts.map((s, i) => (s == null ? null : c[i] > s ? UPC : DNC)) },
+      { name: "訊號", data: [], color: "", type: "marks", marks, hide: true },
+    ];
+  } },
+  { id: "bbrsi", name: "布林＋RSI 雙重策略", abbr: "BB+RSI", cat: "熱門腳本", overlay: true, params: [6, 50, 50, 200, 2], labels: ["RSI 週期", "RSI 買進線", "RSI 賣出線", "布林週期", "布林倍數"],
+    desc: "同一根 RSI 上穿買進線且收盤上穿布林下軌＝買；RSI 下穿賣出線且收盤下穿上軌＝賣。條件嚴格、訊號少是正常的（ChartArt 概念）", calc: (b, [rn, lo, hi, bn, bk]) => {
+    const c = close(b), r = rsi(c, rn), m = sma(c, bn), sd = stdev(c, bn);
+    const up = op(m, sd, (x, s) => x + bk * s), dn = op(m, sd, (x, s) => x - bk * s);
+    const crossUp = (a: V, lv: V, i: number) => a[i] != null && a[i - 1] != null && lv[i] != null && lv[i - 1] != null && a[i]! > lv[i]! && a[i - 1]! <= lv[i - 1]!;
+    const loV = b.map(() => lo), hiV = b.map(() => hi);
+    const marks: Mark[] = [];
+    for (let i = 1; i < b.length; i++) {
+      if (crossUp(r, loV, i) && crossUp(c, dn, i)) marks.push({ i, buy: true, text: "買" });
+      else if (crossUp(hiV, r, i) && crossUp(up, c, i)) marks.push({ i, buy: false, text: "賣" });
+    }
+    return [...[band("上軌", up), band("中軌", m), band("下軌", dn)].map((l) => ({ ...l, noScale: true })), { name: "訊號", data: [], color: "", type: "marks", marks, hide: true }];
+  } },
+  // SMC（Smart Money Concepts）：照 LuxAlgo／EmreKb 腳本的概念自己重寫，拆成幾個可以分開開關的指標
+  { id: "smc", name: "SMC 市場結構", abbr: "SMC BOS/CHoCH", cat: "熱門腳本", overlay: true, params: [20, 5], labels: ["波段擺動", "內部擺動"],
+    desc: "收盤突破前一個擺動高／低點：順勢叫 BOS、轉向叫 CHoCH；實線＝波段、虛線＝內部結構；最右邊標強高／弱高、強低／弱低", calc: (b, [sl, il]) => {
+    const sw = smcStructure(b, sl), inn = smcStructure(b, il);
+    const seen = new Set(sw.events.map((e) => `${e.to}:${e.price}`));
+    const seg = (e: SmcEvent, internal: boolean): Shape => ({
+      k: "seg", i1: e.from, p1: e.price, i2: e.to, p2: e.price, color: e.bull ? UPC : DNC, dash: internal, small: internal,
+      text: e.choch ? "CHoCH" : "BOS", below: !e.bull,
+    });
+    const shapes: Shape[] = [
+      ...inn.events.filter((e) => !seen.has(`${e.to}:${e.price}`)).slice(-40).map((e) => seg(e, true)),
+      ...sw.events.slice(-40).map((e) => seg(e, false)),
+    ];
+    const t = sw.trend;
+    if (sw.lastHigh) shapes.push({ k: "seg", i1: sw.lastHigh.i, p1: sw.lastHigh.p, i2: null, p2: sw.lastHigh.p, color: DNC, dash: true, text: t === -1 ? "強高" : "弱高", textAt: "end" });
+    if (sw.lastLow) shapes.push({ k: "seg", i1: sw.lastLow.i, p1: sw.lastLow.p, i2: null, p2: sw.lastLow.p, color: UPC, dash: true, text: t === 1 ? "強低" : "弱低", textAt: "end", below: true });
+    return [{ name: "結構", data: [], color: "", type: "shapes", shapes, hide: true }];
+  } },
+  { id: "smcob", name: "SMC 訂單塊", abbr: "Order Block", cat: "熱門腳本", overlay: true, params: [20, 3], labels: ["擺動週期", "多空各顯示幾個"],
+    desc: "結構突破前最後一段反向走勢的 K 棒區間（大戶進場區）；收盤跌破（多）／站上（空）就失效不再顯示", calc: (b, [sl, cnt]) => {
+    const { obs } = smcStructure(b, sl);
+    const live = obs.filter((o) => o.end == null);
+    const pick = (bull: boolean) => live.filter((o) => o.bull === bull).slice(-cnt);
+    const shapes: Shape[] = [...pick(true), ...pick(false)].map((o) => ({ k: "box", i1: o.i, i2: null, top: o.top, bot: o.bot, color: o.bull ? UPC : DNC, text: o.bull ? "多方訂單塊" : "空方訂單塊" }));
+    return [{ name: "訂單塊", data: [], color: "", type: "shapes", shapes, hide: true }];
+  } },
+  { id: "fvg", name: "SMC 公允價值缺口", abbr: "FVG", cat: "熱門腳本", overlay: true, params: [0.3, 5], labels: ["最小缺口 %", "多空各顯示幾個"],
+    desc: "三根 K 棒中，第 1 根高點和第 3 根低點沒有重疊的空隙（反之為空方）；價格回補滿就消失", calc: (b, [th, cnt]) => {
+    const g: { i: number; top: number; bot: number; bull: boolean }[] = [];
+    for (let i = 2; i < b.length; i++) {
+      const a = b[i - 2], m = b[i - 1], c = b[i];
+      if (c.low > a.high && m.close > a.high && ((c.low - a.high) / m.close) * 100 >= th) g.push({ i: i - 1, top: c.low, bot: a.high, bull: true });
+      else if (c.high < a.low && m.close < a.low && ((a.low - c.high) / m.close) * 100 >= th) g.push({ i: i - 1, top: a.low, bot: c.high, bull: false });
+    }
+    const open = g.filter((x) => { for (let t = x.i + 2; t < b.length; t++) if (x.bull ? b[t].low <= x.bot : b[t].high >= x.top) return false; return true; });
+    const pick = (bull: boolean) => open.filter((x) => x.bull === bull).slice(-cnt);
+    const shapes: Shape[] = [...pick(true), ...pick(false)].map((x) => ({ k: "box", i1: x.i, i2: null, top: x.top, bot: x.bot, color: x.bull ? "#f2994a" : "#4fd1c5", alpha: 0.18, text: "FVG" }));
+    return [{ name: "FVG", data: [], color: "", type: "shapes", shapes, hide: true }];
+  } },
+  { id: "smcpd", name: "SMC 溢價／折價區", abbr: "Premium/Discount", cat: "熱門腳本", overlay: true, params: [60], labels: ["回看幾根"],
+    desc: "最近 N 根的高低區間：上緣 5% 溢價區（偏貴）、中間平衡區、下緣 5% 折價區（偏便宜）", calc: (b, [n]) => {
+    const seg = b.slice(-n); if (seg.length < 5) return [];
+    const top = Math.max(...seg.map((x) => x.high)), bot = Math.min(...seg.map((x) => x.low)), i1 = b.length - seg.length;
+    const at = (r: number) => bot + (top - bot) * r;
+    const shapes: Shape[] = [
+      { k: "box", i1, i2: null, top, bot: at(0.95), color: DNC, alpha: 0.12, text: "溢價區" },
+      { k: "box", i1, i2: null, top: at(0.525), bot: at(0.475), color: "#9aa0a8", alpha: 0.12, text: "平衡區" },
+      { k: "box", i1, i2: null, top: at(0.05), bot, color: UPC, alpha: 0.12, text: "折價區" },
+    ];
+    return [{ name: "區間", data: [], color: "", type: "shapes", shapes, hide: true }];
+  } },
+  { id: "srb", name: "支撐壓力突破", abbr: "S&R Breaks", cat: "熱門腳本", overlay: true, params: [15, 15, 20], labels: ["左邊幾根", "右邊幾根", "量能門檻 %"],
+    desc: "擺動高低點畫成壓力（綠）／支撐（紅）線；收盤帶量（5、10 日均量差 ≥ 門檻）突破或跌破時標記；大型股量很穩，訊號少可把門檻調低到 0（LuxAlgo 概念）", calc: (b, [lb, rb, vth]) => {
+    const { hi, lo } = pivots(b, lb, rb);
+    const v = b.map((x) => x.volume), e5 = ema(v, 5), e10 = ema(v, 10);
+    const osc = op(e5, e10, (x, y) => (y ? ((x - y) / y) * 100 : 0));
+    const shapes: Shape[] = [], marks: Mark[] = [];
+    const level = (ps: { i: number; p: number }[], res: boolean) => {
+      ps.forEach((q, k) => {
+        const next = ps[k + 1]?.i ?? null;
+        let broke: number | null = null;
+        for (let t = q.i + rb + 1; t < b.length && (next == null || t < next + rb + 1); t++) {
+          const crossed = res ? b[t].close > q.p && b[t - 1].close <= q.p : b[t].close < q.p && b[t - 1].close >= q.p;
+          if (crossed && nz(osc[t]) >= vth) { broke = t; break; }
+        }
+        if (broke != null) marks.push({ i: broke, buy: res, text: res ? "突破" : "跌破" });
+        shapes.push({ k: "seg", i1: q.i, p1: q.p, i2: next ?? null, p2: q.p, color: res ? DNC : UPC, width: 2 });
+      });
+    };
+    level(hi.slice(-30), true); level(lo.slice(-30), false);
+    return [{ name: "線", data: [], color: "", type: "shapes", shapes, hide: true }, { name: "訊號", data: [], color: "", type: "marks", marks, hide: true }];
+  } },
+  { id: "tlb", name: "趨勢線突破", abbr: "Trendlines", cat: "熱門腳本", overlay: true, params: [14, 1], labels: ["擺動週期", "斜率倍數"],
+    desc: "從擺動高點往下、擺動低點往上畫斜線（斜率＝ATR÷週期×倍數），收盤穿越時標「突破／跌破」（LuxAlgo 概念）", calc: (b, [len, mult]) => {
+    const { hi, lo } = pivots(b, len, len);
+    const a = atrV(b, len), c = close(b), last = b.length - 1;
+    const shapes: Shape[] = [], marks: Mark[] = [];
+    const run = (ps: { i: number; p: number }[], down: boolean) => {
+      ps.slice(-30).forEach((q, k, arr) => {
+        const slope = (nz(a[q.i + len] ?? a[q.i]) / len) * mult;
+        const at = (t: number) => (down ? q.p - slope * (t - q.i) : q.p + slope * (t - q.i));
+        const stop = arr[k + 1] ? arr[k + 1].i + len : last + 1;
+        let end: number | null = null;
+        for (let t = q.i + len + 1; t < Math.min(stop, b.length); t++) {
+          if (down ? c[t] > at(t) && c[t - 1] <= at(t - 1) : c[t] < at(t) && c[t - 1] >= at(t - 1)) { end = t; break; }
+        }
+        if (end != null) marks.push({ i: end, buy: down, text: down ? "突破" : "跌破" });
+        // 只畫被突破的線（畫到突破那根）和最新一條（往右延伸）；沒被突破就被新擺動點取代的舊線不畫，免得留在很遠的地方
+        if (end == null && arr[k + 1]) return;
+        const i2 = end ?? last + 5;
+        shapes.push({ k: "seg", i1: q.i, p1: q.p, i2, p2: at(i2), color: down ? DNC : UPC, width: 1.5, dash: end == null });
+      });
+    };
+    run(hi, true); run(lo, false);
+    return [{ name: "趨勢線", data: [], color: "", type: "shapes", shapes, hide: true }, { name: "訊號", data: [], color: "", type: "marks", marks, hide: true }];
+  } },
+  { id: "macdmtf", name: "MACD 多週期", abbr: "MACD MTF", cat: "熱門腳本", overlay: false, params: [12, 26, 9, 1], labels: ["快線", "慢線", "訊號", "週期：1 同圖 2 日 3 週 4 月"],
+    desc: "可以在小週期圖上看大週期的 MACD（例如 60 分 K 看日線、日 K 看週線）；柱子四色、快線在訊號線上方變紅，交叉打點（ChrisMoody 概念）", levels: [0], calc: (b, [f, sl, g, tf]) => {
+    const key = groupKey(b, tf);
+    const kf = 2 / (f + 1), ks = 2 / (sl + 1), kg = 2 / (g + 1);
+    // 大週期還沒走完的那一根，用目前為止的收盤即時算（不偷看未來）
+    let pf: number | null = null, ps: number | null = null, pg: number | null = null, cf = 0, cs = 0, cg = 0;
+    const dif: V = [], dea: V = [];
+    b.forEach((x, i) => {
+      if (i && key[i] !== key[i - 1]) { pf = cf; ps = cs; pg = cg; }
+      cf = pf == null ? x.close : x.close * kf + pf * (1 - kf);
+      cs = ps == null ? x.close : x.close * ks + ps * (1 - ks);
+      const d = cf - cs;
+      cg = pg == null ? d : d * kg + pg * (1 - kg);
+      dif.push(d); dea.push(cg);
+    });
+    const hist = op(dif, dea, (x, y) => x - y);
+    const cross = hist.map((h, i) => (!i || h == null || hist[i - 1] == null || h === 0 || h > 0 === hist[i - 1]! > 0 ? null : dif[i]));
+    return [
+      { name: "柱", data: hist, color: "", type: "hist", colors: dimHist(hist) },
+      { name: "DIF", data: dif, color: "#e0b341", colors: hist.map((h) => (h == null ? null : h >= 0 ? UPC : DNC)) },
+      L("DEA", dea, "#5aa9ff"),
+      { name: "交叉", data: cross, color: "", type: "dots", colors: cross.map((x, i) => (x == null ? null : hist[i]! > 0 ? UPC : DNC)), hide: true },
+    ];
+  } },
+  { id: "pivhl", name: "前高前低＋樞紐點", abbr: "Pivots", cat: "熱門腳本", overlay: true, params: [5], labels: ["顯示幾期"],
+    desc: "上一期的最高（綠）、最低（紅）與樞紐點 P＝(高+低+收)÷3（灰虛線）畫在這一期；分 K 用前一日＋前一週、日 K 用前一週＋前一月、週 K 以上用前一月", calc: (b, [n]) => {
+    if (b.length < 2) return [];
+    const intra = isIntraday(b), wk = !intra && b[1].time - b[0].time >= 5 * 86400;
+    const shapes: Shape[] = [];
+    const draw = (tf: number, cnt: number, name: string, thick: boolean) => {
+      const key = groupKey(b, tf);
+      const gs: { s: number; e: number; h: number; l: number; c: number }[] = [];
+      b.forEach((x, i) => {
+        const g = gs[gs.length - 1];
+        if (!g || key[i] !== key[i - 1]) gs.push({ s: i, e: i, h: x.high, l: x.low, c: x.close });
+        else { g.e = i; g.h = Math.max(g.h, x.high); g.l = Math.min(g.l, x.low); g.c = x.close; }
+      });
+      const from = Math.max(1, gs.length - cnt);
+      for (let k = from; k < gs.length; k++) {
+        const pv = gs[k - 1], cur = gs[k], latest = k === gs.length - 1;
+        const i2 = latest ? b.length - 1 + 5 : cur.e + 1;
+        const pp = (pv.h + pv.l + pv.c) / 3;
+        const line = (p: number, color: string, label: string, dash: boolean, below = false): Shape =>
+          ({ k: "seg", i1: cur.s, p1: p, i2, p2: p, color, dash, width: thick ? 1.5 : 1, text: latest ? label : undefined, textAt: "end", below, small: !thick });
+        shapes.push(line(pv.h, DNC, `${name}高`, thick), line(pv.l, UPC, `${name}低`, thick, true));
+        if (!thick) shapes.push(line(pp, "#9aa0a8", "P", true));
+      }
+    };
+    if (intra) { draw(2, n, "前日", false); draw(3, 1, "前週", true); }
+    else if (!wk) { draw(3, n, "前週", false); draw(4, 1, "前月", true); }
+    else draw(4, n, "前月", false);
+    return [{ name: "前高前低", data: [], color: "", type: "shapes", shapes, hide: true }];
+  } },
 ];
 export const IND = Object.fromEntries(INDICATORS.map((x) => [x.id, x]));
 
 // ---------- 需要狀態的計算 ----------
+
+/** 把 K 棒分組成大週期：1 同圖（每根一組）2 日 3 週（週一開始）4 月。時間已是台灣時間 */
+function groupKey(b: Bar[], tf: number): number[] {
+  return b.map((x, i) => {
+    const day = Math.floor(x.time / 86400);
+    if (tf === 2) return day;
+    if (tf === 3) return Math.floor((day + 3) / 7);
+    if (tf === 4) { const d = new Date(x.time * 1000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); }
+    return i;
+  });
+}
+/** 擺動高低點：左邊 l 根都比它低（高）、右邊 r 根不超過它 */
+function pivots(b: Bar[], l: number, r: number) {
+  const hi: { i: number; p: number }[] = [], lo: { i: number; p: number }[] = [];
+  for (let j = l; j + r < b.length; j++) {
+    let h = true, w = true;
+    for (let k = 1; k <= Math.max(l, r) && (h || w); k++) {
+      if (k <= l) { if (b[j - k].high >= b[j].high) h = false; if (b[j - k].low <= b[j].low) w = false; }
+      if (k <= r) { if (b[j + k].high > b[j].high) h = false; if (b[j + k].low < b[j].low) w = false; }
+    }
+    if (h) hi.push({ i: j, p: b[j].high });
+    if (w) lo.push({ i: j, p: b[j].low });
+  }
+  return { hi, lo };
+}
+type SmcEvent = { from: number; to: number; price: number; bull: boolean; choch: boolean };
+type SmcOb = { i: number; at: number; top: number; bot: number; bull: boolean; end: number | null };
+/** SMC 市場結構：擺動點在右邊 len 根後才確認（不偷看未來），收盤穿越最近一個沒被破的擺動點＝結構突破 */
+function smcStructure(b: Bar[], len: number) {
+  const { hi, lo } = pivots(b, len, len);
+  const events: SmcEvent[] = [], obs: SmcOb[] = [];
+  let hk = 0, lk = 0, trend = 0;
+  let sh: { i: number; p: number; done: boolean } | null = null, sl: { i: number; p: number; done: boolean } | null = null;
+  for (let t = 0; t < b.length; t++) {
+    while (hk < hi.length && hi[hk].i + len <= t) { sh = { ...hi[hk], done: false }; hk++; }
+    while (lk < lo.length && lo[lk].i + len <= t) { sl = { ...lo[lk], done: false }; lk++; }
+    const c = b[t].close;
+    if (sh && !sh.done && c > sh.p) {
+      events.push({ from: sh.i, to: t, price: sh.p, bull: true, choch: trend === -1 });
+      let k = sh.i; for (let j = sh.i; j < t; j++) if (b[j].low < b[k].low) k = j;
+      obs.push({ i: k, at: t, top: b[k].high, bot: b[k].low, bull: true, end: null });
+      trend = 1; sh.done = true;
+    }
+    if (sl && !sl.done && c < sl.p) {
+      events.push({ from: sl.i, to: t, price: sl.p, bull: false, choch: trend === 1 });
+      let k = sl.i; for (let j = sl.i; j < t; j++) if (b[j].high > b[k].high) k = j;
+      obs.push({ i: k, at: t, top: b[k].high, bot: b[k].low, bull: false, end: null });
+      trend = -1; sl.done = true;
+    }
+  }
+  for (const o of obs) for (let t = o.at + 1; t < b.length; t++) if (o.bull ? b[t].close < o.bot : b[t].close > o.top) { o.end = t; break; }
+  // 強高／弱高：最近一個擺動點之後實際出現過的最高／最低（還沒被確認成擺動點的新高也算）
+  const trail = (ps: { i: number; p: number }[], up: boolean) => {
+    if (!ps.length) return null;
+    let k = ps[ps.length - 1].i;
+    for (let j = k; j < b.length; j++) if (up ? b[j].high > b[k].high : b[j].low < b[k].low) k = j;
+    return { i: k, p: up ? b[k].high : b[k].low };
+  };
+  const lastHigh = trail(hi, true), lastLow = trail(lo, false);
+  return { events, obs, trend, lastHigh, lastLow };
+}
+
 function isIntraday(b: Bar[]) { return b.length > 1 && b[1].time - b[0].time < 86400; }
 function linreg(a: V, n: number): V {
   return a.map((_, i) => {

@@ -47,11 +47,14 @@ export default function IndicatorMenu({ value, onChange, onClose }: { value: Ind
           ><span className={`absolute top-0.5 w-4 h-4 rounded-full bg-[#111] transition-all ${cur ? "left-[18px]" : "left-0.5"}`} /></button>
         </div>
         {edit === id && cur && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {cur.params.map((v, i) => (
-              <input key={i} type="number" step="any" defaultValue={v} className="w-20 bg-panel-2 border border-line rounded px-2 py-1 mono text-[12px]"
-                onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n) && n > 0) { const p = [...cur.params]; p[i] = n; setParams(id, p); } }} />
-            ))}
+          <div className="flex flex-wrap items-end gap-2 mt-2">
+            {cur.params.map((v, i) => {
+              const input = (
+                <input key={i} type="number" step="any" defaultValue={v} aria-label={ind.labels?.[i]} className="w-20 bg-panel-2 border border-line rounded px-2 py-1 mono text-[12px]"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n) && n > 0) { const p = [...cur.params]; p[i] = n; setParams(id, p); } }} />
+              );
+              return ind.labels?.[i] ? <label key={i} className="flex flex-col gap-0.5 text-[11px] text-text-2">{ind.labels[i]}{input}</label> : input;
+            })}
             <button className="btn !py-0.5 text-[12px]" onClick={() => setParams(id, [...ind.params])}>預設值</button>
           </div>
         )}
