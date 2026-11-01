@@ -73,11 +73,11 @@ function Pattern() {
           </div>
           <div className="scroll-y max-h-[640px] px-2 py-2">
             {ok && data.list.map((x, i) => (
-              <div key={x.c} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-panel-2">
+              <div key={x.c} className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-panel-2">
                 <span className="mono sub w-5">{i + 1}</span>
                 <Link href={`/stock/${x.c}`} className="flex-1 min-w-0">
                   <div className="truncate">{x.n} <span className="mono text-text-2 text-[12px]">{x.c}</span></div>
-                  <div className="sub mono">{md(x.from ?? data.from)} – {md(x.to ?? data.to)} · {price(x.last)}</div>
+                  <div className="sub mono whitespace-nowrap truncate">{md(x.from ?? data.from)}–{md(x.to ?? data.to)} · {price(x.last)}</div>
                 </Link>
                 <Overlay a={data.spark} b={x.spark} n={data.n} />
                 <div className="w-16 text-right">
@@ -98,7 +98,7 @@ function Pattern() {
 
 /** 目標（灰）與候選（綠）疊在一起；歷史相似的候選後面多畫 10 天 */
 function Overlay({ a, b, n }: { a: number[]; b: number[]; n: number }) {
-  const W = 110, H = 34;
+  const W = 92, H = 34;
   const path = (v: number[], len: number) => v.map((y, i) => `${i ? "L" : "M"}${((i / (len - 1)) * (W * (len / Math.max(len, n)) - 2)).toFixed(1)},${(H - 2 - y * (H - 4)).toFixed(1)}`).join("");
   const len = Math.max(b.length, n);
   return (
