@@ -14,6 +14,7 @@ export type Line = {
   marks?: Mark[]; // type = "marks" 時用
   shapes?: Shape[]; // type = "shapes" 時用
   hide?: boolean; // 不顯示在說明列
+  width?: number; // 線寬（預設 1）
   noScale?: boolean; // 不參與價格軸縮放（離股價很遠的線不要把 K 線壓扁）
 };
 export type Ind = {
@@ -26,6 +27,8 @@ export const CATS: Cat[] = ["基本", "熱門腳本", "均線", "通道與帶狀
 
 const C = ["#e0b341", "#5aa9ff", "#b48cff", "#4fd1c5", "#f2994a", "#f06292", "#9ccc65"];
 const UPC = "#f0505a", DNC = "#22b573";
+// 畫在主圖上的多空顏色：不能用 K 線的紅綠（會跟 K 棒糊在一起），改用粉紫／亮青
+export const OVU = "#ff5cc8", OVD = "#22d3ee";
 // 通道／帶狀的上下軌、中線：一律灰色虛線，疊在 K 線和均線上才不會太花
 const BAND = "#8b919a";
 const band = (name: string, data: V) => L(name, data, BAND, "line", true);
@@ -160,9 +163,9 @@ export const INDICATORS: Ind[] = [
 
   // 趨勢
   { id: "sar", name: "拋物線指標", abbr: "SAR", cat: "趨勢", overlay: true, params: [0.02, 0.02, 0.2], desc: "點在 K 棒下方偏多、上方偏空", calc: (b, [start, inc, max]) => [L("SAR", psar(b, start, inc, max), "#e0b341", "dots")] },
-  { id: "supertrend", name: "超級趨勢", abbr: "SuperTrend", cat: "趨勢", overlay: true, params: [10, 3], desc: "多頭在下方（紅）、空頭在上方", calc: (b, [n, k]) => {
+  { id: "supertrend", name: "超級趨勢", abbr: "SuperTrend", cat: "趨勢", overlay: true, params: [10, 3], desc: "多頭時線在 K 棒下方（粉紫）、空頭時在上方（亮青）", calc: (b, [n, k]) => {
     const { up, dn } = supertrend(b, n, k);
-    return [L("多頭", up, UPC), L("空頭", dn, DNC)];
+    return [{ ...L("多頭", up, OVU), width: 2 }, { ...L("空頭", dn, OVD), width: 2 }];
   } },
   { id: "alligator", name: "鱷魚線", abbr: "Alligator", cat: "趨勢", overlay: true, params: [13, 8, 5, 8, 5, 3], desc: "三條往右平移的平滑均線", calc: (b, [j, t, l, js, ts, ls]) => {
     const m = hl2(b);
@@ -180,12 +183,12 @@ export const INDICATORS: Ind[] = [
   } },
   { id: "ce", name: "吊燈停損", abbr: "CE", cat: "趨勢", overlay: true, params: [22, 3], desc: "最高價往下幾倍 ATR 的移動停損", calc: (b, [n, k]) => {
     const a = atrV(b, n);
-    return [L("多方停損", op(highest(b.map((x) => x.high), n), a, (x, y) => x - k * y), UPC, "line", true), L("空方停損", op(lowest(b.map((x) => x.low), n), a, (x, y) => x + k * y), DNC, "line", true)];
+    return [L("多方停損", op(highest(b.map((x) => x.high), n), a, (x, y) => x - k * y), OVU, "line", true), L("空方停損", op(lowest(b.map((x) => x.low), n), a, (x, y) => x + k * y), OVD, "line", true)];
   } },
   { id: "cks", name: "Chande Kroll 停損", abbr: "CKS", cat: "趨勢", overlay: true, params: [10, 1, 9], desc: "用 ATR 算的多空停損線", calc: (b, [p, x, q]) => {
     const a = atrV(b, p);
     const fh = op(highest(b.map((y) => y.high), p), a, (h, t) => h - x * t), fl = op(lowest(b.map((y) => y.low), p), a, (l, t) => l + x * t);
-    return [L("空方停損", highest(fh, q), DNC, "line", true), L("多方停損", lowest(fl, q), UPC, "line", true)];
+    return [L("空方停損", highest(fh, q), OVD, "line", true), L("多方停損", lowest(fl, q), OVU, "line", true)];
   } },
 
   // 動能與震盪
@@ -396,7 +399,7 @@ export const INDICATORS: Ind[] = [
     ];
   } },
   { id: "utbot", name: "UT Bot 買賣訊號", abbr: "UT Bot", cat: "熱門腳本", overlay: true, params: [1, 10], labels: ["敏感度（越大訊號越少）", "ATR 週期"],
-    desc: "ATR 移動停損線（紅＝多方、綠＝空方），收盤穿越時標「買／賣」（QuantNomad 概念）", calc: (b, [k, n]) => {
+    desc: "ATR 移動停損線（粉紫＝多方、亮青＝空方），收盤穿越時標「買／賣」（QuantNomad 概念）", calc: (b, [k, n]) => {
     const a = atrV(b, n), c = close(b), ts: V = [];
     let prev = 0;
     c.forEach((x, i) => {
@@ -412,7 +415,7 @@ export const INDICATORS: Ind[] = [
       else if (c[i] < s && c[i - 1] >= ts[i - 1]!) marks.push({ i, buy: false, text: "賣" });
     });
     return [
-      { name: "停損", data: ts, color: "#e0b341", colors: ts.map((s, i) => (s == null ? null : c[i] > s ? UPC : DNC)) },
+      { name: "停損", data: ts, color: OVU, width: 2, colors: ts.map((s, i) => (s == null ? null : c[i] > s ? OVU : OVD)) },
       { name: "訊號", data: [], color: "", type: "marks", marks, hide: true },
     ];
   } },
@@ -435,7 +438,7 @@ export const INDICATORS: Ind[] = [
     const sw = smcStructure(b, sl), inn = smcStructure(b, il);
     const seen = new Set(sw.events.map((e) => `${e.to}:${e.price}`));
     const seg = (e: SmcEvent, internal: boolean): Shape => ({
-      k: "seg", i1: e.from, p1: e.price, i2: e.to, p2: e.price, color: e.bull ? UPC : DNC, dash: internal, small: internal,
+      k: "seg", i1: e.from, p1: e.price, i2: e.to, p2: e.price, color: e.bull ? OVU : OVD, dash: internal, small: internal,
       text: e.choch ? "CHoCH" : "BOS", below: !e.bull,
     });
     const shapes: Shape[] = [
@@ -443,8 +446,8 @@ export const INDICATORS: Ind[] = [
       ...sw.events.slice(-40).map((e) => seg(e, false)),
     ];
     const t = sw.trend;
-    if (sw.lastHigh) shapes.push({ k: "seg", i1: sw.lastHigh.i, p1: sw.lastHigh.p, i2: null, p2: sw.lastHigh.p, color: DNC, dash: true, text: t === -1 ? "強高" : "弱高", textAt: "end" });
-    if (sw.lastLow) shapes.push({ k: "seg", i1: sw.lastLow.i, p1: sw.lastLow.p, i2: null, p2: sw.lastLow.p, color: UPC, dash: true, text: t === 1 ? "強低" : "弱低", textAt: "end", below: true });
+    if (sw.lastHigh) shapes.push({ k: "seg", i1: sw.lastHigh.i, p1: sw.lastHigh.p, i2: null, p2: sw.lastHigh.p, color: OVD, dash: true, text: t === -1 ? "強高" : "弱高", textAt: "end" });
+    if (sw.lastLow) shapes.push({ k: "seg", i1: sw.lastLow.i, p1: sw.lastLow.p, i2: null, p2: sw.lastLow.p, color: OVU, dash: true, text: t === 1 ? "強低" : "弱低", textAt: "end", below: true });
     return [{ name: "結構", data: [], color: "", type: "shapes", shapes, hide: true }];
   } },
   { id: "smcob", name: "SMC 訂單塊", abbr: "Order Block", cat: "熱門腳本", overlay: true, params: [20, 3], labels: ["擺動週期", "多空各顯示幾個"],
@@ -452,7 +455,7 @@ export const INDICATORS: Ind[] = [
     const { obs } = smcStructure(b, sl);
     const live = obs.filter((o) => o.end == null);
     const pick = (bull: boolean) => live.filter((o) => o.bull === bull).slice(-cnt);
-    const shapes: Shape[] = [...pick(true), ...pick(false)].map((o) => ({ k: "box", i1: o.i, i2: null, top: o.top, bot: o.bot, color: o.bull ? UPC : DNC, text: o.bull ? "多方訂單塊" : "空方訂單塊" }));
+    const shapes: Shape[] = [...pick(true), ...pick(false)].map((o) => ({ k: "box", i1: o.i, i2: null, top: o.top, bot: o.bot, color: o.bull ? OVU : OVD, text: o.bull ? "多方訂單塊" : "空方訂單塊" }));
     return [{ name: "訂單塊", data: [], color: "", type: "shapes", shapes, hide: true }];
   } },
   { id: "fvg", name: "SMC 公允價值缺口", abbr: "FVG", cat: "熱門腳本", overlay: true, params: [0.3, 5], labels: ["最小缺口 %", "多空各顯示幾個"],
@@ -465,7 +468,7 @@ export const INDICATORS: Ind[] = [
     }
     const open = g.filter((x) => { for (let t = x.i + 2; t < b.length; t++) if (x.bull ? b[t].low <= x.bot : b[t].high >= x.top) return false; return true; });
     const pick = (bull: boolean) => open.filter((x) => x.bull === bull).slice(-cnt);
-    const shapes: Shape[] = [...pick(true), ...pick(false)].map((x) => ({ k: "box", i1: x.i, i2: null, top: x.top, bot: x.bot, color: x.bull ? "#f2994a" : "#4fd1c5", alpha: 0.18, text: "FVG" }));
+    const shapes: Shape[] = [...pick(true), ...pick(false)].map((x) => ({ k: "box", i1: x.i, i2: null, top: x.top, bot: x.bot, color: x.bull ? "#f2994a" : "#8b7cff", alpha: 0.18, text: "FVG" }));
     return [{ name: "FVG", data: [], color: "", type: "shapes", shapes, hide: true }];
   } },
   { id: "smcpd", name: "SMC 溢價／折價區", abbr: "Premium/Discount", cat: "熱門腳本", overlay: true, params: [60], labels: ["回看幾根"],
@@ -474,14 +477,14 @@ export const INDICATORS: Ind[] = [
     const top = Math.max(...seg.map((x) => x.high)), bot = Math.min(...seg.map((x) => x.low)), i1 = b.length - seg.length;
     const at = (r: number) => bot + (top - bot) * r;
     const shapes: Shape[] = [
-      { k: "box", i1, i2: null, top, bot: at(0.95), color: DNC, alpha: 0.12, text: "溢價區" },
+      { k: "box", i1, i2: null, top, bot: at(0.95), color: OVD, alpha: 0.12, text: "溢價區" },
       { k: "box", i1, i2: null, top: at(0.525), bot: at(0.475), color: "#9aa0a8", alpha: 0.12, text: "平衡區" },
-      { k: "box", i1, i2: null, top: at(0.05), bot, color: UPC, alpha: 0.12, text: "折價區" },
+      { k: "box", i1, i2: null, top: at(0.05), bot, color: OVU, alpha: 0.12, text: "折價區" },
     ];
     return [{ name: "區間", data: [], color: "", type: "shapes", shapes, hide: true }];
   } },
   { id: "srb", name: "支撐壓力突破", abbr: "S&R Breaks", cat: "熱門腳本", overlay: true, params: [15, 15, 20], labels: ["左邊幾根", "右邊幾根", "量能門檻 %"],
-    desc: "擺動高低點畫成壓力（綠）／支撐（紅）線；收盤帶量（5、10 日均量差 ≥ 門檻）突破或跌破時標記；大型股量很穩，訊號少可把門檻調低到 0（LuxAlgo 概念）", calc: (b, [lb, rb, vth]) => {
+    desc: "擺動高低點畫成壓力（亮青）／支撐（粉紫）線；收盤帶量（5、10 日均量差 ≥ 門檻）突破或跌破時標記；大型股量很穩，訊號少可把門檻調低到 0（LuxAlgo 概念）", calc: (b, [lb, rb, vth]) => {
     const { hi, lo } = pivots(b, lb, rb);
     const v = b.map((x) => x.volume), e5 = ema(v, 5), e10 = ema(v, 10);
     const osc = op(e5, e10, (x, y) => (y ? ((x - y) / y) * 100 : 0));
@@ -495,7 +498,7 @@ export const INDICATORS: Ind[] = [
           if (crossed && nz(osc[t]) >= vth) { broke = t; break; }
         }
         if (broke != null) marks.push({ i: broke, buy: res, text: res ? "突破" : "跌破" });
-        shapes.push({ k: "seg", i1: q.i, p1: q.p, i2: next ?? null, p2: q.p, color: res ? DNC : UPC, width: 2 });
+        shapes.push({ k: "seg", i1: q.i, p1: q.p, i2: next ?? null, p2: q.p, color: res ? OVD : OVU, width: 2 });
       });
     };
     level(hi.slice(-30), true); level(lo.slice(-30), false);
@@ -519,7 +522,7 @@ export const INDICATORS: Ind[] = [
         // 只畫被突破的線（畫到突破那根）和最新一條（往右延伸）；沒被突破就被新擺動點取代的舊線不畫，免得留在很遠的地方
         if (end == null && arr[k + 1]) return;
         const i2 = end ?? last + 5;
-        shapes.push({ k: "seg", i1: q.i, p1: q.p, i2, p2: at(i2), color: down ? DNC : UPC, width: 1.5, dash: end == null });
+        shapes.push({ k: "seg", i1: q.i, p1: q.p, i2, p2: at(i2), color: down ? OVD : OVU, width: 1.5, dash: end == null });
       });
     };
     run(hi, true); run(lo, false);
@@ -550,7 +553,7 @@ export const INDICATORS: Ind[] = [
     ];
   } },
   { id: "pivhl", name: "前高前低＋樞紐點", abbr: "Pivots", cat: "熱門腳本", overlay: true, params: [5], labels: ["顯示幾期"],
-    desc: "上一期的最高（綠）、最低（紅）與樞紐點 P＝(高+低+收)÷3（灰虛線）畫在這一期；分 K 用前一日＋前一週、日 K 用前一週＋前一月、週 K 以上用前一月", calc: (b, [n]) => {
+    desc: "上一期的最高（亮青）、最低（粉紫）與樞紐點 P＝(高+低+收)÷3（灰虛線）畫在這一期；分 K 用前一日＋前一週、日 K 用前一週＋前一月、週 K 以上用前一月", calc: (b, [n]) => {
     if (b.length < 2) return [];
     const intra = isIntraday(b), wk = !intra && b[1].time - b[0].time >= 5 * 86400;
     const shapes: Shape[] = [];
@@ -569,7 +572,7 @@ export const INDICATORS: Ind[] = [
         const pp = (pv.h + pv.l + pv.c) / 3;
         const line = (p: number, color: string, label: string, dash: boolean, below = false): Shape =>
           ({ k: "seg", i1: cur.s, p1: p, i2, p2: p, color, dash, width: thick ? 1.5 : 1, text: latest ? label : undefined, textAt: "end", below, small: !thick });
-        shapes.push(line(pv.h, DNC, `${name}高`, thick), line(pv.l, UPC, `${name}低`, thick, true));
+        shapes.push(line(pv.h, OVD, `${name}高`, thick), line(pv.l, OVU, `${name}低`, thick, true));
         if (!thick) shapes.push(line(pp, "#9aa0a8", "P", true));
       }
     };

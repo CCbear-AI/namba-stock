@@ -8,7 +8,7 @@ import {
 import { usePoll } from "./hooks";
 import { price as fp, num, cls } from "./fmt";
 import { doublePatterns, type DoublePattern } from "@/lib/patterns";
-import { IND, INDICATORS, DEFAULT_INDS, type IndSetting, type Line } from "@/lib/indicators";
+import { IND, INDICATORS, DEFAULT_INDS, OVU, OVD, type IndSetting, type Line } from "@/lib/indicators";
 import DrawLayer, { TOOLS, type Tool } from "./chart/DrawLayer";
 import ShapeLayer from "./chart/ShapeLayer";
 import IndicatorMenu from "./chart/IndicatorMenu";
@@ -203,13 +203,21 @@ export default function KChart({
           })));
           first ??= s;
         } else {
-          const s = c.addSeries(LineSeries, {
-            color: l.color, lineWidth: 1, lineStyle: l.dash ? LineStyle.Dashed : LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-            ...(l.type === "dots" ? { lineVisible: false, pointMarkersVisible: true, pointMarkersRadius: 2 } : {}),
-            ...(l.noScale ? { autoscaleInfoProvider: () => null } : {}),
-          }, pane);
-          s.setData(pts.map((x) => (l.colors?.[x.i] ? { time: x.time, value: x.v!, color: l.colors[x.i]! } : { time: x.time, value: x.v! })));
-          first ??= s;
+          // 中間有空白就拆成好幾條線：圖表套件會把空白前後直接連成斜線（例如 SuperTrend 多空切換、停損線換邊）
+          const runs: (typeof pts)[] = [];
+          for (const x of pts) {
+            const r = runs[runs.length - 1];
+            if (r && l.type !== "dots" && x.i === r[r.length - 1].i + 1) r.push(x); else if (r && l.type === "dots") r.push(x); else runs.push([x]);
+          }
+          for (const run of runs) {
+            const s = c.addSeries(LineSeries, {
+              color: l.color, lineWidth: (l.width ?? 1) as 1 | 2 | 3 | 4, lineStyle: l.dash ? LineStyle.Dashed : LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+              ...(l.type === "dots" ? { lineVisible: false, pointMarkersVisible: true, pointMarkersRadius: 2 } : {}),
+              ...(l.noScale ? { autoscaleInfoProvider: () => null } : {}),
+            }, pane);
+            s.setData(run.map((x) => (l.colors?.[x.i] ? { time: x.time, value: x.v!, color: l.colors[x.i]! } : { time: x.time, value: x.v! })));
+            first ??= s;
+          }
         }
       }
       if (first && levelsAt) for (const v of levelsAt) first.createPriceLine({ price: v, color: "#646a73", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: false });
@@ -218,7 +226,7 @@ export default function KChart({
     // 買賣訊號：畫在主圖 K 棒上下（同一根有多個指標的訊號就都標）
     const marks = computed.flatMap((x) => x.lines.flatMap((l) => l.marks ?? []))
       .filter((m) => bars[m.i]).sort((a, b) => a.i - b.i)
-      .map((m) => ({ time: bars[m.i].time as UTCTimestamp, position: m.buy ? "belowBar" as const : "aboveBar" as const, color: m.buy ? UP : DOWN, shape: m.buy ? "arrowUp" as const : "arrowDown" as const, text: m.text }));
+      .map((m) => ({ time: bars[m.i].time as UTCTimestamp, position: m.buy ? "belowBar" as const : "aboveBar" as const, color: m.buy ? OVU : OVD, shape: m.buy ? "arrowUp" as const : "arrowDown" as const, text: m.text }));
     if (marks.length && mainSeries.current) createSeriesMarkers(mainSeries.current, marks);
     if (tf === "1m" && hasVol) addLines([{ name: "量", data: bars.map((b) => b.volume), color: "", type: "hist" }], 1);
     subs.forEach((x, k) => addLines(x.lines, k + 1, x.ind.levels));
