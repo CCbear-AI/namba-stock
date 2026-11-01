@@ -59,7 +59,7 @@ function Pattern() {
           <div className="card-h">相似度排行 {ok && <span className="sub">以 {data.name} {data.n} 根比對</span>}</div>
           <div className="px-4">
             <div className="seg w-full grid grid-cols-2"><button className={mode === "now" ? "on" : ""} onClick={() => setMode("now")}>正在形成</button><button className={mode === "hist" ? "on" : ""} onClick={() => setMode("hist")}>歷史相似</button></div>
-            <p className="sub mt-3 leading-relaxed">{mode === "now" ? "全市場最近這幾天的走勢，跟你框的形狀最像的股票（還在形成中，之後怎麼走沒人知道）。" : "今年以來全市場出現過的相似型態，以及它們之後 5／10／20 個交易日怎麼走。"}</p>
+            <p className="sub mt-3 leading-relaxed">{mode === "now" ? "全市場最近這幾天的走勢，跟你框的形狀最像的股票（還在形成中，之後怎麼走沒人知道）。" : "今年以來全市場出現過的相似型態，以及它們之後 5／10／20 個交易日怎麼走。"}<Help align="right">相似度＝形狀相關 80%＋漲跌幅度接近 20%（同方向、幅度越接近越高）。只比近 20 日平均成交值 3,000 萬以上的個股。「正在形成」不管你框的是哪一段，都拿各檔最近同樣根數來比；灰線是你框的那段、綠線是那一檔。</Help></p>
             {mode === "hist" && ok && data.stat && (
               <div className="grid grid-cols-3 gap-2 mt-3">
                 {["5 日後平均", "10 日後平均", "20 日後平均"].map((l, k) => {
@@ -88,7 +88,7 @@ function Pattern() {
                 <button className={`w-6 ${wl.has(x.c) ? "text-[var(--gold)]" : "text-text-2"}`} aria-label={wl.has(x.c) ? "已在自選" : "加入自選"} onClick={() => wl.toggle(x.c)}>{wl.has(x.c) ? "✓" : "☆"}</button>
               </div>
             ))}
-            {ok && !data.list.length && <div className="sub text-center py-8">找不到夠像的（相似度 {mode === "now" ? "60" : "80"}% 以上）</div>}
+            {ok && !data.list.length && <div className="sub text-center py-8">找不到夠像的（相似度 {mode === "now" ? "60" : "75"}% 以上）</div>}
           </div>
         </div>
       </div>
