@@ -57,7 +57,7 @@ export default function Header() {
         <Link href="/" className="flex items-center gap-2 shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.svg" alt="" width={28} height={28} />
-          <span className="font-bold text-[17px] tracking-wide" style={{ fontFamily: "'Noto Serif TC', serif" }}>台股難波萬</span>
+          <span className="sr-only sm:not-sr-only font-bold text-[17px] tracking-wide" style={{ fontFamily: "'Noto Serif TC', serif" }}>台股難波萬</span>
         </Link>
         <Nav path={path} />
         <Search />
