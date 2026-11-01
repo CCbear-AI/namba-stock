@@ -2,6 +2,7 @@ import { getDaily } from "@/lib/history";
 import { BY_CODE } from "@/lib/universe";
 import { ETFS } from "@/lib/etfs";
 import { yahooBars } from "@/lib/yahoo";
+import { adjClose } from "@/lib/adjust";
 
 // 相似股：?code=0050&n=20（最近 n 根）或 &from=2026-09-01&to=2026-10-20（自己框的一段）
 // mode=now：全市場最近同樣根數的走勢跟框的那段最像的；mode=hist：今年以來全市場出現過的相似型態，以及之後 5／10／20 日怎麼走
@@ -40,6 +41,8 @@ export async function GET(req: Request) {
     } catch { /* 下面回錯誤 */ }
   }
   if (!me) return Response.json({ error: "找不到這檔的歷史資料" }, { status: 404 });
+  // 全部用還原權值的收盤價比（除息缺口不算下跌）
+  const mc = adjClose(code, dates, me.c);
 
   // 決定比對區間（索引）
   let a: number, b: number;
@@ -49,12 +52,12 @@ export async function GET(req: Request) {
   } else {
     const n = Math.min(120, Math.max(5, Number(sp.get("n")) || 20));
     b = dates.length - 1;
-    while (b > 0 && Number.isNaN(me.c[b])) b--;
+    while (b > 0 && Number.isNaN(mc[b])) b--;
     a = b - n + 1;
   }
   if (a < 0 || b - a < 4 || b - a > 119) return Response.json({ error: "區間要 5～120 根" }, { status: 400 });
   const n = b - a + 1;
-  const target = me.c.slice(a, b + 1);
+  const target = mc.slice(a, b + 1);
   if (target.some(Number.isNaN)) return Response.json({ error: "這段期間有停牌，換一段試試" }, { status: 400 });
   // 相似度＝形狀（對數價格的相關係數）80%＋漲跌幅接近程度 20%
   const tv = norm(target.map(Math.log))!;
@@ -65,7 +68,7 @@ export async function GET(req: Request) {
   const base = {
     code, name: BY_CODE.get(code)?.n ?? ETFS[code] ?? code, from: dates[a], to: dates[b], a, b, n, pct: r2((target[n - 1] / target[0] - 1) * 100), spark: spark(target),
     // 整段歷史收盤（畫主圖、讓使用者自己框）
-    history: { dates, closes: me.c.map((v) => (Number.isNaN(v) ? null : v)) },
+    history: { dates, closes: mc.map((v) => (Number.isNaN(v) ? null : v)) },
   };
 
   if (mode === "now") {
@@ -77,7 +80,7 @@ export async function GET(req: Request) {
     for (const [c, x] of s) {
       // 自己只有在框的是過去一段時才拿來比（比自己最近的走勢）
       if ((c === code && e === b) || !BY_CODE.has(c) || !liquid(x)) continue;
-      const w = x.c.slice(e - n + 1, e + 1);
+      const w = adjClose(c, dates, x.c).slice(e - n + 1, e + 1);
       if (w.some(Number.isNaN)) continue;
       const sim = score(w);
       if (sim != null && sim > 0.6) out.push({ c, n: BY_CODE.get(c)!.n, sim: Math.round(sim * 100), pct: r2((w[n - 1] / w[0] - 1) * 100), last: w[n - 1], spark: spark(w), from, to });
@@ -93,15 +96,16 @@ export async function GET(req: Request) {
   for (const [c, x] of s) {
     if (!BY_CODE.has(c) || !liquid(x)) continue;
     let top: (typeof best)[number] | null = null;
+    const xc = adjClose(c, dates, x.c);
     for (let e = start + n - 1; e <= dates.length - 6; e++) {
       // 跟自己比的時候，排除跟目標區間重疊的
       if (c === code && e >= a - 5) break;
-      const w = x.c.slice(e - n + 1, e + 1);
+      const w = xc.slice(e - n + 1, e + 1);
       if (Number.isNaN(w[0]) || Number.isNaN(w[n - 1]) || w.some(Number.isNaN)) continue;
       const sim = score(w);
       if (sim != null && sim > 0.75 && (!top || sim * 100 > top.sim)) {
-        const after = [5, 10, 20].map((k) => (e + k < dates.length && !Number.isNaN(x.c[e + k]) ? r2((x.c[e + k] / w[n - 1] - 1) * 100) : null));
-        top = { c, n: BY_CODE.get(c)!.n, sim: Math.round(sim * 100), from: dates[e - n + 1], to: dates[e], last: w[n - 1], spark: spark(x.c.slice(e - n + 1, Math.min(dates.length, e + 11)).map((y, i, arr) => (Number.isNaN(y) ? arr[i - 1] ?? w[n - 1] : y))), after };
+        const after = [5, 10, 20].map((k) => (e + k < dates.length && !Number.isNaN(xc[e + k]) ? r2((xc[e + k] / w[n - 1] - 1) * 100) : null));
+        top = { c, n: BY_CODE.get(c)!.n, sim: Math.round(sim * 100), from: dates[e - n + 1], to: dates[e], last: x.c[e], spark: spark(xc.slice(e - n + 1, Math.min(dates.length, e + 11)).map((y, i, arr) => (Number.isNaN(y) ? arr[i - 1] ?? w[n - 1] : y))), after };
       }
     }
     if (top) best.push(top);
