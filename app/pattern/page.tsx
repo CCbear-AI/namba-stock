@@ -68,7 +68,7 @@ function Pattern() {
                 })}
               </div>
             )}
-            <div className="flex items-center mt-3"><span className="sub">共 {ok ? data.list.length : 0} 檔</span>
+            <div className="flex items-center mt-3"><span className="sub">共 {ok ? data.list.length : 0} 檔{mode === "hist" && "・右側為之後 10 日漲跌"}</span>
               {ok && <button className="btn ml-auto" onClick={() => wl.addMany(data.list.map((x) => x.c))}>☆ 全部加入自選</button>}</div>
           </div>
           <div className="scroll-y max-h-[640px] px-2 py-2">
@@ -83,7 +83,7 @@ function Pattern() {
                 <div className="w-16 text-right">
                   <div className="mono">{x.sim}<span className="sub">%</span></div>
                   <div className="h-1 bg-panel-2 rounded"><div className="h-full bg-[var(--gold)] rounded" style={{ width: `${x.sim}%` }} /></div>
-                  {mode === "now" ? <div className={`mono text-[12px] ${cls(x.pct ?? 0)}`}>{pct(x.pct ?? 0)}</div> : <div className={`mono text-[12px] ${cls(x.after?.[1] ?? 0)}`}>10日 {x.after?.[1] != null ? pct(x.after[1]) : "—"}</div>}
+                  {mode === "now" ? <div className={`mono text-[12px] ${cls(x.pct ?? 0)}`}>{pct(x.pct ?? 0)}</div> : <div className={`mono text-[12px] whitespace-nowrap ${cls(x.after?.[1] ?? 0)}`} title="之後 10 個交易日漲跌">{x.after?.[1] != null ? pct(x.after[1]) : "—"}</div>}
                 </div>
                 <button className={`w-6 ${wl.has(x.c) ? "text-[var(--gold)]" : "text-text-2"}`} aria-label={wl.has(x.c) ? "已在自選" : "加入自選"} onClick={() => wl.toggle(x.c)}>{wl.has(x.c) ? "✓" : "☆"}</button>
               </div>
