@@ -45,6 +45,12 @@ async function main() {
     const p = prev?.items[c];
     if (p?.ai && p.date === x.date && sig(p) === sig(x)) x.ai = p.ai;
   }
+  // 同一盤後日這次沒算到的（例如之前用 --top 3000 算過的），保留上次的結果，不要被前 N 檔蓋掉
+  let kept = 0;
+  for (const [c, p] of Object.entries(prev?.items ?? {})) {
+    if (!items[c] && p.date === date) { items[c] = p; kept++; }
+  }
+  if (kept) console.log(`保留上次同日結果 ${kept} 檔`);
   const out: CheckupAll = { date, generated: Date.now(), items };
   const save = () => { fs.mkdirSync(path.dirname(CHECKUP_FILE), { recursive: true }); fs.writeFileSync(CHECKUP_FILE, JSON.stringify(out)); };
   save();
