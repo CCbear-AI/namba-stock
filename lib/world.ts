@@ -13,7 +13,7 @@ export const INTL: { s: string; n: string; g: string }[] = [
 /** 一檔的最近一個交易時段：chartPreviousClose 才是「前一天收盤」（range=5d 會變成 5 天前，漲跌幅就錯了），順便畫小走勢 */
 export async function worldQuote(x: { s: string; n: string; g: string }): Promise<WorldQ> {
   try {
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(x.s)}?range=1d&interval=5m`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(x.s)}?range=1d&interval=5m`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
     const res = (await r.json()).chart.result[0];
     const meta = res.meta;
     const price = meta.regularMarketPrice, prev = meta.chartPreviousClose ?? meta.previousClose;

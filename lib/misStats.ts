@@ -13,7 +13,7 @@ export async function misOhlc(ex: "TSE" | "OTC" = "TSE"): Promise<MisOhlc> {
   const hit = cache.get(ex);
   if (hit && Date.now() - hit.at < 15_000) return hit.v;
   try {
-    const r = await fetch(`https://mis.twse.com.tw/stock/data/mis_ohlc_${ex}.txt?_=${Date.now()}`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
+    const r = await fetch(`https://mis.twse.com.tw/stock/data/mis_ohlc_${ex}.txt?_=${Date.now()}`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
     const j = await r.json();
     const o = j.staticObj;
     const v: MisOhlc = {

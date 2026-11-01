@@ -15,7 +15,7 @@ async function stockList(stocks: { c: string; m: "tse" | "otc" }[], each: (code:
     while (i < chunks.length) {
       const c = chunks[i++];
       try {
-        const r = await fetch(URL + encodeURIComponent(c.join(",")), { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
+        const r = await fetch(URL + encodeURIComponent(c.join(",")), { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
         const j = await r.json();
         if (!Array.isArray(j)) continue;
         for (const x of j) each(String(x.systexId ?? x.symbol).replace(/\.TWO?$/, ""), x);

@@ -11,6 +11,7 @@ async function fm(dataset: string, code: string, start: string): Promise<Row[]> 
   const r = await fetch(`${API}?dataset=${dataset}&data_id=${code}&start_date=${start}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     next: { revalidate: 6 * 3600 },
+    signal: AbortSignal.timeout(10_000),
   });
   const j = await r.json();
   if (j.status !== 200) throw new Error(j.msg || `FinMind ${dataset} ${j.status}`);

@@ -8,7 +8,7 @@ const num = (s: string) => Number(s.replace(/,/g, "")) || 0;
 export async function holderHistory(code: string): Promise<HolderWeek[]> {
   const hit = cache.get(code);
   if (hit && Date.now() - hit.at < 12 * 3600e3) return hit.v;
-  const r = await fetch(`https://norway.twsthr.info/StockHolders.aspx?stock=${encodeURIComponent(code)}`, { headers: { "User-Agent": "Mozilla/5.0" } });
+  const r = await fetch(`https://norway.twsthr.info/StockHolders.aspx?stock=${encodeURIComponent(code)}`, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(15_000) });
   if (!r.ok) throw new Error(`神秘金字塔 ${r.status}`);
   const html = new TextDecoder("big5").decode(await r.arrayBuffer());
   const cells = [...html.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => m[1].replace(/<[^>]+>|&nbsp;/g, "").trim());

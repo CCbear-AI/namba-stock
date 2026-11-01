@@ -17,7 +17,7 @@ export async function yahooBars(symbol: string, tf: TF): Promise<Bar[]> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttl) return hit.bars;
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${RANGE[tf]}&interval=${tf}`;
-  const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
+  const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
   if (!r.ok) throw new Error(`Yahoo ${r.status}`);
   const j = await r.json();
   const res = j.chart?.result?.[0];

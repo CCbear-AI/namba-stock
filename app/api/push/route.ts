@@ -8,6 +8,7 @@ async function rpc(fn: string, body: unknown) {
     method: "POST",
     headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
   });
   if (!r.ok) return Response.json({ error: `Supabase ${r.status}：${(await r.text()).slice(0, 200)}` }, { status: 502 });
   return Response.json({ ok: true });

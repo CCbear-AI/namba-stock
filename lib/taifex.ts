@@ -9,6 +9,7 @@ export async function txf(): Promise<Fut | null> {
       headers: { "User-Agent": "Mozilla/5.0", "Content-Type": "application/json" },
       body: JSON.stringify({ MarketType: "0", SymbolType: "F", KindID: "1", CID: "TXF", ExpireMonth: "", RowSize: "全部", PageNo: "", SortColumn: "", AscDesc: "A" }),
       cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
     });
     const j = await r.json();
     const list = j.RtData?.QuoteList ?? [];

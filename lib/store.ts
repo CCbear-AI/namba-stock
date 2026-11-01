@@ -9,6 +9,7 @@ export const hasSupabase = Boolean(URL_ && KEY);
 
 async function sb(pathq: string, init?: RequestInit) {
   const r = await fetch(`${URL_}/rest/v1/${pathq}`, {
+    signal: AbortSignal.timeout(15_000),
     ...init,
     headers: {
       apikey: KEY!, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json",

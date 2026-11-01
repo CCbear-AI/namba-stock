@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
   const url = `https://fubon-ebrokerdj.fbs.com.tw/z/zc/zco/zco.djhtm?a=${code}&e=${range[0]}&f=${range.at(-1)}`;
   try {
-    const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(15_000) });
     const html = new TextDecoder("big5").decode(await r.arrayBuffer());
     const buy: { n: string; lots: number; pct: number }[] = [];
     const sell: { n: string; lots: number; pct: number }[] = [];

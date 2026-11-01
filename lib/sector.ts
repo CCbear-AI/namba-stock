@@ -112,7 +112,7 @@ export async function sectorIntraday(id: string): Promise<Bar[]> {
   if (!q || q.market !== "tse") return [];
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
   if (!intra || Date.now() - intra.at > 60_000) {
-    const r = await fetch(`https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_INDEX?date=${today.replace(/-/g, "")}&response=json`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
+    const r = await fetch(`https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_INDEX?date=${today.replace(/-/g, "")}&response=json`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
     const j = await r.json();
     intra = { at: Date.now(), date: today, fields: j.fields ?? [], data: j.data ?? [] };
   }
@@ -141,7 +141,7 @@ async function monthVolume(): Promise<Record<string, [number, number]>> {
   const v: Record<string, [number, number]> = {};
   try {
     const d8 = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
-    const r = await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date=${d8}&response=json`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
+    const r = await fetch(`https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date=${d8}&response=json`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
     const j = (await r.json()) as { data?: string[][] };
     const num = (s: string) => Number(String(s).replace(/,/g, ""));
     for (const row of j.data ?? []) {
