@@ -136,7 +136,7 @@ export default function Page() {
             {chat.map((m, i) => (
               <div key={i} className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-relaxed whitespace-pre-wrap ${m.r === "u" ? "justify-self-end bg-[#2a2416] text-[var(--gold-2)]" : "justify-self-start bg-panel-2"}`}>{m.t}</div>
             ))}
-            {busy === "ai" && <div className="justify-self-start rounded-2xl px-3.5 py-2.5 text-[13px] bg-panel-2 text-text-2 loading">AI 正在整理規則並試算…已等 {sec} 秒（學校 AI 通常 10～80 秒）</div>}
+            {busy === "ai" && <div className="justify-self-start rounded-2xl px-3.5 py-2.5 text-[13px] bg-panel-2 text-text-2 loading">AI 正在整理規則並試算…已等 {sec} 秒（AI 通常 10～80 秒）</div>}
             {err && <div className="justify-self-start rounded-2xl px-3.5 py-2.5 text-[13px] bg-panel-2 text-[var(--up)]">{err}</div>}
           </div>
           <div className="border-t border-line p-3">

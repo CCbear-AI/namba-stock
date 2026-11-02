@@ -1,0 +1,40 @@
+# AI 連不到時的補跑：daily-data / world-focus 試連 5 次失敗會跳過 AI 步驟並觸發這裡
+# 這裡每 30 分鐘試連一次（最多約 5 小時），AI 恢復後重新觸發原本的 workflow（資料步驟可重跑、AI 步驟寫過的會略過）
+name: ai-retry
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow:
+        description: "AI 恢復後要重跑的 workflow 檔名"
+        required: true
+        default: daily-data.yml
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: ai-retry-${{ inputs.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  wait:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: 等 AI 恢復
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+          WAIT_HOURS: "5"
+        run: npm run ai-check -- --wait
+      - name: 重跑 ${{ inputs.workflow }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run "${{ inputs.workflow }}" --ref main -f ai_retry=true

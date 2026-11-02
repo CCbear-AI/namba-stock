@@ -29,7 +29,8 @@
     "checkup-all": "tsx scripts/checkup-all.ts",
     "weekly-review": "tsx scripts/weekly-review.ts",
     "surge": "tsx scripts/surge.ts",
-    "exright": "tsx scripts/exright.ts"
+    "exright": "tsx scripts/exright.ts",
+    "ai-check": "tsx scripts/ai-check.ts"
   },
   "dependencies": {
     "@vercel/functions": "^3.10.3",

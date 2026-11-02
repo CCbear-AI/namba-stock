@@ -18,7 +18,7 @@ export async function chat(messages: Msg[], { model = AI_MODEL, timeout = 60_000
     body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens }),
     signal: AbortSignal.timeout(timeout),
   });
-  if (!r.ok) throw new Error(`AI 服務 ${r.status}${r.status === 429 || r.status === 503 ? "（學校伺服器忙碌）" : ""}`);
+  if (!r.ok) throw new Error(`AI 服務 ${r.status}${r.status === 429 || r.status === 503 ? "（AI 伺服器忙碌）" : ""}`);
   const j = await r.json();
   const text: string = j.choices?.[0]?.message?.content ?? "";
   if (!text) throw new Error("AI 沒有回應內容");

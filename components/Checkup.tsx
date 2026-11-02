@@ -25,7 +25,7 @@ export default function Checkup({ code }: { code: string }) {
       try {
         const j: D = await (await fetch(`/api/checkup?code=${code}`, { cache: "no-store" })).json();
         if (stop) return;
-        setD(n >= 16 && j.pending ? { ...j, pending: false, aiError: "學校 AI 太久沒回應" } : j);
+        setD(n >= 16 && j.pending ? { ...j, pending: false, aiError: "AI 太久沒回應" } : j);
         if (j.pending && n < 16) timer = setTimeout(() => load(n + 1), 15_000);
       } catch (e) {
         if (!stop) setD({ error: (e as Error).message } as D);
@@ -40,7 +40,7 @@ export default function Checkup({ code }: { code: string }) {
     <div className="card">
       <div className="card-h">
         一眼體檢
-        <Help>燈號全部由程式用盤後資料計算（日K、法人、融資、集保大戶、分點換手、月營收、支撐壓力），每個交易日更新；「強／弱」只看資料狀態，不是買賣建議。AI 總結由學校 AI 根據燈號撰寫，每檔每天寫一次。</Help>
+        <Help>燈號全部由程式用盤後資料計算（日K、法人、融資、集保大戶、分點換手、月營收、支撐壓力），每個交易日更新；「強／弱」只看資料狀態，不是買賣建議。AI 總結由 AI 根據燈號撰寫，每檔每天寫一次。</Help>
         {d && !d.error && <span className="sub ml-auto mono">{d.date.slice(5).replace("-", "/")} 收盤</span>}
       </div>
       {!d ? <div className="sub px-4 pb-4 loading">體檢中…</div> : d.error ? <div className="sub px-4 pb-4">{d.error}</div> : (
@@ -49,7 +49,7 @@ export default function Checkup({ code }: { code: string }) {
             <span className="text-lg font-bold" style={{ color }}>{d.verdict}</span>
             <span className="sub mono">強 {d.good} · 弱 {d.bad}</span>
             <span className="text-[14px] flex-1 min-w-[16rem]">
-              {d.ai ? <>🤖 {d.ai}</> : d.pending ? <span className="loading text-[13px]">AI 總結撰寫中（學校主機較慢，約 1～2 分鐘）…</span>
+              {d.ai ? <>🤖 {d.ai}</> : d.pending ? <span className="loading text-[13px]">AI 總結撰寫中（AI 主機較慢，約 1～2 分鐘）…</span>
                 : <span className="sub text-[12px]">AI 總結暫時無法使用（{d.aiError}）</span>}
             </span>
           </div>

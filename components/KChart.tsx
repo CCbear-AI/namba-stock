@@ -114,7 +114,7 @@ export default function KChart({
     // AI 還在背景算（pending）：先畫公式版，每 15 秒再問一次，最多約 5 分鐘
     const load = (n: number) => fetch(srKey, { cache: "no-store" }).then((r) => r.json()).then((j: SrData & { error?: string }) => {
       if (stop) return;
-      setSres(j.error ? { key: srKey, err: j.error } : { key: srKey, r: n >= 20 && j.pending ? { ...j, pending: false, aiError: "學校 AI 太久沒回應" } : j });
+      setSres(j.error ? { key: srKey, err: j.error } : { key: srKey, r: n >= 20 && j.pending ? { ...j, pending: false, aiError: "AI 太久沒回應" } : j });
       if (j.pending && n < 20) timer = setTimeout(() => load(n + 1), 15_000);
     }).catch((e) => { if (!stop) setSres({ key: srKey, err: (e as Error).message }); });
     load(0);
@@ -534,7 +534,7 @@ function SRPanel({ data, err, patterns, tf, onClose }: { data: SrData | null; er
       {err && <div className="sub mt-1.5">判讀失敗：{err}</div>}
       {data && levels.length === 0 && <div className="sub mt-1.5">這次沒有判讀出明確的價位。</div>}
       {data?.summary && <p className="mt-1.5 text-[12.5px] leading-relaxed text-text-2">{data.summary}</p>}
-      {data?.pending && <p className="mt-1 text-[11px] text-text-2 opacity-70 loading">AI 判讀中（學校主機較慢，約 2～3 分鐘），先顯示程式計算版，算好會自動換上。</p>}
+      {data?.pending && <p className="mt-1 text-[11px] text-text-2 opacity-70 loading">AI 判讀中（AI 主機較慢，約 2～3 分鐘），先顯示程式計算版，算好會自動換上。</p>}
       {data?.model === "formula" && !data.pending && <p className="mt-1 text-[11px] text-text-2 opacity-70">AI 暫時無法使用（{data.aiError}），先顯示程式計算版。</p>}
     </div>
   );

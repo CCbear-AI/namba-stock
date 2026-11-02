@@ -36,7 +36,7 @@ export default function WlReport({ codes, name }: { codes: string[]; name: strin
       try {
         const j: D = await (await fetch(`/api/wlreport?codes=${codes.join(",")}&name=${encodeURIComponent(name)}`, { cache: "no-store" })).json();
         if (stop) return;
-        setD(n >= 16 && j.pending ? { ...j, pending: false, aiError: "學校 AI 太久沒回應" } : j);
+        setD(n >= 16 && j.pending ? { ...j, pending: false, aiError: "AI 太久沒回應" } : j);
         if (j.pending && n < 16) timer = setTimeout(() => load(n + 1), 15_000);
       } catch (e) {
         if (!stop) setD({ error: (e as Error).message } as D);
@@ -52,7 +52,7 @@ export default function WlReport({ codes, name }: { codes: string[]; name: strin
   return (
     <div className="card">
       <div className="card-h">
-        <span className="inline-flex items-center">收盤報告<Help>用盤後資料整理這個群組當天的重點：漲跌、量能、法人、融資、主力分點、隔日沖、重大訊息。數字由程式計算；上面幾句重點由學校 AI 根據這些數字撰寫，每組股票每個交易日寫一次。分點資料晚上 22:00 後才進來，進來後重點會重寫。不是買賣建議。</Help></span>
+        <span className="inline-flex items-center">收盤報告<Help>用盤後資料整理這個群組當天的重點：漲跌、量能、法人、融資、主力分點、隔日沖、重大訊息。數字由程式計算；上面幾句重點由 AI 根據這些數字撰寫，每組股票每個交易日寫一次。分點資料晚上 22:00 後才進來，進來後重點會重寫。不是買賣建議。</Help></span>
         {d?.date && <span className="sub mono">{d.date.slice(5).replace("-", "/")} 收盤{d.brokers ? "" : " · 分點晚上才有"}</span>}
       </div>
       {!d ? <div className="sub px-4 pb-4 loading">整理中…</div> : d.error ? <div className="sub px-4 pb-4">{d.error}</div> : (
@@ -69,7 +69,7 @@ export default function WlReport({ codes, name }: { codes: string[]; name: strin
                 <div className="font-semibold mb-1">🤖 {d.ai.headline}</div>
                 <ul className="list-disc pl-5 grid gap-0.5">{d.ai.points.map((p, i) => <li key={i}>{p}</li>)}</ul>
               </>
-            ) : d.pending ? <span className="loading text-[13px]">AI 重點撰寫中（學校主機較慢，約 1～2 分鐘）…</span>
+            ) : d.pending ? <span className="loading text-[13px]">AI 重點撰寫中（AI 主機較慢，約 1～2 分鐘）…</span>
               : <span className="sub text-[12px]">AI 重點暫時無法使用（{d.aiError}）</span>}
           </div>
           {(marked.length > 0 || d.news.length > 0) && (

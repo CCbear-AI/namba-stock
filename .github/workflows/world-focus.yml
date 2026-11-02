@@ -11,9 +11,15 @@ on:
   schedule:
     - cron: "0 23 * * *" # UTC 23:00 = 台灣每天 07:00
   workflow_dispatch:
+    inputs:
+      ai_retry:
+        description: "由 ai-retry 觸發（這次 AI 再失敗就不再排補跑）"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: world-focus
@@ -30,7 +36,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: AI 連線檢查
+        # 試連 5 次；連不到就跳過 AI 步驟（體檢只算燈號），最後排 ai-retry 每 30 分鐘試、恢復後重跑
+        id: aicheck
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+        run: npm run ai-check
       - name: 國際焦點
+        if: steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         env:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
@@ -55,7 +68,8 @@ jobs:
           if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
           curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
       - name: 重大訊息
-        # 學校 AI 慢，寫不完的 16:30、22:00 daily-data 和隔天再補（中途會存檔）
+        # AI 慢，寫不完的 16:30、22:00 daily-data 和隔天再補（中途會存檔）
+        if: steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         timeout-minutes: 40
         env:
@@ -63,6 +77,7 @@ jobs:
           IAI_MODEL: ${{ vars.IAI_MODEL }}
         run: npm run news
       - name: 個股新聞
+        if: steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         timeout-minutes: 40
         env:
@@ -75,9 +90,10 @@ jobs:
         env:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
           IAI_MODEL: ${{ vars.IAI_MODEL }}
-        run: npm run checkup-all
+        run: npm run checkup-all ${{ steps.aicheck.outputs.ok != 'true' && '-- --no-ai' || '' }}
       - name: 一週回顧
         # 週六 daily-data 寫過就略過；只在週六、日寫
+        if: steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         env:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
@@ -105,3 +121,9 @@ jobs:
         run: |
           if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
           curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
+      - name: 排 AI 補跑
+        # AI 連不到（而且這次不是補跑本身）→ 觸發 ai-retry：每 30 分鐘試連，恢復後重跑這個 workflow
+        if: ${{ always() && steps.aicheck.outputs.ok == 'false' && inputs.ai_retry != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ai-retry.yml --ref main -f workflow=world-focus.yml

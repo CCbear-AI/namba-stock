@@ -24,7 +24,7 @@ export default function NewsCard({ code }: { code: string }) {
   return (
     <div className="card">
       <div className="card-h">
-        <span className="inline-flex items-center">新聞與公告<Help>新聞來自鉅亨網台股新聞（標有這檔的報導），點標題看原文。重大訊息來自證交所、櫃買中心開放資料，每天早上放出前一個交易日的公告，所以會晚一天；每則的一句話摘要由學校 AI 根據原文撰寫，滑鼠移上去可看原文主旨。「近一週重點」是 AI 綜合近 7 天新聞與重大訊息寫的，每天早上更新；偏多／偏空只是 AI 對消息面的判讀，不構成買賣建議。</Help></span>
+        <span className="inline-flex items-center">新聞與公告<Help>新聞來自鉅亨網台股新聞（標有這檔的報導），點標題看原文。重大訊息來自證交所、櫃買中心開放資料，每天早上放出前一個交易日的公告，所以會晚一天；每則的一句話摘要由 AI 根據原文撰寫，滑鼠移上去可看原文主旨。「近一週重點」是 AI 綜合近 7 天新聞與重大訊息寫的，每天早上更新；偏多／偏空只是 AI 對消息面的判讀，不構成買賣建議。</Help></span>
         <span className="sub mr-auto">近 60 天</span>
         <div className="seg"><button className={t === "news" ? "on" : ""} onClick={() => { setTab("news"); setAll(false); }}>新聞 {news.length || ""}</button><button className={t === "ann" ? "on" : ""} onClick={() => { setTab("ann"); setAll(false); }}>重大訊息 {main.length || ""}</button></div>
       </div>

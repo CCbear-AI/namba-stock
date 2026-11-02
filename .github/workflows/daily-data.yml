@@ -8,9 +8,15 @@ on:
     - cron: "0 14 * * 1-5" # 台灣 22:00：補抓 21:00 才公布的融資融券
     - cron: "0 1 * * 6" # 台灣週六 09:00：集保
   workflow_dispatch:
+    inputs:
+      ai_retry:
+        description: "由 ai-retry 觸發（這次 AI 再失敗就不再排補跑）"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
+  actions: write
 
 # Supabase 準時觸發＋GitHub 自己的排程（備援）可能各跑一次，排隊依序跑
 concurrency:
@@ -28,6 +34,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: AI 連線檢查
+        # 試連 5 次；連不到就跳過下面的 AI 步驟（資料照常更新），最後排 ai-retry 每 30 分鐘試、恢復後重跑
+        id: aicheck
+        env:
+          IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
+        run: npm run ai-check
       - name: 盤後資料
         if: github.event.schedule != '0 1 * * 6'
         run: |
@@ -49,6 +61,7 @@ jobs:
         run: npm run tdcc
       - name: 一週回顧
         # 集保進來後寫這週的回顧並推播；只在週六、日寫，同一週寫過就略過（平日這步直接結束）
+        if: steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         env:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
@@ -66,7 +79,7 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: npm run push-insti
       - name: 盤後 AI 摘要
-        if: github.event.schedule != '0 1 * * 6'
+        if: github.event.schedule != '0 1 * * 6' && steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         env:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
@@ -74,7 +87,7 @@ jobs:
         run: npm run ai-summary
       - name: 重大訊息
         # 證交所、櫃買中心開放資料（前一個交易日的公告）早上就放出，主要由早上 world-focus 排程摘要；這裡補早上沒寫完的
-        if: github.event.schedule != '0 1 * * 6'
+        if: github.event.schedule != '0 1 * * 6' && steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         timeout-minutes: 25
         env:
@@ -83,7 +96,7 @@ jobs:
         run: npm run news
       - name: 分點晚報
         # 分點資料是最新交易日才寫（通常 22:00 那次），寫好推播給有開「分點晚報」提醒的裝置；同一天只寫一次
-        if: github.event.schedule != '0 1 * * 6'
+        if: github.event.schedule != '0 1 * * 6' && steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         env:
           IAI_API_KEY: ${{ secrets.IAI_API_KEY }}
@@ -94,7 +107,7 @@ jobs:
         run: npm run broker-report
       - name: 飆股晚報
         # 分點、融資進來後掃全市場起漲訊號（回測過）＋AI 說明前 15 檔，寫好推播「飆股晚報」；同一天只寫一次
-        if: github.event.schedule != '0 1 * * 6'
+        if: github.event.schedule != '0 1 * * 6' && steps.aicheck.outputs.ok == 'true'
         continue-on-error: true
         timeout-minutes: 20
         env:
@@ -132,3 +145,9 @@ jobs:
         run: |
           if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
           curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
+      - name: 排 AI 補跑
+        # AI 連不到（而且這次不是補跑本身）→ 觸發 ai-retry：每 30 分鐘試連，恢復後重跑這個 workflow
+        if: ${{ always() && steps.aicheck.outputs.ok == 'false' && inputs.ai_retry != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ai-retry.yml --ref main -f workflow=daily-data.yml
