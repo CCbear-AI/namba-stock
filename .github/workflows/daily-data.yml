@@ -48,7 +48,7 @@ jobs:
           npm run sector-history
           npm run ath -- update
           npm run volcurve
-          npm run universe
+          npm run universe || echo "::warning::股票清單抓取失敗，沿用舊資料"
           npm run exright || echo "::warning::除權息資料抓取失敗，沿用舊資料"
       - name: 分點進出
         # 補最近 5 個交易日裡還沒有的（16:30 富邦還沒更新的話，22:00 那次會補上）

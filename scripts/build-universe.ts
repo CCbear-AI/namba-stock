@@ -5,10 +5,19 @@ import { INDUSTRY } from "../lib/industries";
 
 type Row = { c: string; n: string; m: "tse" | "otc"; ind: string; sh: number };
 
+// 官方 openapi 偶爾中途斷線（11/3 GitHub 上 "other side closed"）→ 逾時＋重試 3 次
 async function getJson(url: string) {
-  const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
-  return r.json();
+  for (let i = 1; ; i++) {
+    try {
+      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(30000) });
+      if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
+      return await r.json();
+    } catch (e) {
+      if (i >= 3) throw e;
+      console.log(`第 ${i} 次抓取失敗，10 秒後重試：${url}`);
+      await new Promise((ok) => setTimeout(ok, 10000));
+    }
+  }
 }
 
 async function main() {
