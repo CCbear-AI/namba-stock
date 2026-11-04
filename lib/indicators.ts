@@ -98,6 +98,26 @@ function highest(a: V, n: number): V { return a.map((_, i) => (i < n - 1 ? null 
 function lowest(a: V, n: number): V { return a.map((_, i) => (i < n - 1 ? null : Math.min(...(a.slice(i - n + 1, i + 1) as number[])))); }
 function tr(b: Bar[]): V { return b.map((x, i) => (i === 0 ? x.high - x.low : Math.max(x.high - x.low, Math.abs(x.high - b[i - 1].close), Math.abs(x.low - b[i - 1].close)))); }
 const atrV = (b: Bar[], n: number) => rma(tr(b), n);
+/** UT Bot（QuantNomad）：ATR 移動停損線。選股器的「UT Bot 今日買訊」也用這支，跟 K 線圖標的買賣同一套算法 */
+export function utStop(b: Bar[], k = 1, n = 10): V {
+  const a = atrV(b, n), c = close(b), ts: V = [];
+  let prev = 0;
+  c.forEach((x, i) => {
+    if (a[i] == null) { ts.push(null); return; }
+    const loss = k * a[i]!, x1 = i ? c[i - 1] : x;
+    const s = x > prev && x1 > prev ? Math.max(prev, x - loss) : x < prev && x1 < prev ? Math.min(prev, x + loss) : x > prev ? x - loss : x + loss;
+    ts.push(s); prev = s;
+  });
+  return ts;
+}
+/** 第 i 根：1＝收盤由下往上穿過停損線（買）、-1＝由上往下（賣）、0＝沒有 */
+export function utSig(c: number[], ts: V, i: number): number {
+  const s = ts[i], p = ts[i - 1];
+  if (s == null || !i || p == null) return 0;
+  if (c[i] > s && c[i - 1] <= p) return 1;
+  if (c[i] < s && c[i - 1] >= p) return -1;
+  return 0;
+}
 const op = (a: V, b: V, f: (x: number, y: number) => number): V => a.map((x, i) => (x == null || b[i] == null ? null : f(x, b[i]!)));
 const map = (a: V, f: (x: number, i: number) => number | null): V => a.map((x, i) => (x == null ? null : f(x, i)));
 const shift = (a: V, k: number): V => a.map((_, i) => (i - k >= 0 && i - k < a.length ? a[i - k] : null));
@@ -400,20 +420,8 @@ export const INDICATORS: Ind[] = [
   } },
   { id: "utbot", name: "UT Bot 買賣訊號", abbr: "UT Bot", cat: "熱門腳本", overlay: true, params: [1, 10], labels: ["敏感度（越大訊號越少）", "ATR 週期"],
     desc: "ATR 移動停損線（粉紫＝多方、亮青＝空方），收盤穿越時標「買／賣」（QuantNomad 概念）", calc: (b, [k, n]) => {
-    const a = atrV(b, n), c = close(b), ts: V = [];
-    let prev = 0;
-    c.forEach((x, i) => {
-      if (a[i] == null) { ts.push(null); return; }
-      const loss = k * a[i]!, x1 = i ? c[i - 1] : x;
-      const s = x > prev && x1 > prev ? Math.max(prev, x - loss) : x < prev && x1 < prev ? Math.min(prev, x + loss) : x > prev ? x - loss : x + loss;
-      ts.push(s); prev = s;
-    });
-    const marks: Mark[] = [];
-    ts.forEach((s, i) => {
-      if (s == null || !i || ts[i - 1] == null) return;
-      if (c[i] > s && c[i - 1] <= ts[i - 1]!) marks.push({ i, buy: true, text: "買" });
-      else if (c[i] < s && c[i - 1] >= ts[i - 1]!) marks.push({ i, buy: false, text: "賣" });
-    });
+    const c = close(b), ts = utStop(b, k, n), marks: Mark[] = [];
+    ts.forEach((_, i) => { const g = utSig(c, ts, i); if (g) marks.push({ i, buy: g > 0, text: g > 0 ? "買" : "賣" }); });
     return [
       { name: "停損", data: ts, color: OVU, width: 2, colors: ts.map((s, i) => (s == null ? null : c[i] > s ? OVU : OVD)) },
       { name: "訊號", data: [], color: "", type: "marks", marks, hide: true },

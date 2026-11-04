@@ -8,8 +8,9 @@ export const VPU_HELP = `量價齊揚：RVOL ≥ 1.5、推進效率 ≥ 1，而�
 export const SCREENER_HELP = "創新高＝收盤 ≥ 前 N 日最高收盤；創新低＝收盤 ≤ 前 N 日最低收盤；均線多頭排列＝5 日線 ＞ 20 日線 ＞ 60 日線。RVOL、量比、量價齊揚、爆量推進、爆量沒推進，滑鼠移到條件名稱上就有說明。";
 
 /** 選股條件（lib/conditions 的 id）→ 說明 */
+const UT_HELP = "跟個股 K 線「熱門腳本 → UT Bot 買賣訊號」同一套算法（日K、敏感度 1、ATR 10）：今天收盤（盤中用現價）由下往上穿過 ATR 移動停損線＝買訊，往下穿＝賣訊。盤中價格還在動，訊號可能收盤前消失，以收盤為準。";
 export const COND_HELP: Record<string, string> = {
-  vr2: VR_HELP, vshrink: VR_HELP, rvol2: RVOL_HELP, rvol3: RVOL_HELP, vpu: VPU_HELP, push: PUSH_HELP, stall: STALL_HELP,
+  vr2: VR_HELP, vshrink: VR_HELP, rvol2: RVOL_HELP, rvol3: RVOL_HELP, vpu: VPU_HELP, push: PUSH_HELP, stall: STALL_HELP, utbuy: UT_HELP, utsell: UT_HELP,
 };
 
 /** 強勢訊號標籤 → 說明（沒有的回傳 undefined） */

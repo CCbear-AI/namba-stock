@@ -2,7 +2,8 @@
 // 選股器、新高追蹤、漲幅排行、漲跌停、強勢訊號、提醒都用這份
 import { getDaily, getChips, getAth, lastIdx, type Series } from "./history";
 import { volFraction } from "./misStats";
-import type { Market, Row } from "./types";
+import { utStop, utSig } from "./indicators";
+import type { Bar, Market, Row } from "./types";
 
 export type ScanRow = Row & {
   vr: number; // 量比 = 今日量 ÷ 近 5 日均量
@@ -21,6 +22,7 @@ export type ScanRow = Row & {
   limStreak: number; // 連續漲停天數（含今天）
   lockBid: number; // 漲停委買張數（漲停鎖住時的最佳買量）
   c20: number[]; // 近 20 日收盤（含今天），畫小走勢
+  ut: number; // UT Bot（日K、敏感度 1、ATR 10）今天：1＝買訊、-1＝賣訊、0＝沒有
 };
 
 const avg = (a: number[]) => { let s = 0, k = 0; for (const v of a) if (!Number.isNaN(v)) { s += v; k++; } return k ? s / k : NaN; };
@@ -94,6 +96,14 @@ export function scan(m: Market): ScanRow[] {
       }
     }
     const a = ath[r.c];
+    // UT Bot：近 200 根日K＋今天（今天沒成交不算），跟 K 線圖預設參數相同
+    let ut = 0;
+    if (h && e >= 0 && r.vol > 0) {
+      const bars: Bar[] = [];
+      for (let i = Math.max(0, e - 200); i <= e; i++) if (!Number.isNaN(h.c[i])) bars.push({ time: i, open: h.o[i], high: h.h[i], low: h.l[i], close: h.c[i], volume: h.v[i] });
+      bars.push({ time: e + 1, open: r.open || r.price, high: Math.max(r.high || r.price, r.price), low: Math.min(r.low || r.price, r.price), close: r.price, volume: r.vol });
+      if (bars.length > 30) ut = utSig(bars.map((x) => x.close), utStop(bars), bars.length - 1);
+    }
     return {
       ...r,
       vr: r2(v5 ? r.vol / v5 : 0),
@@ -112,6 +122,7 @@ export function scan(m: Market): ScanRow[] {
       limStreak: lim,
       lockBid: r.up && r.price >= r.up ? r.bv : 0,
       c20: withToday.slice(-20).map(r2),
+      ut,
     };
   });
   memo = { key, rows };
