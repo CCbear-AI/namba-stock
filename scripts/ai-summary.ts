@@ -84,7 +84,7 @@ async function main() {
   let lastErr: unknown;
   for (let k = 0; k < 3; k++) {
     try {
-      const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 120_000 }));
+      const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 120_000, maxTokens: 16000 }));
       if (!j.headline || !Array.isArray(j.points) || !j.points.length) throw new Error("格式不對");
       fs.mkdirSync(OUT, { recursive: true });
       const out = { date: f.date, generated: Date.now(), model: AI_MODEL, headline: j.headline, points: j.points.slice(0, 5), watch: j.watch ?? "", facts: f.text };
