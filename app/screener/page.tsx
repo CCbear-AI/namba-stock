@@ -12,6 +12,8 @@ import { VR_HELP, SCREENER_HELP, COND_HELP } from "@/components/glossary";
 type Rank = { error?: string; date: string; rows: { c: string; pctile: number; conc: number; tags: string[] }[]; skip: { c: string; conc: number; tags: string[] }[] };
 const CONC_HELP = "收盤後的分點排序：前五大賣家（賣超最多的 5 家分點）合計佔當天成交量，先扣掉規模、漲跌、波動、位置、量能等 11 個價量因素，再看在全市場同一天排第幾個百分位（越高＝賣方越集中，常是大戶在出）。短線漲多（近 5 日漲 10% 以上或近 20 日漲 25% 以上）的不排序、排在最後；高波動（近 20 日波動在全市場前 25%）只提醒。成交值太小的股票沒有分點資料。只幫你排先後，不是買賣建議。";
 
+type ColKey = "price" | "pct" | "vr" | "vol" | "fDays" | "tDays";
+
 export default function Page() {
   return <Suspense><Screener /></Suspense>;
 }
@@ -38,11 +40,18 @@ function Screener() {
     for (const r of rank?.skip ?? []) m.set(r.c, { pctile: null, tags: r.tags });
     return m;
   }, [rank]);
+  // 點表頭排序：第一次由高到低，再點一次由低到高
+  const [col, setCol] = useState<{ k: ColKey; asc: boolean }>({ k: "pct", asc: false });
+  const sortBy = (k: ColKey) => { setSort("pct"); setCol((c) => (c.k === k ? { k, asc: !c.asc } : { k, asc: false })); };
   const shown = useMemo(() => {
-    if (sort !== "conc" || !rank) return hits;
+    if (sort !== "conc" || !rank) {
+      if (col.k === "pct" && !col.asc) return hits;
+      const d = col.asc ? 1 : -1;
+      return [...hits].sort((a, b) => (a[col.k] - b[col.k]) * d || b.pct - a.pct);
+    }
     const v = (c: string) => { const x = rk.get(c); return !x ? -2 : x.pctile ?? -1; };
     return [...hits].sort((a, b) => v(b.c) - v(a.c));
-  }, [hits, sort, rank, rk]);
+  }, [hits, sort, rank, rk, col]);
   const strategy = STRATEGIES.find((s) => s.conds.length === conds.length && s.conds.every((c) => conds.includes(c)));
   const toggle = (id: string) => setConds((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   const key = [...conds].sort().join(",");
@@ -77,7 +86,7 @@ function Screener() {
       <div className="card self-start">
         <div className="card-h">
           <span>符合 <span className="text-[var(--gold-2)] mono">{hits.length}</span> 檔 <span className="sub ml-2">掃描範圍：上市櫃全部個股 · 排序</span>
-            <span className="seg ml-1 align-middle">{([["pct", "漲跌幅"], ["conc", "賣方集中度"]] as const).map(([k, l]) => <button key={k} className={sort === k ? "on" : ""} onClick={() => setSort(k)}>{l}</button>)}</span>
+            <span className="seg ml-1 align-middle">{([["pct", "漲跌幅"], ["conc", "賣方集中度"]] as const).map(([k, l]) => <button key={k} className={sort === k ? "on" : ""} onClick={() => { setSort(k); if (k === "pct") setCol({ k: "pct", asc: false }); }}>{l}</button>)}</span>
             {sort === "conc" && <Help>{CONC_HELP}</Help>}
             {sort === "conc" && rank && !rank.error && <span className="sub ml-2">{rank.date.slice(5).replace("-", "/")} 收盤分點</span>}
           </span>
@@ -95,7 +104,12 @@ function Screener() {
         )}
         <div className="overflow-x-auto px-2 pb-2">
           <table className="tbl">
-            <thead><tr>{multi && <th className="w-8"></th>}<th>股票</th><th>成交價</th><th>漲跌幅</th><th><Term tip={VR_HELP}>量比</Term></th><th>成交量 (張)</th><th>外資連買</th><th>投信連買</th><th>均線 / 新高</th>{sort === "conc" && <th>賣方集中度</th>}<th>操作</th></tr></thead>
+            <thead><tr>{multi && <th className="w-8"></th>}<th>股票</th>{([["price", "成交價"], ["pct", "漲跌幅"], ["vr", "量比"], ["vol", "成交量 (張)"], ["fDays", "外資連買"], ["tDays", "投信連買"]] as const).map(([k, l]) => {
+              const on = sort !== "conc" && col.k === k;
+              return <th key={k} className="cursor-pointer select-none whitespace-nowrap" aria-sort={on ? (col.asc ? "ascending" : "descending") : "none"} onClick={() => sortBy(k)} title="點一下排序（再點一次反向）">
+                {k === "vr" ? <Term tip={VR_HELP}>{l}</Term> : l}<span className={on ? "text-[var(--gold)]" : "opacity-30"}>{on ? (col.asc ? " ▲" : " ▼") : " ↕"}</span>
+              </th>;
+            })}<th>均線 / 新高</th>{sort === "conc" && <th>賣方集中度</th>}<th>操作</th></tr></thead>
             <tbody>
               {shown.map((r) => (
                 <tr key={r.c} className="click" onClick={() => (multi ? setSel((s) => (s.includes(r.c) ? s.filter((x) => x !== r.c) : [...s, r.c])) : router.push(`/stock/${r.c}`))}>
