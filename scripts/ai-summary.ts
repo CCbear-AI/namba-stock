@@ -64,7 +64,8 @@ async function facts() {
 
   const w = (t.world as { n: string; pct: number }[] | undefined)?.filter((x) => x.pct) ?? [];
   if (w.length) L.push(`國際：${w.map((x) => `${x.n} ${sign(x.pct)}%`).join("、")}`);
-  return { date, text: L.join("\n"), open: m.open as boolean, marketDate: date };
+  const tw = (m.indices as Q[]).find((q) => q.n.includes("加權"));
+  return { date, text: L.join("\n"), open: m.open as boolean, marketDate: date, taiexChg: tw?.chg ?? NaN };
 }
 
 const SYSTEM = `你是台股盤後評論員。根據使用者提供的當日數據，寫一份給散戶看的盤後重點。
@@ -73,6 +74,7 @@ const SYSTEM = `你是台股盤後評論員。根據使用者提供的當日數�
 - 繁體中文、台灣用語、白話，不要給買賣建議。
 只輸出 JSON：
 {"headline":"20字內標題","points":["重點1","重點2","重點3"],"watch":"明天可留意的一句話（40字內）"}
+標題若寫點數，必須是加權指數的漲跌點數（例如跌 1374 點可寫「重挫逾千點」「跌1374點」），不能拿基差、期貨或個股的點數。
 points 3～5 點，每點 50 字內，涵蓋大盤表現、資金集中的族群或個股、法人動向、期貨或國際（有資料才寫）。`;
 
 async function main() {
@@ -86,6 +88,8 @@ async function main() {
     try {
       const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 120_000, maxTokens: 16000 }));
       if (!j.headline || !Array.isArray(j.points) || !j.points.length) throw new Error("格式不對");
+      const bad = checkPoints(j.headline, f.taiexChg);
+      if (bad) throw new Error(`標題點數不對：${bad}`);
       fs.mkdirSync(OUT, { recursive: true });
       const out = { date: f.date, generated: Date.now(), model: AI_MODEL, headline: j.headline, points: j.points.slice(0, 5), watch: j.watch ?? "", facts: f.text };
       fs.writeFileSync(path.join(OUT, `${f.date}.json`), JSON.stringify(out, null, 1));
@@ -96,4 +100,31 @@ async function main() {
   throw lastErr;
 }
 
-main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
+// 中文數字（三百、一千二、兩千）或阿拉伯數字轉成數值
+function toNum(s: string): number {
+  if (/[0-9]/.test(s)) return Number(s.replace(/,/g, ""));
+  const D: Record<string, number> = { 零: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  const U: Record<string, number> = { 十: 10, 百: 100, 千: 1000, 萬: 10000 };
+  let total = 0, cur = 0, lastU = 1;
+  for (const ch of s) {
+    if (ch in D) cur = D[ch];
+    else if (ch in U) { total += (cur || 1) * U[ch]; lastU = U[ch]; cur = 0; }
+  }
+  return total + (cur ? cur * (lastU >= 10 ? lastU / 10 : 1) : 0);
+}
+
+/** 標題提到「N 點」時要跟加權指數漲跌點數對得上（「逾/超過」＝下限、「近」＝上限）；對不上回傳說明 */
+export function checkPoints(text: string, chg: number): string | null {
+  if (!Number.isFinite(chg)) return null;
+  const a = Math.abs(chg);
+  for (const m of text.matchAll(/(逾|超過|超|近|約|將近)?\s*([0-9][0-9,.]*|[零一二兩三四五六七八九十百千萬]+)\s*點/g)) {
+    const v = toNum(m[2]);
+    if (!(v >= 10)) continue;
+    const q = m[1] ?? "";
+    const ok = /逾|超/.test(q) ? v <= a && v >= a * 0.5 : /近|將近/.test(q) ? v >= a && v <= a * 1.2 : Math.abs(v - a) <= Math.max(1, a * 0.05);
+    if (!ok) return `「${m[0]}」但加權指數${chg > 0 ? "漲" : "跌"} ${a.toFixed(2)} 點`;
+  }
+  return null;
+}
+
+if (process.argv[1]?.includes("ai-summary")) main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
