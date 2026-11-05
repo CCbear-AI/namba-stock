@@ -107,7 +107,7 @@ async function main() {
   let lastErr: unknown;
   for (let k = 0; k < 3; k++) {
     try {
-      const j = parseJson<{ headline: string; points: Point[]; tw?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 180_000 }));
+      const j = parseJson<{ headline: string; points: Point[]; tw?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 180_000, maxTokens: 16000 }));
       const points = (Array.isArray(j.points) ? j.points : []).filter((p) => p?.text).slice(0, 6).map((p) => ({
         t: String(p.t ?? "").slice(0, 16), text: String(p.text),
         tone: (["多", "空", "中"].includes(p.tone) ? p.tone : "中") as Point["tone"],
