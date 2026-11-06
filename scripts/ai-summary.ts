@@ -65,7 +65,13 @@ async function facts() {
   const w = (t.world as { n: string; pct: number }[] | undefined)?.filter((x) => x.pct) ?? [];
   if (w.length) L.push(`國際：${w.map((x) => `${x.n} ${sign(x.pct)}%`).join("、")}`);
   const tw = (m.indices as Q[]).find((q) => q.n.includes("加權"));
-  return { date, text: L.join("\n"), open: m.open as boolean, marketDate: date, taiexChg: tw?.chg ?? NaN };
+  const nm = (x: { n: string }) => x.n.replace(/\*$/, "");
+  return {
+    date, text: L.join("\n"), open: m.open as boolean, marketDate: date, taiexChg: tw?.chg ?? NaN,
+    names: stocks.map(nm),
+    up: ((ct?.up ?? []) as { n: string }[]).slice(0, 3).map(nm),
+    down: ((ct?.down ?? []) as { n: string }[]).slice(0, 3).map(nm),
+  };
 }
 
 const SYSTEM = `你是台股盤後評論員。根據使用者提供的當日數據，寫一份給散戶看的盤後重點。
@@ -74,6 +80,7 @@ const SYSTEM = `你是台股盤後評論員。根據使用者提供的當日數�
 - 繁體中文、台灣用語、白話，不要給買賣建議。
 只輸出 JSON：
 {"headline":"20字內標題","points":["重點1","重點2","重點3"],"watch":"明天可留意的一句話（40字內）"}
+講權值股拉抬／拖累點數時，個股名稱只能用「權值股拉抬」「拖累」那一行列出的，不要換成別檔。
 標題若寫點數，必須是加權指數的漲跌點數（例如跌 1374 點可寫「重挫逾千點」「跌1374點」），不能拿基差、期貨或個股的點數。
 points 3～5 點，每點 50 字內，涵蓋大盤表現、資金集中的族群或個股、法人動向、期貨或國際（有資料才寫）。`;
 
@@ -90,6 +97,15 @@ async function main() {
       if (!j.headline || !Array.isArray(j.points) || !j.points.length) throw new Error("格式不對");
       const bad = checkPoints(j.headline, f.taiexChg);
       if (bad) throw new Error(`標題點數不對：${bad}`);
+      const wrong = checkNames(j.points, f.names, f.up, f.down);
+      if (wrong.length) {
+        const msg = wrong.map((w) => w.why).join("；");
+        // 最後一次還錯：把寫錯的那幾點拿掉（剩 3 點以上才這樣做），不要整份摘要都沒寫
+        const keep = j.points.filter((_, i) => !wrong.some((w) => w.i === i));
+        if (k < 2 || keep.length < 3) throw new Error(`權值股名稱不對：${msg}`);
+        console.log(`權值股名稱不對（${msg}），拿掉 ${wrong.length} 點`);
+        j.points = keep;
+      }
       fs.mkdirSync(OUT, { recursive: true });
       const out = { date: f.date, generated: Date.now(), model: AI_MODEL, headline: j.headline, points: j.points.slice(0, 5), watch: j.watch ?? "", facts: f.text };
       fs.writeFileSync(path.join(OUT, `${f.date}.json`), JSON.stringify(out, null, 1));
@@ -125,6 +141,27 @@ export function checkPoints(text: string, chg: number): string | null {
     if (!ok) return `「${m[0]}」但加權指數${chg > 0 ? "漲" : "跌"} ${a.toFixed(2)} 點`;
   }
   return null;
+}
+
+/** 重點裡講「拖累／拉抬 … 點」的句子，提到的個股必須是 facts 給的權值股名單；回傳寫錯的那幾點 */
+export function checkNames(points: string[], names: string[], up: string[], down: string[]): { i: number; why: string }[] {
+  if (!up.length && !down.length) return [];
+  const all = [...new Set(names.filter((n) => n.length >= 2))].sort((a, b) => b.length - a.length);
+  const out: { i: number; why: string }[] = [];
+  points.forEach((p, i) => {
+    for (const cl of p.split(/[；;。]/)) {
+      if (!/點/.test(cl)) continue;
+      const isDown = /拖累|拖垮|壓抑|拉低/.test(cl), isUp = /拉抬|支撐|撐盤|支援|貢獻|護盤/.test(cl);
+      if (isDown === isUp) continue; // 沒講或兩種都講，不判斷
+      const ok = isDown ? down : up;
+      let rest = cl;
+      const found: string[] = [];
+      for (const n of all) if (rest.includes(n)) { found.push(n); rest = rest.split(n).join("　"); } // 長名字先比，避免「南亞科」被當「南亞」
+      const badN = found.filter((n) => !ok.includes(n));
+      if (badN.length) out.push({ i, why: `「${badN.join("、")}」不在${isDown ? "拖累" : "拉抬"}名單（${ok.join("、")}）` });
+    }
+  });
+  return out;
 }
 
 if (process.argv[1]?.includes("ai-summary")) main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
