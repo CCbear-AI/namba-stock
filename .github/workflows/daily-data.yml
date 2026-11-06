@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  statuses: read
   actions: write
 
 # Supabase 準時觸發＋GitHub 自己的排程（備援）可能各跑一次，排隊依序跑
@@ -138,13 +139,12 @@ jobs:
           git push
           echo "pushed=true" >> "$GITHUB_OUTPUT"
       - name: 通知 Vercel 部署
-        # GitHub 推送偶爾沒觸發 Vercel 自動部署（10/27 盤後摘要沒上線），推送後主動打部署鉤子
+        # GitHub 推送偶爾沒觸發 Vercel 自動部署（10/27 盤後摘要沒上線）：3 分鐘內沒自動部署才打部署鉤子
         if: ${{ steps.save.outputs.pushed == 'true' }}
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: |
-          if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
-          curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/vercel-hook.sh
       - name: 排 AI 補跑
         # AI 連不到（而且這次不是補跑本身）→ 觸發 ai-retry：每 30 分鐘試連，恢復後重跑這個 workflow
         if: ${{ always() && steps.aicheck.outputs.ok == 'false' && inputs.ai_retry != 'true' }}

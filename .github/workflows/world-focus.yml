@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  statuses: read
   actions: write
 
 concurrency:
@@ -64,9 +65,8 @@ jobs:
         if: ${{ steps.save1.outputs.pushed == 'true' }}
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: |
-          if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
-          curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/vercel-hook.sh
       - name: 重大訊息
         # AI 慢，寫不完的 16:30、22:00 daily-data 和隔天再補（中途會存檔）
         if: steps.aicheck.outputs.ok == 'true'
@@ -118,9 +118,8 @@ jobs:
         if: ${{ always() && steps.save2.outputs.pushed == 'true' }}
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: |
-          if [ -z "$HOOK" ]; then echo "沒設 VERCEL_DEPLOY_HOOK，略過"; exit 0; fi
-          curl -fsS -X POST "$HOOK" > /dev/null && echo "已通知 Vercel 部署"
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/vercel-hook.sh
       - name: 排 AI 補跑
         # AI 連不到（而且這次不是補跑本身）→ 觸發 ai-retry：每 30 分鐘試連，恢復後重跑這個 workflow
         if: ${{ always() && steps.aicheck.outputs.ok == 'false' && inputs.ai_retry != 'true' }}
