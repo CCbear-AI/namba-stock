@@ -1,3 +1,4 @@
+import { liveCache } from "@/lib/liveCache";
 import { getQuotes, ch } from "@/lib/mis";
 import { BY_CODE } from "@/lib/universe";
 import { toRow, getMarket } from "@/lib/market";
@@ -32,5 +33,5 @@ export async function GET(req: Request) {
   let avg = dv && dval ? Math.round(((dval * 1e6) / (dv * 1000)) * 100) / 100 : null;
   if (avg == null && flow && q.vol) avg = Math.round(((flow.value * 1e8) / (q.vol * 1000)) * 100) / 100;
   if (avg != null && q.vol) flow = { buy: flow?.buy ?? 0, sell: flow?.sell ?? 0, value: Math.round(((q.vol * 1000 * avg) / 1e8) * 100) / 100 };
-  return Response.json({ ...q, ind: s?.ind ?? "", m: s?.m ?? q.m, row: toRow(q), flow, avg });
+  return Response.json({ ...q, ind: s?.ind ?? "", m: s?.m ?? q.m, row: toRow(q), flow, avg }, { headers: liveCache(5) });
 }

@@ -1,3 +1,4 @@
+import { liveCache } from "@/lib/liveCache";
 import { yahooBars, yahooSymbol } from "@/lib/yahoo";
 import { BY_CODE } from "@/lib/universe";
 
@@ -20,5 +21,5 @@ export async function GET(req: Request) {
       } catch { /* 抓不到就不畫 */ }
     }
   }));
-  return Response.json(out);
+  return Response.json(out, { headers: liveCache(60) });
 }

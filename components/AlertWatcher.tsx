@@ -5,6 +5,7 @@ import { useRules, firedStore, seenStore } from "./alerts";
 import { useGroups } from "./hooks";
 import { builtinCodes } from "./scopes";
 import { pushOn, syncPush } from "./push";
+import { startPolling } from "./pollPace";
 import { evaluate, type Rule } from "@/lib/alertRules";
 import type { ScanRow } from "@/lib/scan";
 
@@ -26,9 +27,8 @@ export default function AlertWatcher() {
   useEffect(() => {
     if (!active.length) return;
     let stop = false;
-    let timer: ReturnType<typeof setTimeout>;
     const run = async () => {
-      if (document.visibilityState === "visible" || !pushOn()) {
+      {
         try {
           const j = await (await fetch("/api/scan", { cache: "no-store" })).json();
           if (!stop && j.rows) {
@@ -50,10 +50,10 @@ export default function AlertWatcher() {
           }
         } catch { /* 下一輪再試 */ }
       }
-      if (!stop) timer = setTimeout(run, 30_000);
     };
-    run();
-    return () => { stop = true; clearTimeout(timer); };
+    // 看不到網頁時：有開背景推播就交給伺服器，沒開才繼續在背景檢查；收盤後放慢（見 pollPace.ts）
+    const end = startPolling(run, 30_000, { whenHidden: () => !pushOn() });
+    return () => { stop = true; end(); };
   }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }

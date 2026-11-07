@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ScanRow } from "@/lib/scan";
+import { startPolling } from "./pollPace";
 
 /** 定時抓 JSON；interval=0 只抓一次 */
 export function usePoll<T>(url: string | null, interval = 0) {
@@ -9,7 +10,6 @@ export function usePoll<T>(url: string | null, interval = 0) {
   useEffect(() => {
     if (!url) return;
     let stop = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const run = async () => {
       try {
         const r = await fetch(url, { cache: "no-store" });
@@ -18,10 +18,11 @@ export function usePoll<T>(url: string | null, interval = 0) {
       } catch (e) {
         if (!stop) setError((e as Error).message);
       }
-      if (!stop && interval) timer = setTimeout(run, interval);
     };
-    run();
-    return () => { stop = true; clearTimeout(timer); };
+    if (!interval) { run(); return () => { stop = true; }; }
+    // 分頁看不到就暫停、收盤後放慢（見 pollPace.ts）
+    const end = startPolling(run, interval);
+    return () => { stop = true; end(); };
   }, [url, interval]);
   return { data, error };
 }

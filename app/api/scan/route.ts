@@ -1,3 +1,4 @@
+import { liveCache } from "@/lib/liveCache";
 import { getMarket } from "@/lib/market";
 import { scan } from "@/lib/scan";
 
@@ -5,7 +6,7 @@ import { scan } from "@/lib/scan";
 export async function GET() {
   try {
     const m = await getMarket();
-    return Response.json({ time: m.time, open: m.open, rows: scan(m) });
+    return Response.json({ time: m.time, open: m.open, rows: scan(m) }, { headers: liveCache() });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 502 });
   }

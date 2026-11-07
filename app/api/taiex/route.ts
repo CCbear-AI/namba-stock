@@ -1,3 +1,4 @@
+import { liveCache } from "@/lib/liveCache";
 import { getMarket } from "@/lib/market";
 import { misOhlc } from "@/lib/misStats";
 import { UNIVERSE } from "@/lib/universe";
@@ -35,5 +36,5 @@ export async function GET() {
     ordersLine: day?.date === today ? (day.orders ?? []) : [],
     contrib: { up: contrib.slice(0, 5), down: contrib.slice(-5).reverse(), upSum: r2(contrib.slice(0, 5).reduce((a, x) => a + Math.max(0, x.pt), 0)), downSum: r2(contrib.slice(-5).reduce((a, x) => a + Math.min(0, x.pt), 0)) },
     world,
-  });
+  }, { headers: liveCache() });
 }

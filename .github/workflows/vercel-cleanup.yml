@@ -1,0 +1,38 @@
+# 每天自動刪 Vercel 舊部署，只留最新 5 版（建置中的不動）
+# 原因：資料 commit 每天觸發 5~7 次部署，每版都佔 Function Storage；Vercel 的 Deployment Retention 設了 1 天卻沒在刪，
+# 10/21~11/6 累積 265 版把 Hobby 10GB 塞滿（11/6 收到 Vercel 通知）。
+# 需要 GitHub secret：VERCEL_TOKEN（vercel.com/account/settings/tokens 建立，scope 選 CCBear's projects）
+name: vercel-cleanup
+
+on:
+  schedule:
+    - cron: "30 15 * * *" # UTC 15:30 = 台灣 23:30（daily-data 22:00 那次部署完之後）
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "只列出、不刪（true/false）"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 刪舊部署
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM: team_d5o9ZpBQ047qLbsCPboVQ9Pp
+          PROJECT: prj_y61kb5R6FmwQOOtMPu9iYLQJpQlU
+          KEEP: "5"
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: node .github/scripts/vercel-cleanup.mjs
