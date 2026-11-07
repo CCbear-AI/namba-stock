@@ -45,6 +45,13 @@ export async function getBars(code: string, tf: TF, { live = true } = {}): Promi
     if (!bars.length && !s) { m = "otc"; bars = await yahooBars(yahooSymbol(code, m), tf); }
     if (tf === "1d") bars = await withOfficial(code, m, bars, live);
     if (tf === "1m") bars = await closingAuction(code, m, bars);
+    if ((tf === "1wk" || tf === "1mo") && bars.length) {
+      // Yahoo 週／月 K 最後常多一根「只有最新一天」的 K 棒（例：2330 週 K 11/2 那週之後又多一根 11/6），量也不含盤後、鉅額
+      // → 近 2 年用（官方修正過的）日 K 自己組；更早的沿用 Yahoo。第一根可能只湊到半週／半月，用 Yahoo 那根完整的
+      const daily = await withOfficial(code, m, await yahooBars(yahooSymbol(code, m), "1d").catch(() => [] as Bar[]), live);
+      const mine = resample(daily, tf);
+      if (mine.length) bars = [...bars.filter((b) => b.time <= mine[0].time), ...mine.slice(1)];
+    }
   }
   return bars;
 }
