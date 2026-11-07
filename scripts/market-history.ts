@@ -165,19 +165,27 @@ async function main() {
   const tradingDays = [...new Set([...have, ...days])].filter((d) => !noData.has(d) && /^\d{4}-/.test(d)).sort();
   const chipFrom = tradingDays[Math.max(0, tradingDays.length - 70)] ?? start;
 
+  // 證交所 16:30 的成交量還是初步的（不含後來才併入的部分，例：2330 11/6 先給 108,892 張，最終 110,714 張），
+  // 所以最近 3 個交易日每次都重抓日 K；`npm run market-history -- 起日 refresh` 可把起日之後全部重抓
+  const refreshFrom = process.argv[3] === "refresh" ? start : tradingDays.filter((d) => d <= last).slice(-3)[0] ?? last;
   for (const date of days) {
     let rows: Record<string, number[]> | null = null;
-    if (!have.has(date)) {
+    let changed = false;
+    if (!have.has(date) || date >= refreshFrom) {
       rows = await daily(date);
       if (!rows) {
+        if (have.has(date)) { console.log(date, "重抓失敗，沿用舊檔"); continue; }
         if (date !== today) { noData.add(date); writeFileSync(NODATA, JSON.stringify([...noData].sort())); }
         console.log(date, "休市");
         continue;
       }
-      writeFileSync(`data/daily/${date}.json`, JSON.stringify({ date, s: rows }));
-      console.log(date, "日K", Object.keys(rows).length, "檔");
+      const json = JSON.stringify({ date, s: rows });
+      const file = `data/daily/${date}.json`;
+      changed = !existsSync(file) || readFileSync(file, "utf8") !== json;
+      if (changed) { writeFileSync(file, json); console.log(date, have.has(date) ? "日K 已更新" : "日K", Object.keys(rows).length, "檔"); }
     }
-    if (date >= chipFrom && !haveChips.has(date)) {
+    // 日 K 量變了，籌碼的當沖比例（當沖量 ÷ 成交量）也要重算
+    if (date >= chipFrom && (!haveChips.has(date) || (changed && have.has(date)))) {
       rows ??= JSON.parse(readFileSync(`data/daily/${date}.json`, "utf8")).s;
       const c = await chips(date, rows!);
       if (c) { writeFileSync(`data/chips/${date}.json`, JSON.stringify({ date, ...c })); console.log(date, "籌碼", Object.keys(c.s).length, "檔"); }

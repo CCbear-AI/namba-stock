@@ -25,9 +25,9 @@ export async function getBars(code: string, tf: TF, { live = true } = {}): Promi
     const d = await taiexDaily();
     if (tf === "1d") bars = d;
     else {
-      const mine = resample(d, tf);
-      const old = mine.length ? (await yahooBars("^TWII", tf).catch(() => [] as Bar[])).filter((b) => b.time < mine[0].time) : [];
-      bars = [...old, ...mine];
+      // 先把 Yahoo 長期日 K（官方資料之前的部分）接上官方日 K，再組週／月，日期才會是每週／月最後交易日
+      const old = d.length ? (await yahooBars("^TWII", "1d", LONG[tf]).catch(() => [] as Bar[])).filter((b) => b.time < d[0].time && b.volume > 0) : [];
+      bars = resample([...old, ...d], tf);
     }
   } else if (code.startsWith("sector:")) {
     const id = code.slice(7);
@@ -41,20 +41,21 @@ export async function getBars(code: string, tf: TF, { live = true } = {}): Promi
   } else {
     const s = BY_CODE.get(code);
     let m: "tse" | "otc" = s?.m ?? "tse";
-    bars = await yahooBars(yahooSymbol(code, m), tf);
-    if (!bars.length && !s) { m = "otc"; bars = await yahooBars(yahooSymbol(code, m), tf); }
+    // 週／月 K 不用 Yahoo 的週月線（最後常多一根「只有最新一天」的 K 棒、過年休市補假 K、量不含盤後鉅額、日期是週一／月初）
+    // → 抓長期日 K、套官方日 K 後自己組，日期＝每週／月最後交易日
+    const wm = tf === "1wk" || tf === "1mo";
+    const get = (mk: "tse" | "otc") => (wm ? yahooBars(yahooSymbol(code, mk), "1d", LONG[tf as "1wk" | "1mo"]) : yahooBars(yahooSymbol(code, mk), tf));
+    bars = await get(m);
+    if (!bars.length && !s) { m = "otc"; bars = await get(m); }
     if (tf === "1d") bars = await withOfficial(code, m, bars, live);
     if (tf === "1m") bars = await closingAuction(code, m, bars);
-    if ((tf === "1wk" || tf === "1mo") && bars.length) {
-      // Yahoo 週／月 K 最後常多一根「只有最新一天」的 K 棒（例：2330 週 K 11/2 那週之後又多一根 11/6），量也不含盤後、鉅額
-      // → 近 2 年用（官方修正過的）日 K 自己組；更早的沿用 Yahoo。第一根可能只湊到半週／半月，用 Yahoo 那根完整的
-      const daily = await withOfficial(code, m, await yahooBars(yahooSymbol(code, m), "1d").catch(() => [] as Bar[]), live);
-      const mine = resample(daily, tf);
-      if (mine.length) bars = [...bars.filter((b) => b.time <= mine[0].time), ...mine.slice(1)];
-    }
+    if (wm) bars = resample(await withOfficial(code, m, bars.filter((b) => b.volume > 0), live), tf);
   }
   return bars;
 }
+
+/** 週／月 K 要往回抓多久的日 K（週 K 10 年、月 K 30 年≈上市以來） */
+const LONG = { "1wk": "10y", "1mo": "30y" } as const; // "max" 會被 Yahoo 自動降成月資料，30y 才是日資料
 
 function groupMinutes(bars: Bar[], n: number): Bar[] {
   const out: Bar[] = [];
