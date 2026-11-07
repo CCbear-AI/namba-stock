@@ -42,6 +42,17 @@ function noTradePrice(c: string, time: number, high: number, low: number) {
   return lastTrade.get(c) || (high && high === low ? high : 0);
 }
 
+// 盤後 MIS 的開高低有時是錯的（例：2026-11-06 台積電 MIS 給 開2135 高2140 低2130，官方是 2020/2195/2020），
+// 所以當天官方日 K 進來後，開高低一律以官方為準
+function officialOhl(c: string, time: number): [number, number, number] | null {
+  const { dates, s } = getDaily();
+  const i = dates.length - 1;
+  if (dates[i] !== new Date(time + 8 * 3600e3).toISOString().slice(0, 10)) return null;
+  const x = s.get(c);
+  const o = x?.o[i], h = x?.h[i], l = x?.l[i];
+  return o && h && l ? [o, h, l] : null;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parse(x: any): Quote {
   const bid = arr(x.b), ask = arr(x.a);
@@ -62,10 +73,11 @@ function parse(x: any): Quote {
       price = high && low ? Math.min(high, Math.max(low, mid)) : mid;
     }
   }
+  const off = officialOhl(x.c, time);
   return {
     c: x.c, n: x.n, m: x.ex === "otc" ? "otc" : "tse",
     price, prev,
-    open: n(x.o) || price, high: n(x.h) || price, low: n(x.l) || price,
+    open: off?.[0] || n(x.o) || price, high: off?.[1] || high || price, low: off?.[2] || low || price,
     vol: x.v !== undefined ? n(x.v) : n(x.m) / 1e6 /* 指數：成交金額 → 百萬 */,
     tickVol: n(x.tv),
     ...(est ? { est } : {}),
