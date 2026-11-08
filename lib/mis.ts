@@ -125,7 +125,16 @@ function parse(x: any): Quote {
       price = high && low ? Math.min(high, Math.max(low, mid)) : mid;
     }
   }
-  const off = officialOhl(x.c, time);
+  let off = officialOhl(x.c, time);
+  let closeTime = time;
+  // 指數：MIS 收盤後常停在 13:19 左右的數字（例 11/6 加權 39,690.74，官方收盤 39,701.64）
+  // → 官方指數日 K 進來後，開高低收一律用官方，才會跟 K 線一致
+  if (x.v === undefined) {
+    const market: "tse" | "otc" = x.ex === "otc" ? "otc" : "tse";
+    const key = historyKey(x.n ?? "", market);
+    const row = key ? load(market).bars[key]?.at(-1) : null;
+    if (row && row[0] === twDate(time) && row[4] > 0) { price = row[4]; off = [row[1], row[2], row[3]]; closeTime = Date.parse(`${row[0]}T13:30:00+08:00`); }
+  }
   return {
     c: x.c, n: x.n, m: x.ex === "otc" ? "otc" : "tse",
     price, prev,
@@ -135,7 +144,7 @@ function parse(x: any): Quote {
     ...(est ? { est } : {}),
     ask, askV: arr(x.f), bid, bidV: arr(x.g),
     up: n(x.u), down: n(x.w),
-    time,
+    time: closeTime,
   };
 }
 

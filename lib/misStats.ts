@@ -10,15 +10,19 @@ const n = (s: unknown) => Number(s) || 0;
 const cache = new Map<string, { at: number; v: MisOhlc }>();
 
 export async function misOhlc(ex: "TSE" | "OTC" = "TSE"): Promise<MisOhlc> {
-  // 週六日證交所做系統測試，這個檔是假的測試資料 → 不用（成交金額改用個股估算）
-  const wd = new Date(Date.now() + 8 * 3600e3).getUTCDay();
-  if (wd === 0 || wd === 6) return { orders: null, minutes: [] };
   const hit = cache.get(ex);
   if (hit && Date.now() - hit.at < 15_000) return hit.v;
   try {
     const r = await fetch(`https://mis.twse.com.tw/stock/data/mis_ohlc_${ex}.txt?_=${Date.now()}`, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
     const j = await r.json();
     const o = j.staticObj;
+    // 證交所週末做系統測試時，這個檔會變成假的「週末日期」資料 → 不用（成交金額改用個股估算）
+    // 資料日期看 staticObj.key（otc_20261106），沒有就看第一筆分鐘的時間
+    const d8 = /(\d{8})$/.exec(String(o?.key ?? ""))?.[1];
+    const t0 = n(j.ohlcArray?.[0]?.t);
+    const day = d8 ? new Date(`${d8.slice(0, 4)}-${d8.slice(4, 6)}-${d8.slice(6)}T12:00:00+08:00`) : t0 ? new Date(t0) : null;
+    const wd = day ? new Date(day.getTime() + 8 * 3600e3).getUTCDay() : -1;
+    if (wd === 0 || wd === 6) { const v = { orders: null, minutes: [] }; cache.set(ex, { at: Date.now(), v }); return v; }
     const v: MisOhlc = {
       orders: o ? { bidLots: n(o.t4), bidCnt: n(o.t2), askLots: n(o.t3), askCnt: n(o.t1), vol: n(o.tv), trades: n(o.tr), value: n(o.tz) / 1e8 } : null,
       minutes: (j.ohlcArray ?? []).map((x: Record<string, string>) => ({ t: n(x.t), c: n(x.c), v: n(x.s) })),
