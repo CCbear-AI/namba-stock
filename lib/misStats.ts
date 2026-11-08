@@ -10,6 +10,9 @@ const n = (s: unknown) => Number(s) || 0;
 const cache = new Map<string, { at: number; v: MisOhlc }>();
 
 export async function misOhlc(ex: "TSE" | "OTC" = "TSE"): Promise<MisOhlc> {
+  // 週六日證交所做系統測試，這個檔是假的測試資料 → 不用（成交金額改用個股估算）
+  const wd = new Date(Date.now() + 8 * 3600e3).getUTCDay();
+  if (wd === 0 || wd === 6) return { orders: null, minutes: [] };
   const hit = cache.get(ex);
   if (hit && Date.now() - hit.at < 15_000) return hit.v;
   try {

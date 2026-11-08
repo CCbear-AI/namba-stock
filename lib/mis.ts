@@ -1,5 +1,6 @@
 // 證交所基本市況報導（MIS）即時報價。一次最多查 100 檔，依序查才不會被限速。
 import { getDaily } from "./history";
+import { load, historyKey } from "./indexHist";
 export type Quote = {
   c: string; // 代號
   n: string; // 名稱
@@ -53,11 +54,62 @@ function officialOhl(c: string, time: number): [number, number, number] | null {
   return o && h && l ? [o, h, l] : null;
 }
 
+const twDate = (ms: number) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
+const tickOf = (p: number) => (p >= 1000 ? 5 : p >= 500 ? 1 : p >= 100 ? 0.5 : p >= 50 ? 0.1 : p >= 10 ? 0.05 : 0.01);
+/** 漲跌停價（±10%，漲停往下、跌停往上取到升降單位） */
+function limits(prev: number): [number, number] {
+  if (!prev) return [0, 0];
+  const u = prev * 1.1, d = prev * 0.9, tu = tickOf(u), td = tickOf(d);
+  const r = (v: number) => Math.round(v * 100) / 100;
+  return [r(Math.floor(u / tu + 1e-9) * tu), r(Math.ceil(d / td - 1e-9) * td)];
+}
+
+/**
+ * 證交所週末會做系統測試，MIS 放出「假的下一個交易日」報價（例：2026-11-08 週日 台積電 2150、成交 1,287 張）。
+ * 週六日的報價一律不採用，改回最後一個官方交易日的收盤（個股用官方日 K，指數用指數歷史），
+ * 時間也改成那天 13:30，K 線就不會多出一根週末的假 K 棒。
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function weekendQuote(x: any, time: number): Quote | null {
+  const wd = new Date(time + 8 * 3600e3).getUTCDay();
+  if (wd !== 0 && wd !== 6) return null;
+  const market: "tse" | "otc" = x.ex === "otc" ? "otc" : "tse";
+  const { dates, s } = getDaily();
+  const i = dates.length - 1;
+  const st = s.get(x.c);
+  let bar: { d: string; o: number; h: number; l: number; c: number; v: number; prev: number } | null = null;
+  if (st && st.c[i] > 0) {
+    let j = i - 1;
+    while (j >= 0 && !(st.c[j] > 0)) j--;
+    bar = { d: dates[i], o: st.o[i], h: st.h[i], l: st.l[i], c: st.c[i], v: st.v[i], prev: j >= 0 ? st.c[j] : n(x.y) };
+  } else if (!st) {
+    // 指數（加權、櫃買、類股）
+    const key = historyKey(x.n ?? "", market);
+    const rows = key ? load(market).bars[key] : null;
+    const k = rows ? rows.length - 1 : -1;
+    if (rows && k >= 1) bar = { d: rows[k][0], o: rows[k][1], h: rows[k][2], l: rows[k][3], c: rows[k][4], v: 0, prev: rows[k - 1][4] };
+  }
+  // 找不到官方資料：用昨收（＝最後一個交易日收盤），不顯示測試價
+  if (!bar) { const y = n(x.y); bar = { d: dates[i] ?? twDate(time), o: y, h: y, l: y, c: y, v: 0, prev: y }; }
+  const isIndex = !st && x.v === undefined;
+  const [up, down] = isIndex ? [0, 0] : limits(bar.prev);
+  return {
+    c: x.c, n: x.n, m: market,
+    price: bar.c, prev: bar.prev, open: bar.o, high: bar.h, low: bar.l,
+    vol: bar.v, tickVol: 0,
+    ask: [], askV: [], bid: [], bidV: [],
+    up, down,
+    time: Date.parse(`${bar.d}T13:30:00+08:00`),
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parse(x: any): Quote {
   const bid = arr(x.b), ask = arr(x.a);
   const prev = n(x.y);
   const time = n(x.tlong) || Date.now();
+  const wk = weekendQuote(x, time);
+  if (wk) return wk;
   const high = n(x.h), low = n(x.l);
   // 個股今天還沒成交（量 0）：8:30～9:00 的 z 是試撮價（常掛在漲跌停），不能當成交價也不能記成最後成交 → 用昨收（算平盤）
   const noTradeYet = x.v !== undefined && !n(x.v);
