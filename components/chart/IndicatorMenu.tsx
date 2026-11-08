@@ -9,6 +9,8 @@ export default function IndicatorMenu({ value, onChange, onClose }: { value: Ind
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [edit, setEdit] = useState<string | null>(null);
+  // 按「預設值」時加一，讓參數框重新掛載、顯示預設數字（輸入框是非受控的）
+  const [resetN, setResetN] = useState(0);
   const on = new Map(value.map((v) => [v.id, v]));
   const subCount = value.filter((v) => !IND[v.id]?.overlay).length;
 
@@ -35,7 +37,7 @@ export default function IndicatorMenu({ value, onChange, onClose }: { value: Ind
       <div key={id} className="px-3 py-2 rounded-lg hover:bg-panel-2">
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0">
-            <div className="text-[13px]">{ind.name} <span className="mono text-text-2">{ind.abbr}{(cur?.params ?? ind.params).length ? `(${(cur?.params ?? ind.params).join(", ")})` : ""}</span></div>
+            <div className="text-[13px]">{ind.name} <span className="mono text-text-2">{ind.abbr}{(cur?.params ?? ind.params).length ? `(${(cur?.params ?? ind.params).filter((v, i) => ind.optional == null || i < ind.optional || v > 0).join(", ")})` : ""}</span></div>
             <div className="sub truncate">{ind.overlay ? "疊圖" : "副圖"} · {ind.desc}</div>
           </div>
           {cur && ind.params.length > 0 && <button className="text-text-2 hover:text-text px-1" title="改參數" aria-label="改參數" onClick={() => setEdit(edit === id ? null : id)}>⚙</button>}
@@ -48,14 +50,23 @@ export default function IndicatorMenu({ value, onChange, onClose }: { value: Ind
         </div>
         {edit === id && cur && (
           <div className="flex flex-wrap items-end gap-2 mt-2">
-            {cur.params.map((v, i) => {
+            {ind.params.map((_, i) => {
+              // 舊的設定參數可能比較少（例如均線原本只有 3 條）→ 不足的用預設值補
+              const ps = ind.params.map((x, k) => cur.params[k] ?? x);
+              const opt = ind.optional != null && i >= ind.optional;
+              const v = ps[i];
               const input = (
-                <input key={i} type="number" step="any" defaultValue={v} aria-label={ind.labels?.[i]} className="w-20 bg-panel-2 border border-line rounded px-2 py-1 mono text-[12px]"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n) && n > 0) { const p = [...cur.params]; p[i] = n; setParams(id, p); } }} />
+                <input key={`${i}:${resetN}`} type="number" step="any" defaultValue={opt && !v ? "" : v} placeholder={opt ? "不填" : undefined}
+                  aria-label={ind.labels?.[i] ?? (opt ? `第 ${i + 1} 個（可不填）` : undefined)} className="w-20 bg-panel-2 border border-line rounded px-2 py-1 mono text-[12px]"
+                  onChange={(e) => {
+                    const raw = e.target.value.trim(), n = Number(raw), p = [...ps];
+                    if (opt && (raw === "" || n === 0)) p[i] = 0; else if (Number.isFinite(n) && n > 0) p[i] = n; else return;
+                    setParams(id, p);
+                  }} />
               );
               return ind.labels?.[i] ? <label key={i} className="flex flex-col gap-0.5 text-[11px] text-text-2">{ind.labels[i]}{input}</label> : input;
             })}
-            <button className="btn !py-0.5 text-[12px]" onClick={() => setParams(id, [...ind.params])}>預設值</button>
+            <button className="btn !py-0.5 text-[12px]" onClick={() => { setParams(id, [...ind.params]); setResetN((n) => n + 1); }}>預設值</button>
           </div>
         )}
       </div>

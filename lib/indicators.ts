@@ -19,6 +19,8 @@ export type Line = {
 };
 export type Ind = {
   id: string; name: string; abbr: string; cat: Cat; overlay: boolean; params: number[]; labels?: string[]; desc: string;
+  /** 從第幾個參數開始可以不填（0＝不畫），例如均線第 4～6 條 */
+  optional?: number;
   calc: (b: Bar[], p: number[]) => Line[];
   levels?: number[]; // 副圖參考線（例如 RSI 30/70）
 };
@@ -130,7 +132,7 @@ const L = (name: string, data: V, color = C[0], type: Line["type"] = "line", das
 // ---------- 指標 ----------
 export const INDICATORS: Ind[] = [
   // 基本
-  { id: "ma", name: "移動平均線", abbr: "MA", cat: "基本", overlay: true, params: [5, 20, 60], desc: "收盤價的簡單平均", calc: (b, p) => p.map((n, i) => L(`MA${n}`, sma(close(b), n), C[i])) },
+  { id: "ma", name: "移動平均線", abbr: "MA", cat: "基本", overlay: true, params: [5, 20, 60, 0, 0, 0], optional: 3, desc: "收盤價的簡單平均（最多 6 條，後 3 條可不填）", calc: (b, p) => p.flatMap((n, i) => (n > 0 ? [L(`MA${n}`, sma(close(b), Math.round(n)), C[i])] : [])) },
   { id: "vol", name: "成交量", abbr: "VOL", cat: "基本", overlay: false, params: [5, 20], desc: "每根的成交量與均量", calc: (b, p) => [
     { name: "量", data: b.map((x) => x.volume), color: "", type: "hist" }, ...p.map((n, i) => L(`MA${n}`, sma(b.map((x) => x.volume), n), C[i])),
   ] },
