@@ -15,7 +15,8 @@ export async function getBars(code: string, tf: TF, { live = true } = {}): Promi
     // 櫃買指數：分時用 MIS 每分鐘資料，日 K 用櫃買歷史（data/sector-otc.json）＋今天即時
     if (tf.endsWith("m") && tf !== "1mo") {
       const m1 = (await misOhlc("OTC")).minutes.map((x) => ({ time: Math.floor(x.t / 1000) - 60, open: x.c, high: x.c, low: x.c, close: x.c, volume: x.v }));
-      bars = tf === "1m" ? m1 : groupMinutes(m1, Number(tf.slice(0, -1)));
+      // 收盤那筆（13:30）減 60 秒後會跟 13:29 撞同一分鐘，時間重複圖表會整條畫不出來 → 同一分鐘合併
+      bars = groupMinutes(m1, tf === "1m" ? 1 : Number(tf.slice(0, -1)));
     } else {
       const d = await sectorDaily("o00");
       bars = tf === "1d" ? d : resample(d, tf as "1wk" | "1mo");
@@ -33,7 +34,8 @@ export async function getBars(code: string, tf: TF, { live = true } = {}): Promi
     const id = code.slice(7);
     if (tf.endsWith("m") && tf !== "1mo") {
       const m1 = await sectorIntraday(id);
-      bars = tf === "1m" ? m1 : groupMinutes(m1, Number(tf.slice(0, -1)));
+      // 收盤那筆（13:30）減 60 秒後會跟 13:29 撞同一分鐘，時間重複圖表會整條畫不出來 → 同一分鐘合併
+      bars = groupMinutes(m1, tf === "1m" ? 1 : Number(tf.slice(0, -1)));
     } else {
       const d = await sectorDaily(id);
       bars = tf === "1d" ? d : resample(d, tf as "1wk" | "1mo");
