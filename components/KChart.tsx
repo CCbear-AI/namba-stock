@@ -16,9 +16,9 @@ import type { Bar, Level } from "@/lib/types";
 
 type TF = "1m" | "mk" | "1d" | "1wk" | "1mo";
 type MK = "1m" | "5m" | "15m" | "30m" | "60m";
-const TF_LABEL: Record<TF, string> = { "1m": "分時", mk: "分 K", "1d": "日 K", "1wk": "週 K", "1mo": "月 K" };
-const MK_LABEL: Record<MK, string> = { "1m": "1 分", "5m": "5 分", "15m": "15 分", "30m": "30 分", "60m": "60 分" };
-const RANGES = [{ k: 66, l: "3 個月" }, { k: 130, l: "6 個月" }, { k: 250, l: "1 年" }, { k: 500, l: "2 年" }];
+const TF_LABEL: Record<TF, string> = { "1m": "分時", mk: "分K", "1d": "日K", "1wk": "週K", "1mo": "月K" };
+const MK_LABEL: Record<MK, string> = { "1m": "1分", "5m": "5分", "15m": "15分", "30m": "30分", "60m": "60分" };
+const RANGES = [{ k: 66, l: "3個月" }, { k: 130, l: "6個月" }, { k: 250, l: "1年" }, { k: 500, l: "2年" }];
 const UP = "#f0505a", DOWN = "#22b573";
 const SR_COLOR = { support: "#5aa9ff", resistance: "#f2994a" };
 const PAT_COLOR = "#e0c27a";
@@ -369,19 +369,32 @@ export default function KChart({
   const pc = tf === "1m" ? prev ?? bars[0]?.open ?? 0 : i > 0 ? bars[i - 1].close : b?.open ?? 0;
   const dateLabel = b ? new Date(b.time * 1000).toISOString().slice(0, intraday ? 16 : 10).replace("T", " ") : "";
   const val = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? "—" : Math.abs(v) >= 1e5 ? num(v) : fp(v));
+  // 數值欄寬固定成「這段資料最長的字數」：可以自動換行，但滑鼠移動時每格寬度不變，行數就不會跳
+  const W = (v: number) => ({ minWidth: `${v}ch` });
+  const widths = useMemo(() => {
+    let p = 0, v = 0;
+    for (const x of bars) { p = Math.max(p, fp(x.high).length, fp(x.low).length); v = Math.max(v, num(x.volume).length); }
+    const lw = new Map<string, number>();
+    for (const x of computed) for (const l of x.lines) {
+      let m = 1;
+      for (const d of l.data) m = Math.max(m, (d == null || !Number.isFinite(d) ? "—" : Math.abs(d) >= 1e5 ? num(d) : fp(d)).length);
+      lw.set(x.s.id + l.name, m);
+    }
+    return { p, v, lw };
+  }, [bars, computed]);
   const drawable = !compact && tf !== "1m";
   const drawKey = `namba.draw.${code}.${apiTf}`;
   const mainH = paneTops[1] ? paneTops[1] - 1 : fullH;
 
   return (
     <div ref={wrap} className={`relative ${full ? "bg-[var(--bg)] p-3" : ""}`}>
-      {(ownBar || !compact) && <div className={`flex flex-wrap items-center gap-2 ${compact ? "px-3 pt-2" : "px-4 pt-3"}`}>
-        {ownBar && tfs.length > 1 && <div className="seg">
+      {(ownBar || !compact) && <div className={`flex flex-wrap items-center gap-1.5 ${compact ? "px-3 pt-2" : "px-4 pt-3"}`}>
+        {ownBar && tfs.length > 1 && <div className="seg sm">
           {tfs.map((t) => toTF(t)).map((t) => <button key={t} className={tf === t ? "on" : ""} onClick={() => setTf(t)}>{TF_LABEL[t]}</button>)}
         </div>}
-        {tf === "mk" && <div className="seg">{(Object.keys(MK_LABEL) as MK[]).map((m) => <button key={m} className={mk === m ? "on" : ""} onClick={() => setMk(m)}>{MK_LABEL[m]}</button>)}</div>}
+        {tf === "mk" && <div className="seg sm">{(Object.keys(MK_LABEL) as MK[]).map((m) => <button key={m} className={mk === m ? "on" : ""} onClick={() => setMk(m)}>{MK_LABEL[m]}</button>)}</div>}
         {!intraday && !compact && (
-          <div className="seg">
+          <div className="seg sm">
             {RANGES.map((r) => <button key={r.k} className={range === r.k ? "on" : ""} onClick={() => { setRange(r.k); chart.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - r.k), to: bars.length + 3 }); }}>{r.l}</button>)}
           </div>
         )}
@@ -403,17 +416,17 @@ export default function KChart({
         {compact && tf !== "1m" && <button className={`btn ${line ? "on" : ""}`} onClick={() => setLine(!line)}>折線</button>}
       </div>}
       {b && (
-        <div className="px-4 pt-2 text-[12px] mono flex flex-nowrap whitespace-nowrap scroll-x gap-x-3 text-text-2">
-          {/* 固定單行：滑鼠移到不同 K 線時數字長短會變，換行會把整張圖往下推（看起來在跳），太長就左右滑 */}
-          <span>{dateLabel}</span>
+        <div className="px-4 pt-2 text-[12px] mono flex flex-wrap gap-x-3 gap-y-0.5 text-text-2">
+          {/* 可換行（布林等指標多時才看得到全部）；每格數值寬度固定，滑鼠移動時不會因字數變化換行而讓圖跳動 */}
+          <span className="whitespace-nowrap">{dateLabel}</span>
           {tf !== "1m" && <>
-            <span>開 <span className={cls(b.open - pc)}>{fp(b.open)}</span></span>
-            <span>高 <span className={cls(b.high - pc)}>{fp(b.high)}</span></span>
-            <span>低 <span className={cls(b.low - pc)}>{fp(b.low)}</span></span>
+            <span className="whitespace-nowrap">開 <span className={`inline-block ${cls(b.open - pc)}`} style={W(widths.p)}>{fp(b.open)}</span></span>
+            <span className="whitespace-nowrap">高 <span className={`inline-block ${cls(b.high - pc)}`} style={W(widths.p)}>{fp(b.high)}</span></span>
+            <span className="whitespace-nowrap">低 <span className={`inline-block ${cls(b.low - pc)}`} style={W(widths.p)}>{fp(b.low)}</span></span>
           </>}
-          <span>收 <span className={cls(b.close - pc)}>{fp(b.close)}</span></span>
-          {b.volume > 0 && <span>{volIsValue ? "成交值" : "量"} <span className="text-text">{num(b.volume)}</span>{volIsValue && " 百萬"}</span>}
-          {!line && computed.filter((x) => x.ind.overlay).flatMap((x) => x.lines.filter((l) => l.type !== "dots" && !l.hide).map((l) => <span key={x.s.id + l.name} style={{ color: l.color }}>{l.name} {val(l.data[i])}</span>))}
+          <span className="whitespace-nowrap">收 <span className={`inline-block ${cls(b.close - pc)}`} style={W(widths.p)}>{fp(b.close)}</span></span>
+          {widths.v > 1 && <span className="whitespace-nowrap">{volIsValue ? "成交值" : "量"} <span className="inline-block text-text" style={W(widths.v)}>{b.volume > 0 ? num(b.volume) : "—"}</span>{volIsValue && " 百萬"}</span>}
+          {!line && computed.filter((x) => x.ind.overlay).flatMap((x) => x.lines.filter((l) => l.type !== "dots" && !l.hide).map((l) => <span key={x.s.id + l.name} className="whitespace-nowrap" style={{ color: l.color }}>{l.name} <span className="inline-block" style={W(widths.lw.get(x.s.id + l.name) ?? 1)}>{val(l.data[i])}</span></span>))}
         </div>
       )}
       {srOn && <SRPanel data={levels} err={srState?.err} patterns={patterns} tf={TF_LABEL[tf]} onClose={() => setSr(false)} />}
