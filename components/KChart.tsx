@@ -20,6 +20,8 @@ const TF_LABEL: Record<TF, string> = { "1m": "分時", mk: "分K", "1d": "日K",
 const MK_LABEL: Record<MK, string> = { "1m": "1分", "5m": "5分", "15m": "15分", "30m": "30分", "60m": "60分" };
 const RANGES = [{ k: 66, l: "3個月" }, { k: 130, l: "6個月" }, { k: 250, l: "1年" }, { k: 500, l: "2年" }];
 const UP = "#f0505a", DOWN = "#22b573";
+// 滑鼠移到的那根 K 棒改用較亮的顏色
+const UP_HI = "#ffb0b5", DOWN_HI = "#7df5c0";
 const SR_COLOR = { support: "#5aa9ff", resistance: "#f2994a" };
 const PAT_COLOR = "#e0c27a";
 /** 支撐壓力依強度調深淺（色碼後面加透明度） */
@@ -88,6 +90,7 @@ export default function KChart({
   const [chartApi, setChartApi] = useState<IChartApi | null>(null);
   const priceLines = useRef<IPriceLine[]>([]);
   const mainSeries = useRef<ISeriesApi<SeriesType> | null>(null);
+  const hiSeries = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const [mainApi, setMainApi] = useState<ISeriesApi<SeriesType> | null>(null);
 
   // 指標設定存在瀏覽器；伺服器端沒有 localStorage，所以掛載後才讀
@@ -162,6 +165,7 @@ export default function KChart({
     if (!c || !bars.length) return;
     for (const p of c.panes().slice().reverse()) for (const s of p.getSeries()) c.removeSeries(s);
     priceLines.current = [];
+    hiSeries.current = null;
     const asLine = line || tf === "1m";
     const data = bars.map((b) => ({ time: b.time as UTCTimestamp, open: b.open, high: b.high, low: b.low, close: b.close }));
     if (asLine) {
@@ -179,13 +183,19 @@ export default function KChart({
         c.addSeries(LineSeries, { color: "#e0b341", lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }).setData(avg);
       }
     } else {
-      // 現價：灰色細虛線橫貫整張圖
+      // 現價：細虛線橫貫整張圖，顏色跟最後一根 K 棒一樣（收≥開 紅、收<開 綠）
+      const lb = bars[bars.length - 1];
       const s = c.addSeries(CandlestickSeries, {
         upColor: UP, downColor: DOWN, borderUpColor: UP, borderDownColor: DOWN, wickUpColor: UP, wickDownColor: DOWN,
-        priceLineVisible: true, priceLineStyle: LineStyle.Dashed, priceLineWidth: 1, priceLineColor: "#646a73", priceFormat: priceFmt(code, bars[bars.length - 1].close),
+        priceLineVisible: true, priceLineStyle: LineStyle.Dashed, priceLineWidth: 1, priceLineColor: lb.close >= lb.open ? UP : DOWN, priceFormat: priceFmt(code, lb.close),
       });
       s.setData(data);
       mainSeries.current = s;
+      // 滑鼠移到的那根：疊一根亮色 K 棒上去（只放一根，移動時換資料）
+      hiSeries.current = c.addSeries(CandlestickSeries, {
+        upColor: UP_HI, downColor: DOWN_HI, borderUpColor: UP_HI, borderDownColor: DOWN_HI, wickUpColor: UP_HI, wickDownColor: DOWN_HI,
+        priceLineVisible: false, lastValueVisible: false, autoscaleInfoProvider: () => null,
+      });
     }
     setMainApi(mainSeries.current);
 
@@ -340,6 +350,14 @@ export default function KChart({
     c.subscribeCrosshairMove(f);
     return () => c.unsubscribeCrosshairMove(f);
   }, [chartApi]);
+
+  // 滑鼠移到的 K 棒變亮
+  useEffect(() => {
+    const h = hiSeries.current;
+    if (!h) return;
+    const b = hover != null && hover >= 0 && hover < bars.length ? bars[hover] : null;
+    try { h.setData(b ? [{ time: b.time as UTCTimestamp, open: b.open, high: b.high, low: b.low, close: b.close }] : []); } catch { /* 圖表重建中 */ }
+  }, [hover, bars, mainApi]);
 
   // 全螢幕
   useEffect(() => {
