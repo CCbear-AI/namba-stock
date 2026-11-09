@@ -45,13 +45,14 @@ function noTradePrice(c: string, time: number, high: number, low: number) {
 
 // 盤後 MIS 的開高低有時是錯的（例：2026-11-06 台積電 MIS 給 開2135 高2140 低2130，官方是 2020/2195/2020），
 // 所以當天官方日 K 進來後，開高低一律以官方為準
-function officialOhl(c: string, time: number): [number, number, number] | null {
+// 成交量也一樣：MIS 收盤後不含盤後定價／鉅額（11/9 台積電 MIS 41,343 張，官方 45,883 張），改用官方才會跟 K 線一致
+function officialOhl(c: string, time: number): [number, number, number, number] | null {
   const { dates, s } = getDaily();
   const i = dates.length - 1;
   if (dates[i] !== new Date(time + 8 * 3600e3).toISOString().slice(0, 10)) return null;
   const x = s.get(c);
   const o = x?.o[i], h = x?.h[i], l = x?.l[i];
-  return o && h && l ? [o, h, l] : null;
+  return o && h && l ? [o, h, l, x?.v[i] ?? 0] : null;
 }
 
 const twDate = (ms: number) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
@@ -125,7 +126,7 @@ function parse(x: any): Quote {
       price = high && low ? Math.min(high, Math.max(low, mid)) : mid;
     }
   }
-  let off = officialOhl(x.c, time);
+  let off: number[] | null = officialOhl(x.c, time);
   let closeTime = time;
   // 指數：MIS 收盤後常停在 13:19 左右的數字（例 11/6 加權 39,690.74，官方收盤 39,701.64）
   // → 官方指數日 K 進來後，開高低收一律用官方，才會跟 K 線一致
@@ -139,7 +140,7 @@ function parse(x: any): Quote {
     c: x.c, n: x.n, m: x.ex === "otc" ? "otc" : "tse",
     price, prev,
     open: off?.[0] || n(x.o) || price, high: off?.[1] || high || price, low: off?.[2] || low || price,
-    vol: x.v !== undefined ? n(x.v) : n(x.m) / 1e6 /* 指數：成交金額 → 百萬 */,
+    vol: x.v !== undefined ? Math.max(n(x.v), off?.[3] ?? 0) : n(x.m) / 1e6 /* 指數：成交金額 → 百萬 */,
     tickVol: n(x.tv),
     ...(est ? { est } : {}),
     ask, askV: arr(x.f), bid, bidV: arr(x.g),

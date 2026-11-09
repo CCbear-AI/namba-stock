@@ -48,8 +48,8 @@ jobs:
           git add data/flow
           if git diff --cached --quiet; then echo "沒有新紀錄"; exit 0; fi
           git commit -m "資金流紀錄 $(TZ=Asia/Taipei date +%F)"
-          git pull --rebase
-          git push
+          # 網路偶爾斷（11/9 16:30 Could not resolve host）：失敗等 30 秒重試，最多 5 次
+          for i in 1 2 3 4 5; do git pull --rebase && git push && break; [ $i = 5 ] && exit 1; echo "推送失敗，30 秒後重試 ($i)"; sleep 30; done
           echo "pushed=true" >> "$GITHUB_OUTPUT"
       - name: 通知 Vercel 部署
         # GitHub 推送偶爾沒觸發 Vercel 自動部署（10/27 盤後摘要沒上線）：3 分鐘內沒自動部署才打部署鉤子

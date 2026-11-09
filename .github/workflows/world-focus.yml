@@ -58,8 +58,8 @@ jobs:
           git add data/world
           if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
           git commit -m "國際焦點 $(TZ=Asia/Taipei date +%F)"
-          git pull --rebase
-          git push
+          # 網路偶爾斷（11/9 16:30 Could not resolve host）：失敗等 30 秒重試，最多 5 次
+          for i in 1 2 3 4 5; do git pull --rebase && git push && break; [ $i = 5 ] && exit 1; echo "推送失敗，30 秒後重試 ($i)"; sleep 30; done
           echo "pushed=true" >> "$GITHUB_OUTPUT"
       - name: 通知 Vercel 部署（國際焦點）
         if: ${{ steps.save1.outputs.pushed == 'true' }}
@@ -111,8 +111,8 @@ jobs:
           git add data/news data/stocknews data/checkup data/weekly
           if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
           git commit -m "新聞與體檢 $(TZ=Asia/Taipei date +%F)"
-          git pull --rebase
-          git push
+          # 網路偶爾斷（11/9 16:30 Could not resolve host）：失敗等 30 秒重試，最多 5 次
+          for i in 1 2 3 4 5; do git pull --rebase && git push && break; [ $i = 5 ] && exit 1; echo "推送失敗，30 秒後重試 ($i)"; sleep 30; done
           echo "pushed=true" >> "$GITHUB_OUTPUT"
       - name: 通知 Vercel 部署（新聞、體檢）
         if: ${{ always() && steps.save2.outputs.pushed == 'true' }}
