@@ -1,6 +1,7 @@
 // 證交所基本市況報導（MIS）即時報價。一次最多查 100 檔，依序查才不會被限速。
 import { getDaily } from "./history";
 import { load, historyKey } from "./indexHist";
+import { yahooQuotes } from "./yahooFlow";
 export type Quote = {
   c: string; // 代號
   n: string; // 名稱
@@ -170,6 +171,33 @@ async function fetchBatch(chs: string[], timeout = 3000): Promise<Quote[] | null
 
 /** chs 形如 "tse_2330.tw"、"otc_6488.tw"、"tse_t00.tw" */
 export async function getQuotes(chs: string[], budgetMs = 35_000): Promise<Quote[]> {
+  const out = await misQuotes(chs, budgetMs);
+  await withYahoo(out);
+  return out;
+}
+
+/**
+ * 盤中 MIS 的成交價九成以上是 "-"（2026-11-10 09:44 上市前 600 檔有成交 576、沒給成交價 540），
+ * 只能用買賣價中間值推估（台積電顯示 2,272.5，實際 2,275）；開盤價也有錯（伸興 MIS 開 111、但全天最低 111.5）。
+ * → 今天官方日 K 還沒進來前，個股的成交價、開高低改用 Yahoo 股市（台灣站，即時）；五檔仍用 MIS。
+ */
+async function withYahoo(qs: Quote[]) {
+  const { dates } = getDaily();
+  // 個股／ETF（代號數字開頭；指數是 t00、o00）、今天官方日 K 還沒有、不是週末
+  const need = qs.filter((q) => /^\d/.test(q.c) && twDate(q.time) !== dates.at(-1) && new Date(q.time + 8 * 3600e3).getUTCDay() % 6 !== 0);
+  if (!need.length) return;
+  const yq = await yahooQuotes(need.map((q) => ({ c: q.c, m: q.m }))).catch(() => new Map());
+  for (const q of need) {
+    const y = yq.get(q.c);
+    if (!y || twDate(y.time) !== twDate(q.time)) continue;
+    if (q.up && (y.price > q.up || y.price < q.down)) continue;
+    // Yahoo 比 MIS 舊（量比較少）時只補成交價，開高低保留 MIS
+    if (y.vol >= q.vol * 0.99) { q.open = y.open; q.high = y.high; q.low = y.low; q.vol = Math.max(q.vol, Math.round(y.vol)); }
+    if (q.est || y.time >= q.time) { q.price = y.price; delete q.est; }
+  }
+}
+
+async function misQuotes(chs: string[], budgetMs: number): Promise<Quote[]> {
   const out: Quote[] = [];
   const failed: string[][] = [];
   const deadline = Date.now() + budgetMs;

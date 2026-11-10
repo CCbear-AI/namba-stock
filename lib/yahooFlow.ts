@@ -36,6 +36,18 @@ export async function yahooInOut(stocks: { c: string; m: "tse" | "otc" }[]): Pro
   return out;
 }
 
+export type YQuote = { price: number; open: number; high: number; low: number; vol: number /* 張 */; time: number };
+
+/** 盤中即時成交價與開高低（MIS 成交價常是 "-"、開盤價偶爾不對，用這個補） */
+export async function yahooQuotes(stocks: { c: string; m: "tse" | "otc" }[]): Promise<Map<string, YQuote>> {
+  const out = new Map<string, YQuote>();
+  await stockList(stocks, (code, x) => {
+    const q = { price: n(x.price?.raw), open: n(x.regularMarketOpen?.raw), high: n(x.regularMarketDayHigh?.raw), low: n(x.regularMarketDayLow?.raw), vol: n(x.volume) / 1000, time: Date.parse(x.regularMarketTime ?? "") || 0 };
+    if (q.price > 0 && q.open > 0 && q.high > 0 && q.low > 0 && q.vol > 0 && q.time) out.set(code, q);
+  });
+  return out;
+}
+
 /** 最新成交價（MIS 這一刻沒給成交價的股票用這個補） */
 export async function yahooPrices(stocks: { c: string; m: "tse" | "otc" }[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
