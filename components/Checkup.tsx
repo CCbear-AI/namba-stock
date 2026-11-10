@@ -13,6 +13,14 @@ const LV: Record<Lv, { t: string; c: string }> = {
   n: { t: "參考", c: "var(--dim)" },
 };
 
+/** 9 個燈號分成 4 格：相關的排在同一格，版面比較清爽 */
+const GROUPS = [
+  { name: "技術面", ks: ["trend", "mom", "sr"] },
+  { name: "法人主力", ks: ["inst", "broker"] },
+  { name: "散戶大戶", ks: ["margin", "big"] },
+  { name: "基本消息", ks: ["rev", "news"] },
+];
+
 export default function Checkup({ code }: { code: string }) {
   const [st, setSt] = useState<{ code: string; d: D } | null>(null);
   const d = st?.code === code ? st.d : null; // 換股時舊資料不顯示
@@ -54,16 +62,27 @@ export default function Checkup({ code }: { code: string }) {
             </span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {d.lights.map((l) => (
-              <div key={l.k} className="rounded-lg border border-line bg-panel-2 px-3 py-2 text-[13px]">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: LV[l.lv].c }} />
-                  <b className="font-semibold">{l.name}</b>
-                  <span className="ml-auto text-[12px]" style={{ color: LV[l.lv].c }}>{LV[l.lv].t}</span>
+            {GROUPS.map((g) => {
+              const ls = g.ks.map((k) => d.lights.find((l) => l.k === k)).filter((l): l is C["lights"][number] => !!l);
+              if (!ls.length) return null;
+              return (
+                <div key={g.name} className="rounded-lg border border-line bg-panel-2 px-3 py-2 text-[13px]">
+                  <div className="sub text-[12px] font-semibold mb-1">{g.name}</div>
+                  <div className="grid gap-1.5">
+                    {ls.map((l) => (
+                      <div key={l.k}>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: LV[l.lv].c }} />
+                          <b className="font-semibold">{l.name}</b>
+                          <span className="ml-auto text-[12px]" style={{ color: LV[l.lv].c }}>{LV[l.lv].t}</span>
+                        </div>
+                        <div className="text-text-2 leading-snug pl-4">{l.text}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="text-text-2 leading-snug">{l.text}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
