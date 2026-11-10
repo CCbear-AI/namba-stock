@@ -57,3 +57,32 @@ export function resample(daily: Bar[], tf: "1wk" | "1mo"): Bar[] {
   }
   return out;
 }
+
+const twCache = new Map<string, { at: number; bars: Bar[] }>();
+
+/**
+ * Yahoo 股市（台灣站）今天的 1 分 K：即時、不延遲（國際版 query1 的台股分 K 延遲約 20 分鐘）。
+ * 台灣站時間標在每分鐘「結束」（09:01 那根＝09:00~09:01，含開盤集合競價）→ 減 60 秒對齊國際版；量已經是張。
+ */
+export async function yahooTwMinutes(symbol: string): Promise<Bar[]> {
+  const hit = twCache.get(symbol);
+  if (hit && Date.now() - hit.at < 15_000) return hit.bars;
+  const url = `https://tw.stock.yahoo.com/_td-stock/api/resource/FinanceChartService.ApacLibraCharts;symbols=${encodeURIComponent(JSON.stringify([symbol]))};type=tick`;
+  const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
+  if (!r.ok) throw new Error(`Yahoo TW ${r.status}`);
+  const c = (await r.json())?.[0]?.chart;
+  const q = c?.indicators?.quote?.[0];
+  if (!c?.timestamp || !q) return [];
+  const out: Bar[] = [];
+  c.timestamp.forEach((t: number, i: number) => {
+    const o = q.open[i], cl = q.close[i];
+    if (o == null || cl == null) return;
+    const b = { time: t - 60, open: o, high: q.high[i] ?? Math.max(o, cl), low: q.low[i] ?? Math.min(o, cl), close: cl, volume: q.volume[i] ?? 0 };
+    const last = out[out.length - 1];
+    // 時間重複（例如收盤那筆）就合併，圖表遇到重複時間會整條畫不出來
+    if (last && last.time >= b.time) { last.high = Math.max(last.high, b.high); last.low = Math.min(last.low, b.low); last.close = b.close; last.volume += b.volume; }
+    else out.push(b);
+  });
+  twCache.set(symbol, { at: Date.now(), bars: out });
+  return out;
+}

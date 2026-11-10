@@ -1,5 +1,5 @@
 // K 線資料（/api/candles 與 AI 支撐壓力共用）
-import { yahooBars, yahooSymbol, resample, type TF } from "@/lib/yahoo";
+import { yahooBars, yahooSymbol, yahooTwMinutes, resample, type TF } from "@/lib/yahoo";
 import { sectorDaily, sectorIntraday, taiexDaily } from "@/lib/sector";
 import { BY_CODE } from "@/lib/universe";
 import { misOhlc } from "@/lib/misStats";
@@ -50,6 +50,7 @@ export async function getBars(code: string, tf: TF, { live = true } = {}): Promi
     bars = await get(m);
     if (!bars.length && !s) { m = "otc"; bars = await get(m); }
     if (tf === "1d") bars = await withOfficial(code, m, bars, live);
+    if (live && !wm && tf !== "1d") bars = await liveToday(yahooSymbol(code, m), bars, tf === "1m" ? 1 : Number(tf.slice(0, -1)));
     if (tf === "1m") bars = await closingAuction(code, m, bars);
     if (wm) bars = resample(await withOfficial(code, m, bars.filter((b) => b.volume > 0), live), tf);
   }
@@ -95,6 +96,21 @@ async function withOfficial(code: string, m: "tse" | "otc", bars: Bar[], live: b
     }
   }
   return [...map.values()].sort((a, b) => a.time - b.time);
+}
+
+/**
+ * 分 K 今天的部分改用 Yahoo 台灣站即時 1 分 K（國際版延遲約 20 分鐘，盤中 K 線看起來不會跑）。
+ * 抓不到就維持原本的國際版資料。
+ */
+async function liveToday(symbol: string, bars: Bar[], n: number): Promise<Bar[]> {
+  const tw = await yahooTwMinutes(symbol).catch(() => [] as Bar[]);
+  if (!tw.length) return bars;
+  const day0 = Math.floor((tw[0].time + 8 * 3600) / 86400) * 86400 - 8 * 3600; // 台灣時間當天 00:00
+  const keep = bars.filter((b) => b.time < day0);
+  // 國際版同一天的量比較完整時（例如台灣站只回部分資料）就不換
+  const twVol = tw.reduce((a, b) => a + b.volume, 0), oldVol = bars.filter((b) => b.time >= day0).reduce((a, b) => a + b.volume, 0);
+  if (twVol < oldVol * 0.9) return bars;
+  return [...keep, ...groupMinutes(tw, n)];
 }
 
 /** Yahoo 分鐘線收盤那根（13:30 集合競價）量是 0：用全天成交量扣掉前面每分鐘的量補回去 */
