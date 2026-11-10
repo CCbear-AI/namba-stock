@@ -11,7 +11,7 @@ import { ChipsInst, ChipsBig, Branches, StockSelect } from "@/components/StockCh
 type RankRow = { c: string; n: string; lots: number; amt: number; streak: number };
 type M = {
   error?: string; date: string;
-  market: { f: number; t: number; d: number; dSelf: number; dHedge: number; total: number; fStreak: number; tStreak: number; sum20: number; marginAmt: number; marginChg: number | null; shortLots: number; shortChg: number | null };
+  market: { f: number; t: number; d: number; dSelf: number; dHedge: number; total: number; fStreak: number; tStreak: number; sum20: number; marginAmt: number | null; marginChg: number | null; shortLots: number | null; shortChg: number | null; marginDate: string | null };
   series: { date: string; f: number; t: number; d: number }[];
   futures: { date: string; tx: [number, number, number]; top10: number; pcr: number; retail: number; fOpt: [number, number]; prev: { tx: [number, number, number]; top10: number; pcr: number; retail: number } | null } | null;
   rank: Record<"f" | "t" | "d", { buy: RankRow[]; sell: RankRow[] }>;
@@ -33,6 +33,8 @@ function Chips() {
   if (!data) return <div className="sub py-20 text-center loading">籌碼載入中…</div>;
   if (data.error) return <div className="sub py-20 text-center">{data.error}</div>;
   const m = data.market;
+  // 融資券比法人晚公布：還是前一天的資料時，標題後面標日期
+  const mdNote = m.marginDate && m.marginDate !== data.date ? `（${md(m.marginDate)}）` : "";
   return (
     <div className="grid gap-3" id="chips-area">
       <div className="flex items-center gap-3">
@@ -44,8 +46,8 @@ function Chips() {
         <Card l="投信" v={`${yi(m.t)} 億`} c={m.t} s={streakText(m.tStreak)} />
         <Card l="自營商" v={`${yi(m.d)} 億`} c={m.d} s={`自行買賣 ${yi(m.dSelf)} · 避險 ${yi(m.dHedge)}`} />
         <Card l="三大法人合計" v={`${yi(m.total)} 億`} c={m.total} s={`近 20 日累計 ${sign(m.sum20)}${num(m.sum20, 1)} 億`} />
-        <Card l="融資餘額" v={`${num(m.marginAmt, 1)} 億`} s={m.marginChg != null ? `${sign(m.marginChg)}${num(m.marginChg, 1)} 億` : ""} sc={m.marginChg ?? 0} />
-        <Card l="融券餘額" v={`${(m.shortLots / 1e4).toFixed(1)} 萬張`} s={m.shortChg != null ? `${sg(m.shortChg)} 張` : ""} sc={m.shortChg ?? 0} />
+        <Card l={`融資餘額${mdNote}`} v={m.marginAmt != null ? `${num(m.marginAmt, 1)} 億` : "—"} s={m.marginChg != null ? `${sign(m.marginChg)}${num(m.marginChg, 1)} 億` : ""} sc={m.marginChg ?? 0} />
+        <Card l={`融券餘額${mdNote}`} v={m.shortLots != null ? `${(m.shortLots / 1e4).toFixed(1)} 萬張` : "—"} s={m.shortChg != null ? `${sg(m.shortChg)} 張` : ""} sc={m.shortChg ?? 0} />
       </div>
       <div className="grid gap-3 lg:grid-cols-[1fr_440px]">
         <InstChart series={data.series} />
@@ -94,7 +96,7 @@ function InstChart({ series }: { series: M["series"] }) {
   const W = 100 / series.length;
   return (
     <div className="card">
-      <div className="card-h"><span>法人買賣超 · 近 {series.length} 個交易日<Help>單位：億元 · 紅色買超、綠色賣超 · 滑鼠移到長條上看當日數值。</Help></span>
+      <div className="card-h"><span>法人買賣超 · 近 {series.length} 個交易日<Help>單位：億元 · 紅色買超、綠色賣超 · 滑鼠移到長條上看當日數值。左上「+N 億」、左下「-N 億」是刻度：中間線是 0，長條碰到上緣／下緣代表買超／賣超 N 億（N＝近 20 日最大那天），切換外資／投信／自營商時刻度會跟著變。</Help></span>
         <div className="seg">{([["sum", "合計"], ["f", "外資"], ["t", "投信"], ["d", "自營商"]] as const).map(([id, l]) => <button key={id} className={k === id ? "on" : ""} onClick={() => setK(id)}>{l}</button>)}</div>
       </div>
       {cur && <div className="px-4 text-[13px] mono flex flex-wrap gap-3">
@@ -104,7 +106,8 @@ function InstChart({ series }: { series: M["series"] }) {
       </div>}
       <div className="relative h-[260px] mx-4 my-3" onMouseLeave={() => setHover(null)}>
         <div className="absolute left-0 right-0 top-1/2 border-t border-line" />
-        <span className="absolute left-0 top-0 sub mono">+{num(max)}</span><span className="absolute left-0 bottom-0 sub mono">-{num(max)}</span>
+        {/* 刻度：上緣／下緣＝近 20 日絕對值最大那天的金額（長條高度以它為滿格） */}
+        <span className="absolute left-0 top-0 sub mono z-10 pointer-events-none">+{num(Math.round(max))} 億</span><span className="absolute left-0 bottom-0 sub mono z-10 pointer-events-none">-{num(Math.round(max))} 億</span>
         {series.map((x, i) => {
           const val = v(x), h = (Math.abs(val) / max) * 50;
           return (

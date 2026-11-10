@@ -50,7 +50,7 @@ export async function getBars(code: string, tf: TF, { live = true } = {}): Promi
     bars = await get(m);
     if (!bars.length && !s) { m = "otc"; bars = await get(m); }
     if (tf === "1d") bars = await withOfficial(code, m, bars, live);
-    if (live && !wm && tf !== "1d") bars = await liveToday(yahooSymbol(code, m), bars, tf === "1m" ? 1 : Number(tf.slice(0, -1)));
+    if (live && !wm && tf !== "1d") bars = await fixOpen(code, m, await liveToday(yahooSymbol(code, m), bars, tf === "1m" ? 1 : Number(tf.slice(0, -1))));
     if (tf === "1m") bars = await closingAuction(code, m, bars);
     if (wm) bars = resample(await withOfficial(code, m, bars.filter((b) => b.volume > 0), live), tf);
   }
@@ -111,6 +111,24 @@ async function liveToday(symbol: string, bars: Bar[], n: number): Promise<Bar[]>
   const twVol = tw.reduce((a, b) => a + b.volume, 0), oldVol = bars.filter((b) => b.time >= day0).reduce((a, b) => a + b.volume, 0);
   if (twVol < oldVol * 0.9) return bars;
   return [...keep, ...groupMinutes(tw, n)];
+}
+
+/**
+ * Yahoo 分 K 常漏掉開盤那筆成交（11/10 有 46 檔：伸興官方開 111、Yahoo 第一根開 112.5；3093 整根 09:00 都沒有）
+ * → 今天第一根的開盤改用報價的開盤價（盤中＝MIS，盤後＝官方日 K），高低一併包住開盤價
+ */
+async function fixOpen(code: string, m: "tse" | "otc", bars: Bar[]): Promise<Bar[]> {
+  const last = bars.at(-1);
+  if (!last) return bars;
+  const day0 = Math.floor((last.time + 8 * 3600) / 86400) * 86400 - 8 * 3600;
+  const i = bars.findIndex((b) => b.time >= day0);
+  const [q] = await getQuotes([ch(m, code)]).catch(() => []);
+  if (!q?.open || Math.floor((q.time / 1000 + 8 * 3600) / 86400) * 86400 - 8 * 3600 !== day0) return bars;
+  const f = bars[i];
+  if (f.open === q.open) return bars;
+  const out = bars.slice();
+  out[i] = { ...f, open: q.open, high: Math.max(f.high, q.open), low: Math.min(f.low, q.open) };
+  return out;
 }
 
 /** Yahoo 分鐘線收盤那根（13:30 集合競價）量是 0：用全天成交量扣掉前面每分鐘的量補回去 */

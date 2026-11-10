@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const code = new URL(req.url).searchParams.get("code");
   const chips = getChips();
   if (!chips.length) return Response.json({ error: "還沒有籌碼資料" }, { status: 404 });
-  const last = chips.at(-1)!, prev = chips.at(-2);
+  const last = chips.at(-1)!;
 
   if (code) {
     const rows = chips.map((d) => ({ date: d.date, v: d.s[code] }));
@@ -85,8 +85,17 @@ export async function GET(req: Request) {
       f: m.f, t: m.t, d: m.d, dSelf: m.dSelf, dHedge: m.dHedge, total: r2((m.f ?? 0) + (m.t ?? 0) + (m.d ?? 0)),
       fStreak: streak(chips.map((d) => d.m.f ?? 0)), tStreak: streak(chips.map((d) => d.m.t ?? 0)),
       sum20: r2(series.reduce((a, x) => a + x.f + x.t + x.d, 0)),
-      marginAmt: m.marginAmt, marginChg: prev?.m.marginAmt != null ? r2(m.marginAmt - prev.m.marginAmt) : null,
-      shortLots: m.shortLots, shortChg: prev?.m.shortLots != null ? m.shortLots - prev.m.shortLots : null,
+      // 融資券證交所較晚公布（約 21:30 後），當天還沒有時沿用最近有資料的那天，並回傳日期給頁面標示
+      ...(() => {
+        const mi = chips.findLastIndex((d) => d.m.marginAmt != null);
+        const a = chips[mi], b = chips[mi - 1];
+        if (!a) return { marginAmt: null, marginChg: null, shortLots: null, shortChg: null, marginDate: null };
+        return {
+          marginAmt: a.m.marginAmt, marginChg: b?.m.marginAmt != null ? r2(a.m.marginAmt - b.m.marginAmt) : null,
+          shortLots: a.m.shortLots, shortChg: b?.m.shortLots != null ? a.m.shortLots - b.m.shortLots : null,
+          marginDate: a.date,
+        };
+      })(),
     },
     series,
     futures: f1 ? { date: fk.at(-1), ...f1, prev: f0 ?? null } : null,
