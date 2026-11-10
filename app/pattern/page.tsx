@@ -35,9 +35,9 @@ function Pattern() {
   const ok = data && !data.error && data.code === code;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <div className="flex items-baseline gap-3"><h1 className="text-lg font-bold">相似股</h1><span className="sub">搜尋一檔股票、選一段走勢，到全市場排出形狀最像的股票</span></div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_440px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_440px]">
         <div className="card p-4 self-start">
           <StockPicker onPick={(c) => { setCode(c); setCustom(null); }} />
           <div className="flex flex-wrap items-center gap-2 mt-3 sub">最近看過 {recent.list.filter((c) => c !== code).slice(0, 6).map((c) => <button key={c} className="chip" onClick={() => { setCode(c); setCustom(null); }}>{NAME.get(c) ?? c}</button>)}</div>

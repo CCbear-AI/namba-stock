@@ -57,13 +57,13 @@ function Bar({ pct, color = "var(--gold)" }: { pct: number; color?: string }) {
 /** 個股籌碼：左邊法人近 5 日買賣超，右邊外資持股與信用交易（版面照里長伯） */
 export function ChipsInst({ code }: { code: string }) {
   const c = useChips(code);
-  if (!c) return <div className="sub px-4 pb-4 loading">籌碼載入中…</div>;
-  if (c.error) return <div className="sub px-4 pb-4">{c.error}</div>;
+  if (!c) return <div className="sub px-3 pb-3 loading">籌碼載入中…</div>;
+  if (c.error) return <div className="sub px-3 pb-3">{c.error}</div>;
   const last5 = c.days.slice(-5).reverse();
   const dt = c.dates ?? { margin: c.date, qfii: c.date, sbl: c.date, dayTrade: c.date };
   const sum = [1, 2, 3].map((k) => last5.reduce((a, d) => a + (d[k] as number), 0));
   return (
-    <div className="@container px-4 pb-4"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
+    <div className="@container px-3 pb-3"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
       <div>
         <div className="flex items-baseline mb-1"><b className="text-[13px]">法人近 5 日買賣超</b><span className="sub ml-auto">單位：張</span></div>
         <table className="tbl text-[13px] [&_td]:px-1.5! [&_th]:px-1.5!">
@@ -91,11 +91,11 @@ export function ChipsInst({ code }: { code: string }) {
 /** 大戶持股、當沖與借券 */
 export function ChipsBig({ code }: { code: string }) {
   const c = useChips(code);
-  if (!c) return <div className="sub px-4 pb-4 loading">籌碼載入中…</div>;
-  if (c.error) return <div className="sub px-4 pb-4">{c.error}</div>;
+  if (!c) return <div className="sub px-3 pb-3 loading">籌碼載入中…</div>;
+  if (c.error) return <div className="sub px-3 pb-3">{c.error}</div>;
   const dt = c.dates ?? { margin: c.date, qfii: c.date, sbl: c.date, dayTrade: c.date };
   return (
-    <div className="@container px-4 pb-4"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
+    <div className="@container px-3 pb-3"><div className="grid gap-5 @[540px]:grid-cols-2 [&>*]:min-w-0">
       <div>
         <div className="flex items-baseline text-[13px]"><span className="text-text-2">千張大戶持股比例<Help>集保每週公布{c.tdcc ? `（資料日期 ${md(c.tdcc.date)}）` : ""}，增減是跟前一週比；大戶增加、股東人數減少代表籌碼集中。</Help></span><span className="ml-auto mono">{c.tdcc ? `${c.tdcc.big.toFixed(2)}%` : "—"}</span>{c.tdcc?.bigChg != null && <span className={`mono ml-2 text-[12px] ${cls(c.tdcc.bigChg)}`}>{pctChg(c.tdcc.bigChg)}</span>}</div>
         {c.tdcc && <Bar pct={c.tdcc.big} />}
@@ -133,7 +133,7 @@ export function Branches({ code, head }: { code: string; head?: React.ReactNode 
   return (
     <>
     {head ? <div className="card-h" style={{ justifyContent: "flex-start" }}>{head}<span className="ml-auto">{seg}</span></div> : null}
-    <div className="px-4 pb-4">
+    <div className="px-3 pb-3">
       {!head && <div className="flex items-center gap-2 mb-3">{seg}</div>}
       {!b ? <div className="sub loading">讀取券商分點…</div> : b.error ? <div className="sub">{b.error}</div> : (
         <>

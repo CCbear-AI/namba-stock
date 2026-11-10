@@ -58,7 +58,7 @@ function Screener() {
   const alertRule = rules.find((r) => r.kind === "strategy" && [...(r.conds ?? [])].sort().join(",") === key);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+    <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
       <div className="card self-start lg:sticky lg:top-28 flex flex-col max-h-[calc(100vh-8rem)]">
         <div className="card-h text-[16px]">條件選股</div>
         <div className="px-4 sub">快速策略</div>
@@ -140,7 +140,7 @@ function Screener() {
           {data && !hits.length && <div className="sub text-center py-10">{conds.length ? "目前沒有股票同時符合這些條件" : "勾選左邊的條件開始選股"}</div>}
           {!data && <div className="sub text-center py-10 loading">正在掃描上市櫃全部個股…</div>}
         </div>
-        <div className="px-4 pb-4 sub leading-relaxed">
+        <div className="px-3 pb-3 sub leading-relaxed">
           篩選結果不構成投資建議 · 條件定義請看左邊「篩選條件」旁的問號 · <Link href="/alerts" className="text-[var(--gold)]">管理提醒</Link>
         </div>
       </div>

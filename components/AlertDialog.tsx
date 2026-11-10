@@ -17,7 +17,7 @@ export default function AlertDialog({ code, name, price, onClose }: { code: stri
   const pick = (k: typeof kind) => { setKind(k); setDir(k === "pct" ? "up" : "above"); setValue(k === "pct" ? "3" : String(price || "")); };
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
-      <div role="dialog" aria-label="設定提醒" className="card w-full max-w-[420px] p-5 grid gap-4" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-label="設定提醒" className="card w-full max-w-[420px] p-5 grid gap-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center font-semibold text-[16px]">設定提醒<button className="ml-auto text-text-2 hover:text-text" aria-label="關閉" onClick={onClose}>✕</button></div>
         <div className="flex"><span className="mono text-text-2 mr-2">{code}</span><b>{name}</b><span className="ml-auto sub">現價 {price.toLocaleString()}</span></div>
         <div className="seg grid grid-cols-3">{([["price", "到價"], ["pct", "漲跌幅"], ["limit", "漲跌停"]] as const).map(([k, l]) => <button key={k} className={kind === k ? "on" : ""} onClick={() => pick(k)}>{l}</button>)}</div>

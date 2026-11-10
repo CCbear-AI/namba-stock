@@ -38,7 +38,7 @@ export default function HeatmapPage() {
   const pl = PERIODS.find((x) => x.k === period)!.l;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-bold">大盤熱力圖<Help>紅色上漲、綠色下跌，面積越大代表{sizeBy === "cap" ? "市值" : "成交值"}越大。顯示 {indCount} 個產業中{sizeBy === "cap" ? "市值" : "成交值"}最大的 {shown.length} 檔（佔全體個股{sizeBy === "cap" ? "市值" : "成交值"} {share}%）；產業標題是整個產業的市值加權漲跌幅。{period !== "d" && "近 N 日是對比 N 個交易日前收盤，未還原除權息。"}</Help></h1>
         <span className="sub">漲跌週期</span>
@@ -50,12 +50,12 @@ export default function HeatmapPage() {
         <Legend cap={period === "d" ? 10 : period === 5 ? 15 : 35} />
         <ExportBtn name="大盤熱力圖" target={() => document.getElementById("heatmap-area")} />
       </div>
-      <div id="heatmap-area" className="grid gap-4 xl:grid-cols-[1fr_260px]">
+      <div id="heatmap-area" className="grid gap-3 xl:grid-cols-[1fr_260px]">
         <div className="card p-2 overflow-hidden">
           <Heatmap rows={shown} period={period} sizeBy={sizeBy} perGroup={TOP} groupPct={groupPct} ratio={0.72} maxH={1100} minH={480} />
         </div>
         {/* 寬螢幕在熱力圖右邊直排；不夠寬掉到下面時三張並排，不要每張都拉滿整列 */}
-        <div className="grid gap-4 content-start items-start md:grid-cols-[1.3fr_1fr_1fr] xl:grid-cols-1">
+        <div className="grid gap-3 content-start items-start md:grid-cols-[1.3fr_1fr_1fr] xl:grid-cols-1">
           <div className="card">
             <div className="card-h">類股漲跌排行 <span className="sub">{pl}</span></div>
             <div className="scroll-y max-h-[164px] xl:max-h-[320px] px-4 pb-3 text-[13px]">

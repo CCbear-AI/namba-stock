@@ -185,7 +185,7 @@ export default function FlowLive() {
   };
 
   return (
-    <div className="grid gap-4 pb-28">
+    <div className="grid gap-3 pb-28">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-bold">資金板塊即時流向</h1>
         {live && <span className="chip">● 即時 · 每 30 秒</span>}
@@ -222,7 +222,7 @@ export default function FlowLive() {
         <div className="card p-8 text-center text-text-2">{daysResp && (!days.length || data) ? "還沒有任何一天的盤中紀錄。記錄程式會在交易日 09:00–13:30 每 30 秒記一筆，每天存檔。" : <span className="loading">資料載入中…</span>}</div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-3">
             <div className="card px-5 py-4">
               <div className="sub">{mode === "theme" ? "族群合計主動買賣淨額" : "全市場主動買賣淨額"} · {winLabel}</div>
               <div className={`mono text-3xl font-semibold mt-1 ${cls(total)}`}>{yi(total, 1)} <span className="text-[15px]">億</span></div>
@@ -237,7 +237,7 @@ export default function FlowLive() {
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
+          <div className="grid gap-3 lg:grid-cols-[1fr_400px]">
             <div className="card">
               <div className="card-h"><span>資金河道<Help>{mode === "theme" && "族群是整理的概念股清單（一檔可屬於多個族群，合計會重複計算）。"}主動買賣淨額＝外盤成交金額 − 內盤成交金額，依每 30 秒兩次快照之間的成交量與五檔推算（估計值）。河道越粗代表成交越大，點一條看明細。</Help></span><span className="sub">{winLabel}的主動買賣淨額</span></div>
               <div className="grid grid-cols-[120px_1fr_90px] px-5 text-[12px]"><span /><span className="flex justify-center gap-3"><span className="down">流出</span><span className="up">流入</span></span><span /></div>
@@ -255,7 +255,7 @@ export default function FlowLive() {
                   <span className="flex items-center gap-2"><i className="w-2.5 h-2.5 rounded-full" style={{ background: GROUP_COLOR[groupOf(sel.k)] }} />{sel.k}</span>
                   <span className="sub">{sel.k === best?.k ? "吸金最多 · " : sel.k === worst?.k ? "失血最多 · " : ""}點河道換板塊</span>
                 </div>
-                <div className="px-4 pb-4 grid gap-3">
+                <div className="px-3 pb-3 grid gap-3">
                   {(() => { const s = stance(sel.dayNet, sel.chg); return <span className={`chip justify-self-start w-fit !text-[13px] ${s.c === "up" ? "!bg-[#3a1518] !text-[var(--up)]" : "!bg-[#11301f] !text-[var(--down)]"}`}>{s.t}</span>; })()}
                   <div className="grid grid-cols-3 gap-2 text-[13px]">
                     <div className="bg-panel-2 rounded-lg p-2.5"><div className="sub">漲跌幅</div><div className={`mono text-[15px] ${cls(sel.chg)}`}>{pct(sel.chg)}</div></div>

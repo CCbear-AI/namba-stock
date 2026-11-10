@@ -33,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Header />
           <AlertWatcher />
         </HideOnLogin>
-        <main className="flex-1 w-full max-w-[1440px] mx-auto px-3 sm:px-4 py-4">{children}</main>
+        <main className="flex-1 w-full max-w-[1440px] mx-auto px-2 sm:px-3 py-3">{children}</main>
       </body>
     </html>
   );

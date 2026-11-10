@@ -42,7 +42,7 @@ export default function Taiex() {
   const ratio = o && o.askLots ? o.bidLots / o.askLots : 0;
 
   return (
-    <div className="grid gap-4" id="taiex-area">
+    <div className="grid gap-3" id="taiex-area">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-bold">大盤</h1>
         {t?.futures?.price ? <span className="mono text-[13px]"><span className="text-text-2">台指期近一</span> {num(t.futures.price)} <span className={cls(t.futures.chg)}>{t.futures.chg > 0 ? "+" : ""}{num(t.futures.chg)}</span> <span className="text-text-2 ml-2">{t.futures.basis >= 0 ? "正價差" : "逆價差"}</span> <span className={cls(t.futures.basis)}>{yi(t.futures.basis)}</span></span> : null}
@@ -50,7 +50,7 @@ export default function Taiex() {
         <Link href="/chips" className="sub hover:text-text">完整籌碼 ›</Link>
         <ExportBtn name="大盤" target={() => document.getElementById("taiex-area")} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_440px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_440px]">
         <div className="card overflow-hidden">
           <div className="px-4 pt-4 flex items-baseline gap-3 flex-wrap">
             <div className="seg"><button className={idx === "t00" ? "on" : ""} onClick={() => setIdx("t00")}>加權指數</button><button className={idx === "o00" ? "on" : ""} onClick={() => setIdx("o00")}>櫃買指數</button></div>
@@ -59,7 +59,7 @@ export default function Taiex() {
           </div>
           <KChart key={idx} code={idx === "t00" ? "TAIEX" : "OTC"} title={idx === "t00" ? "加權指數" : "櫃買指數"} prev={q?.prev} height={420} defaultTf="1d" />
           {b && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 pb-4 pt-2 text-[13px]">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-3 pb-3 pt-2 text-[13px]">
               <div><div className="sub">成交金額</div><div className="mono text-lg">{num(b.value)} 億</div></div>
               <div><div className="sub">漲停 / 跌停</div><div className="mono text-lg"><span className="up">{b.limitUp}</span> / <span className="down">{b.limitDown}</span></div></div>
               <div><div className="sub">三大法人{ch ? `（${md(ch.date)}）` : ""}</div><div className={`mono text-lg ${cls(ch?.market.total ?? 0)}`}>{ch ? `${yi(ch.market.total)} 億` : "—"}</div></div>
@@ -69,11 +69,11 @@ export default function Taiex() {
           )}
         </div>
 
-        <div className="grid gap-4 content-start">
+        <div className="grid gap-3 content-start">
           <div className="card">
             <div className="card-h">買賣力道 <span className="sub">上市 · {m ? hm(m.time) : ""}</span><ExportBtn icon name="買賣力道" /></div>
             {o ? (
-              <div className="px-4 pb-4">
+              <div className="px-3 pb-3">
                 <div className="flex items-baseline"><span className="sub">委買 ÷ 委賣（張）</span><span className="ml-auto sub">{ratio >= 1 ? "買盤掛單多於賣盤" : "賣盤掛單多於買盤"}</span></div>
                 <div className={`mono text-3xl font-semibold ${ratio >= 1 ? "up" : "down"}`}>{ratio.toFixed(2)}</div>
                 <div className="flex h-2 rounded overflow-hidden mt-2"><div style={{ flex: o.bidLots, background: "var(--up)" }} /><div style={{ flex: o.askLots, background: "var(--down)" }} /></div>
@@ -81,12 +81,12 @@ export default function Taiex() {
                 <OrdersLine line={t!.ordersLine} />
                 <div className="flex justify-between mono text-[12px] text-text-2 mt-2"><span>每筆委買 {(o.bidLots / Math.max(1, o.bidCnt)).toFixed(1)} 張</span><span>每筆委賣 {(o.askLots / Math.max(1, o.askCnt)).toFixed(1)} 張</span><span>成交 {num(o.value)} 億</span></div>
               </div>
-            ) : <div className="sub px-4 pb-4">{t ? "目前沒有委託統計" : "載入中…"}</div>}
+            ) : <div className="sub px-3 pb-3">{t ? "目前沒有委託統計" : "載入中…"}</div>}
           </div>
           {t && (
             <div className="card">
               <div className="card-h"><span>權值股貢獻點數<Help>估算方式：個股市值變動 ÷ 上市總市值 × 加權指數昨收。拉抬、拖累各列前五名，長條共用同一個比例。</Help></span><span className="sub">加權指數 · 估算</span><ExportBtn icon name="權值股貢獻點數" /></div>
-              <div className="grid grid-cols-2 gap-4 px-4 pb-4 text-[13px]">
+              <div className="grid grid-cols-2 gap-4 px-3 pb-3 text-[13px]">
                 {[{ t: "拉抬", s: t.contrib.upSum, l: t.contrib.up }, { t: "拖累", s: t.contrib.downSum, l: t.contrib.down }].map((x) => (
                   <div key={x.t}>
                     <div className="flex sub"><span>{x.t}</span><span className={`ml-auto mono ${cls(x.s)}`}>{yi(x.s)} 點</span></div>
@@ -104,7 +104,7 @@ export default function Taiex() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         <div className="card">
           <div className="card-h">漲跌家數<div className="seg">{(["all", "tse", "otc"] as const).map((k) => <button key={k} className={mkt === k ? "on" : ""} onClick={() => setMkt(k)}>{k === "all" ? "全部" : k === "tse" ? "上市" : "上櫃"}</button>)}</div><ExportBtn icon name="漲跌家數" /></div>
           <div className="px-4 grid grid-cols-3 text-center text-[13px]">
@@ -112,12 +112,12 @@ export default function Taiex() {
             <div><div className="sub">平盤</div><div className="mono text-lg">{rows.filter((r) => r.pct === 0).length}</div></div>
             <div><div className="sub">下跌</div><div className="mono text-lg down">{rows.filter((r) => r.pct < 0).length}</div></div>
           </div>
-          <div className="px-4 pb-4 pt-2"><Distribution rows={rows} height={170} /></div>
+          <div className="px-3 pb-3 pt-2"><Distribution rows={rows} height={170} /></div>
         </div>
         <div className="card">
           <div className="card-h">法人與信用 <span className="sub">{ch ? md(ch.date) : ""}</span><Link href="/chips" className="sub hover:text-text">籌碼 ›</Link></div>
           {ch ? (
-            <div className="px-4 pb-4 text-[13px]">
+            <div className="px-3 pb-3 text-[13px]">
               {[["三大法人合計", ch.market.total], ["外資", ch.market.f], ["投信", ch.market.t], ["自營商", ch.market.d]].map(([l, v]) => (
                 <div key={l as string} className="flex py-1.5 border-t border-[#1c1f24]"><span>{l}</span><span className={`ml-auto mono ${cls(v as number)}`}>{yi(v as number)} 億</span></div>
               ))}
@@ -128,7 +128,7 @@ export default function Taiex() {
                 <div className="flex py-1.5 border-t border-[#1c1f24]"><span>選擇權 Put/Call 比{ch.futures.date ? <span className="sub">（{md(ch.futures.date)}）</span> : null}</span><span className="ml-auto mono">{ch.futures.pcr ? `${ch.futures.pcr.toFixed(2)}%` : "—"}</span><span className="mono w-16 text-right text-text-2">{ch.futures.pcr && ch.futures.prev?.pcr ? `${ch.futures.pcr - ch.futures.prev.pcr > 0 ? "+" : ""}${(ch.futures.pcr - ch.futures.prev.pcr).toFixed(2)}` : ""}</span></div>
               </>}
             </div>
-          ) : <div className="sub px-4 pb-4">載入中…</div>}
+          ) : <div className="sub px-3 pb-3">載入中…</div>}
         </div>
         <div className="card">
           <div className="card-h">類股漲跌 <span className="sub">市值加權</span><Link href="/heatmap" className="sub hover:text-text">熱力圖 ›</Link></div>
@@ -147,7 +147,7 @@ export default function Taiex() {
       {t && (
         <div className="card">
           <div className="card-h">國際行情 <span className="sub">延遲報價</span></div>
-          <div className="grid gap-3 px-4 pb-4">
+          <div className="grid gap-3 px-3 pb-3">
             {["美股", "美股期貨", "亞洲", "匯率與利率"].map((g) => (
               <div key={g}>
                 <div className="sub mb-1.5">{g}</div>

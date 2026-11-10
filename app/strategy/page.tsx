@@ -104,7 +104,7 @@ export default function Page() {
   };
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <div>
         <h1 className="text-lg font-bold flex items-center gap-1">AI 策略回測<Help>{HELP}</Help></h1>
         <div className="sub">說出選股想法 → 整理成規則流程 → 用近半年資料回測</div>
@@ -122,7 +122,7 @@ export default function Page() {
         <span className="mono sub">{saved.length}/{MAX}</span>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(300px,2fr)_3fr] items-start">
+      <div className="grid gap-3 lg:grid-cols-[minmax(300px,2fr)_3fr] items-start">
         <div className="card flex flex-col lg:sticky lg:top-28 h-[calc(100vh-15rem)] min-h-[420px]">
           <div ref={chatBox} className="scroll-y flex-1 px-4 pt-4 pb-2 grid gap-3 content-start">
             {!chat.length && (

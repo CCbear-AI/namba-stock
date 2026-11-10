@@ -45,7 +45,7 @@ export default function Limits() {
   };
 
   return (
-    <div className="grid gap-4" id="limits-area">
+    <div className="grid gap-3" id="limits-area">
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-bold">漲跌停監控</h1><span className="sub">漲跌幅限制 ±10% · {data?.open ? "盤中每 40 秒更新" : "已收盤"}</span>
         <span className="ml-auto"><ExportBtn name="漲跌停監控" target={() => document.getElementById("limits-area")} /></span>
@@ -58,11 +58,11 @@ export default function Limits() {
           <div className="h-1.5 bg-panel-2 rounded mt-2"><div className="h-full bg-[var(--up)] rounded" style={{ width: `${sealRate}%` }} /></div><div className="sub mt-1">鎖住 {lockedN} 檔</div></div>
         <Card l="最高連續漲停" v={best ? `${best.limStreak} 天` : "—"} c="up" s={best ? `${best.c} ${best.n} · ${best.ind}` : ""} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card"><div className="card-h">漲跌幅分布 <span className="sub">上市櫃個股 {rows.length.toLocaleString()} 檔</span></div><div className="px-4 pb-4"><Distribution rows={rows} /></div></div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="card"><div className="card-h">漲跌幅分布 <span className="sub">上市櫃個股 {rows.length.toLocaleString()} 檔</span></div><div className="px-3 pb-3"><Distribution rows={rows} /></div></div>
         <div className="card">
           <div className="card-h">漲停族群分布 <span className="sub">點族群篩選個股表格</span></div>
-          <div className="scroll-y max-h-[220px] px-4 pb-4">
+          <div className="scroll-y max-h-[220px] px-3 pb-3">
             {byInd.map(([k, v]) => (
               <button key={k} onClick={() => setInd(ind === k ? null : k)} className={`w-full flex items-center gap-3 py-1 rounded ${ind === k ? "text-[var(--gold-2)]" : ""}`}>
                 <span className="w-24 text-left truncate">{k}</span>

@@ -34,7 +34,7 @@ function Chips() {
   if (data.error) return <div className="sub py-20 text-center">{data.error}</div>;
   const m = data.market;
   return (
-    <div className="grid gap-4" id="chips-area">
+    <div className="grid gap-3" id="chips-area">
       <div className="flex items-center gap-3">
         <h1 className="text-[16px] font-semibold">籌碼分析<Help>法人買賣超與融資券每日盤後公布；排行只列個股（不含 ETF），金額（億）以買賣超張數 × 成交價估算。點排行的一列，個股籌碼、大戶與主力分點會換成那一檔。</Help></h1><span className="sub">大盤法人動向 · 資料日期 {data.date.replace(/-/g, "/")}（盤後公布）</span>
         <span className="ml-auto"><ExportBtn name="籌碼分析" target={() => document.getElementById("chips-area")} /></span>
@@ -47,16 +47,16 @@ function Chips() {
         <Card l="融資餘額" v={`${num(m.marginAmt, 1)} 億`} s={m.marginChg != null ? `${sign(m.marginChg)}${num(m.marginChg, 1)} 億` : ""} sc={m.marginChg ?? 0} />
         <Card l="融券餘額" v={`${(m.shortLots / 1e4).toFixed(1)} 萬張`} s={m.shortChg != null ? `${sg(m.shortChg)} 張` : ""} sc={m.shortChg ?? 0} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_440px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_440px]">
         <InstChart series={data.series} />
         {data.futures && <Futures f={data.futures} />}
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <Rank title="買超排行" rank={data.rank} side="buy" date={data.date} sel={code} onPick={setCode} />
         <Rank title="賣超排行" rank={data.rank} side="sell" date={data.date} sel={code} onPick={setCode} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2 items-start">
-        <div className="grid gap-4">
+      <div className="grid gap-3 lg:grid-cols-2 items-start">
+        <div className="grid gap-3">
           <div className="card">
             <div className="card-h" style={{ justifyContent: "flex-start" }}>個股籌碼<StockSelect code={code} onPick={setCode} /><Link href={`/stock/${code}`} className="sub hover:text-text">看個股</Link></div>
             <ChipsInst code={code} />
@@ -125,7 +125,7 @@ function Futures({ f }: { f: NonNullable<M["futures"]> }) {
   return (
     <div className="card">
       <div className="card-h">期貨與選擇權籌碼 <span className="sub">資料日期 {md(f.date)}</span></div>
-      <div className="px-4 pb-4 text-[13px]">
+      <div className="px-3 pb-3 text-[13px]">
         <table className="tbl"><thead><tr><th>台指期淨未平倉<Help align="right">淨未平倉為正是淨多單、為負是淨空單。</Help></th><th>口數</th><th>較前一日</th></tr></thead>
           <tbody>{(["外資", "投信", "自營商"] as const).map((w, k) => <tr key={w}><td>{w}</td><td className={`mono ${cls(f.tx[k])}`}>{sg(f.tx[k])} 口</td><td className={`mono ${cls(f.tx[k] - (f.prev?.tx[k] ?? f.tx[k]))}`}>{d(f.tx[k], f.prev?.tx[k])} 口</td></tr>)}</tbody>
         </table>

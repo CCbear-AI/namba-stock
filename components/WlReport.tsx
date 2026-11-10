@@ -55,8 +55,8 @@ export default function WlReport({ codes, name }: { codes: string[]; name: strin
         <span className="inline-flex items-center">收盤報告<Help>用盤後資料整理這個群組當天的重點：漲跌、量能、法人、融資、主力分點、隔日沖、重大訊息。數字由程式計算；上面幾句重點由 AI 根據這些數字撰寫，每組股票每個交易日寫一次。分點資料晚上 22:00 後才進來，進來後重點會重寫。不是買賣建議。</Help></span>
         {d?.date && <span className="sub mono">{d.date.slice(5).replace("-", "/")} 收盤{d.brokers ? "" : " · 分點晚上才有"}</span>}
       </div>
-      {!d ? <div className="sub px-4 pb-4 loading">整理中…</div> : d.error ? <div className="sub px-4 pb-4">{d.error}</div> : (
-        <div className="px-4 pb-4 grid gap-3">
+      {!d ? <div className="sub px-3 pb-3 loading">整理中…</div> : d.error ? <div className="sub px-3 pb-3">{d.error}</div> : (
+        <div className="px-3 pb-3 grid gap-3">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px]">
             <span>漲 <b className="text-up mono">{d.up}</b></span>
             <span>跌 <b className="text-down mono">{d.down}</b></span>

@@ -51,8 +51,8 @@ export default function Checkup({ code }: { code: string }) {
         <Help>燈號全部由程式用盤後資料計算（日K、法人、融資、集保大戶、分點換手、月營收、支撐壓力），每個交易日更新；「強／弱」只看資料狀態，不是買賣建議。AI 總結由 AI 根據燈號撰寫，每檔每天寫一次。</Help>
         {d && !d.error && <span className="sub ml-auto mono">{d.date.slice(5).replace("-", "/")} 收盤</span>}
       </div>
-      {!d ? <div className="sub px-4 pb-4 loading">體檢中…</div> : d.error ? <div className="sub px-4 pb-4">{d.error}</div> : (
-        <div className="px-4 pb-4 grid gap-3">
+      {!d ? <div className="sub px-3 pb-3 loading">體檢中…</div> : d.error ? <div className="sub px-3 pb-3">{d.error}</div> : (
+        <div className="px-3 pb-3 grid gap-3">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="text-lg font-bold" style={{ color }}>{d.verdict}</span>
             <span className="sub mono">強 {d.good} · 弱 {d.bad}</span>

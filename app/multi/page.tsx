@@ -46,7 +46,7 @@ function Multi() {
   };
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-bold">多股看盤</h1>
         <div className="seg">{[2, 4, 6, 9].map((k) => <button key={k} className={n === k ? "on" : ""} onClick={() => setN(k)}>{k} 檔</button>)}</div>
@@ -67,7 +67,7 @@ function Multi() {
         </div>
         <ExportBtn name="多股看盤" target={() => grid.current} />
       </div>
-      <div ref={grid} className={`grid gap-4 ${cols}`}>
+      <div ref={grid} className={`grid gap-3 ${cols}`}>
         {codes.slice(0, n).map((c, i) => {
           const r = rows.get(c);
           const rangePct = span === "day" ? null : ranges[`${c}:${span}`] ?? null;

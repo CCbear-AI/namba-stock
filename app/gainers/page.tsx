@@ -53,7 +53,7 @@ export default function Gainers() {
   const toggleSel = (c: string) => setSel((s) => (s.includes(c) ? s.filter((x) => x !== c) : [...s, c].slice(-9)));
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <div className="flex items-end gap-3">
         <div>
           <h1 className="text-3xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>漲幅排行</h1>
@@ -81,7 +81,7 @@ export default function Gainers() {
         <span className="ml-auto sub inline-flex items-center">計算方式<Help align="right">只列上漲的股票；{p === "d" ? "漲幅以昨收為基準。" : `對比 ${p} 個交易日前收盤，未還原除權息。`}</Help></span>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_340px]">
         <div className="card">
           <div className="card-h">
             <span>{PL[p]}漲幅排行 <span className="chip ml-1">{list.length.toLocaleString()}</span><div className="sub mt-1">漲幅由高到低，同幅度依成交值排序</div></span>
@@ -135,7 +135,7 @@ export default function Gainers() {
               <div className="flex items-baseline gap-3 mt-2"><span className={`mono text-4xl ${cls(cur.chg)}`}>{price(cur.price)}</span><span className={`mono ${cls(cur.pct)}`}>{pct(cur.pct)} 今日</span></div>
             </div>
             <MiniChart code={cur.c} span="day" prev={cur.prev} height={220} />
-            <div className="grid grid-cols-2 gap-2 px-4 pb-4 text-[13px] mono">
+            <div className="grid grid-cols-2 gap-2 px-3 pb-3 text-[13px] mono">
               <div><span className="sub">成交值</span> {cur.value.toFixed(1)} 億</div>
               <div><span className="sub"><Term tip={VR_HELP}>量比</Term></span> {cur.vr.toFixed(1)}x</div>
               <div><span className="sub">近5日</span> <span className={cls(cur.d5)}>{pct(cur.d5)}</span></div>

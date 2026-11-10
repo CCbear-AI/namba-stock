@@ -53,12 +53,12 @@ function Bars({ data, unit }: { data: [string, number | null][]; unit: string })
 
 export default function Fundamental({ code }: { code: string }) {
   const { data: f } = usePoll<F>(`/api/fundamental?code=${code}`);
-  if (!f) return <div className="sub px-4 pb-4 loading">基本面載入中…</div>;
-  if (f.etf) return <div className="sub px-4 pb-4">ETF 沒有本益比、營收、財報這類基本面資料</div>;
-  if (f.error) return <div className="sub px-4 pb-4">{f.error}</div>;
+  if (!f) return <div className="sub px-3 pb-3 loading">基本面載入中…</div>;
+  if (f.etf) return <div className="sub px-3 pb-3">ETF 沒有本益比、營收、財報這類基本面資料</div>;
+  if (f.error) return <div className="sub px-3 pb-3">{f.error}</div>;
   const { valuation: v, revenue: r, profit: p } = f;
   return (
-    <div className="grid gap-5 px-4 pb-4 md:grid-cols-3">
+    <div className="grid gap-5 px-3 pb-3 md:grid-cols-3">
       <section>
         <div className="text-[13px] font-semibold mb-2">估值 {v && <span className="sub font-normal">{md(v.date)}</span>}</div>
         {v ? (

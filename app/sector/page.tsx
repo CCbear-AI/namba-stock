@@ -36,7 +36,7 @@ export default function SectorPage() {
   const stockRow = stock ? m?.stocks.find((s) => s.c === stock) : null;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-bold">類股 K 線</h1>
         <div className="seg">
@@ -55,7 +55,7 @@ export default function SectorPage() {
         ))}
         {!list.length && <span className="loading">類股載入中…</span>}
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_340px]">
         <div className="card overflow-hidden">
           <div className="px-4 pt-3 flex items-baseline gap-3 flex-wrap">
             {stock ? (

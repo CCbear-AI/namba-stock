@@ -28,7 +28,7 @@ export default function NewsCard({ code }: { code: string }) {
         <span className="sub mr-auto">近 60 天</span>
         <div className="seg"><button className={t === "news" ? "on" : ""} onClick={() => { setTab("news"); setAll(false); }}>新聞 {news.length || ""}</button><button className={t === "ann" ? "on" : ""} onClick={() => { setTab("ann"); setAll(false); }}>重大訊息 {main.length || ""}</button></div>
       </div>
-      {!data ? <div className="sub px-4 pb-4 loading">載入中…</div> : (
+      {!data ? <div className="sub px-3 pb-3 loading">載入中…</div> : (
         <div className="px-4 pb-3 grid gap-1 text-[13px]">
           {dg && (
             <div className="flex gap-2 items-baseline rounded-lg bg-panel-2 px-3 py-2 mb-1">

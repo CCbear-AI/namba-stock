@@ -45,8 +45,8 @@ body {
 .flat { color: var(--flat); }
 
 /* 卡片：大圓角、無外框，頂邊一條微亮線＋陰影（跟里長伯一致） */
-.card { background: var(--panel); border: 1px solid transparent; border-radius: 22px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035), 0 4px 14px rgba(0, 0, 0, .32); }
-.card-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; font-family: var(--font-serif); font-size: 14px; font-weight: 600; letter-spacing: .04em; gap: 8px; }
+.card { background: var(--panel); border: 1px solid transparent; border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035), 0 4px 14px rgba(0, 0, 0, .32); }
+.card-h { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 6px; font-family: var(--font-serif); font-size: 14px; font-weight: 600; letter-spacing: .04em; gap: 8px; }
 .card-h .sub, .card-h button, .card-h a, .card-h .seg { font-family: var(--font-plex-sans), "Noto Sans TC", sans-serif; letter-spacing: 0; }
 .sub { color: var(--text-2); font-size: 12px; font-weight: 400; }
 

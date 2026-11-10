@@ -46,7 +46,7 @@ export default function StockPage() {
   });
 
   return (
-    <div className="grid gap-4" id="stock-area">
+    <div className="grid gap-3" id="stock-area">
       <div className="card px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           {picking ? <StockPicker autoFocus className="w-72" onPick={(c) => { setPicking(false); router.push(`/stock/${c}`); }} placeholder="換一檔：代號或名稱" />
@@ -90,15 +90,15 @@ export default function StockPage() {
 
       <Checkup code={code} />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_340px]">
         <div className="card overflow-hidden"><KChart code={code} title={`${code}${q?.n ?? ""}`} prev={q?.prev} height={500} /></div>
-        <div className="grid gap-4 content-start">
+        <div className="grid gap-3 content-start">
           {q && Array.isArray(q.bid) && <Book q={q} />}
           <Ticks code={code} />
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <div className="card">
           <div className="card-h">個股籌碼 <Link href={`/chips?code=${code}`} className="text-[13px] text-[var(--gold)]">看完整籌碼 ›</Link></div>
           <ChipsSummary code={code} />

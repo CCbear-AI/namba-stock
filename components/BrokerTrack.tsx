@@ -16,7 +16,7 @@ export default function BrokerTrack({ onStock, code = "2330" }: { onStock: (c: s
   const items = useMemo(() => tr.list.map((t) => `${t.c}:${t.id}`).join(","), [tr.list]);
   const { data } = usePoll<TV>(items ? `/api/brokers?view=track&items=${items}` : null);
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <div className="px-4 grid gap-2">
         <div className="flex flex-wrap items-center gap-3"><span className="font-semibold">新增追蹤</span><span className="sub">選一檔股票，再點分點就加入（也可以在「分點」頁的分點 K 線按「追蹤這組」）</span></div>
         <div className="flex flex-wrap items-center gap-2">

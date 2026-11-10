@@ -72,7 +72,7 @@ export default function Home() {
         </div>
         <KChart key={idx} code={idx === "t00" ? "TAIEX" : "OTC"} prev={q?.prev} tf={idxTf} line={idxLine} height={phone ? 200 : 300} showVolume={false} compact />
         {b && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 pb-4 pt-2 text-[13px]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-3 pb-3 pt-2 text-[13px]">
             <div><div className="sub">成交金額</div><div className="mono text-lg">{num(b.value)} 億</div></div>
             <div><div className="sub">漲停 / 跌停</div><div className="mono text-lg"><span className="up">{b.limitUp}</span> / <span className="down">{b.limitDown}</span></div></div>
             <div><div className="sub">三大法人{ch ? `（${md(ch.date)}）` : ""}</div><div className={`mono text-lg ${cls(ch?.market.total ?? 0)}`}>{ch ? `${ch.market.total > 0 ? "+" : ""}${ch.market.total.toFixed(2)} 億` : "—"}</div></div>
@@ -121,13 +121,13 @@ export default function Home() {
       </div>
     ) },
     summary: { span: "md:col-span-12", node: (
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
       <div className="grid"><WorldFocus /></div>
       <div className="card">
         <div className="card-h">盤後重點<span className="sub mr-auto">{sum?.date && `${md(sum.date)} · `}每個交易日台灣 16:30 更新</span>
           <Help align="right">收盤後由 AI 依當天數字（大盤、漲跌家數、族群、法人、期貨、國際行情）整理的重點。每個交易日台灣 16:30 開始整理，通常 17:00 前更新完成。數字都是程式算的，AI 只負責寫成白話；不構成買賣建議。</Help>
         </div>
-        <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
+        <div className="px-3 pb-3 text-[13.5px] leading-relaxed">
           {sum && !sum.error ? (
             <>
               <div className="font-semibold text-[15px] mb-1.5"><Highlight text={sum.headline} /></div>
@@ -142,7 +142,7 @@ export default function Home() {
           <Link href="/alerts" className="text-[13px] text-[var(--gold)] mr-1">推播到手機</Link>
           <Help align="right">券商分點資料（各檔買賣超前 15 名分點）晚上才齊，每個交易日 22:00 後由 AI 整理：成績好的分點買了什麼、隔日沖大買（隔天可能賣壓）、大額或突然大買、這週籌碼換手。數字都是程式算的，AI 只負責寫成白話；不構成買賣建議。想收到通知，到「提醒」建立「分點晚報」並開啟背景推播。</Help>
         </div>
-        <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
+        <div className="px-3 pb-3 text-[13.5px] leading-relaxed">
           {rep && !rep.error ? (
             <>
               <div className="font-semibold text-[15px] mb-1.5"><Highlight text={rep.headline} /></div>

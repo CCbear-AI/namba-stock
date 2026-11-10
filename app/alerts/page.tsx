@@ -67,7 +67,7 @@ function Alerts() {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[320px_1fr_320px]">
+    <div className="grid gap-3 lg:grid-cols-[320px_1fr_320px]">
       <div className="card self-start p-4 grid grid-cols-1 gap-4 min-w-0">
         <div className="font-semibold text-[16px]">新增提醒</div>
         <div>
@@ -139,7 +139,7 @@ function Alerts() {
         </div>
       </div>
 
-      <div className="grid gap-4 content-start">
+      <div className="grid gap-3 content-start">
         <div className="card p-4">
           <div className="flex items-center font-semibold">背景推播<Help>開啟時，提醒規則會傳到伺服器（不含任何個人資料、沒有帳號）；關閉後伺服器會刪除。iPhone 要先把網站「加入主畫面」，從主畫面打開才能收推播。</Help> <span className={`ml-auto sub ${push ? "text-[var(--gold-2)]" : ""}`}>{push ? "已開啟" : "未開啟"}</span></div>
           <p className="text-[13px] mt-2 leading-relaxed">{push ? "網頁關掉也會收到通知：盤中 09:00–13:30 由資金流記錄器每 30 秒檢查一次規則。" : "現在只有這個網頁開著時才會檢查提醒。開啟後，網頁關掉也會收到通知（盤中由資金流記錄器檢查）。"}</p>

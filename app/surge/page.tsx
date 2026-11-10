@@ -34,7 +34,7 @@ export default function Page() {
   const tip = (s?: SigStat) => s ? `${SIG[s.id].tip}。過去 ${s.n.toLocaleString()} 次：20 天後平均超額 ${sg(s.ex20)}%、20 天內飆 20% 機率 ${s.hit}%（全部股票 ${data?.bt.base.hit}%）、加 ${s.w} 分` : "";
 
   return (
-    <div className="grid gap-4 grid-cols-[minmax(0,1fr)]">
+    <div className="grid gap-3 grid-cols-[minmax(0,1fr)]">
       <div className="card">
         <div className="card-h text-[16px]">
           <span className="mr-auto flex items-center gap-1">飆股晚報<Help>{PAGE_HELP}</Help>
@@ -47,7 +47,7 @@ export default function Page() {
           )}
           <Link href="/alerts" className="text-[13px] text-[var(--gold)]">推播到手機</Link>
         </div>
-        <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
+        <div className="px-3 pb-3 text-[13.5px] leading-relaxed">
           {!data ? <div className="sub loading py-2">載入中…</div> : data.error ? <div className="sub py-2">{data.error}（每個交易日晚上更新）</div> : data.headline ? (
             <>
               <div className="font-semibold text-[15px] mb-1.5"><Highlight text={data.headline} /></div>
@@ -93,7 +93,7 @@ export default function Page() {
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid gap-3 grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="card self-start">
           <div className="card-h"><span className="mr-auto flex items-center gap-1">訊號回測成績<Help>{BT_HELP}</Help>{ok && <span className="sub ml-2">{md(data.bt.from)}～{md(data.bt.to)} 的訊號（之後 20 天還沒走完的不算）</span>}</span></div>
           <div className="overflow-x-auto px-2 pb-3">
@@ -119,7 +119,7 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="grid gap-4 self-start min-w-0">
+        <div className="grid gap-3 self-start min-w-0">
           <div className="card">
             <div className="card-h"><span className="mr-auto flex items-center gap-1">分數有沒有用<Help>{OOS_HELP}</Help>{ok && <span className="sub ml-2">{md(data.bt.mid)} 之後的資料驗證</span>}</span></div>
             <div className="overflow-x-auto px-2 pb-3">

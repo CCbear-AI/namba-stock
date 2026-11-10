@@ -23,7 +23,7 @@ export default function WeeklyReview() {
         <Link href="/alerts" className="text-[13px] text-[var(--gold)] mr-1">推播到手機</Link>
         <Help align="right">每週六早上集保（千張大戶）資料公布後，把這週的大盤、族群、三大法人、外資期貨、融資、千張大戶，以及每天的盤後重點、國際焦點、重要公告交給 AI 整理成重點。數字都是程式算的；下週法說會是程式從重大訊息裡找出來的。不構成買賣建議。想收到通知，到「提醒」建立「一週回顧」並開啟背景推播。</Help>
       </div>
-      <div className="px-4 pb-4 text-[13.5px] leading-relaxed">
+      <div className="px-3 pb-3 text-[13.5px] leading-relaxed">
         {w && !w.error ? (
           <>
             <div className="font-semibold text-[15px] mb-1.5"><Highlight text={w.headline} /></div>

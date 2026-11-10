@@ -66,7 +66,7 @@ function Watchlist() {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+    <div className="grid gap-3 lg:grid-cols-[220px_1fr]">
       <div className="card self-start p-3">
         <div className="sub px-1 mb-2">群組</div>
         {groups.map((x) => (
@@ -91,7 +91,7 @@ function Watchlist() {
           <BrokerTrack onStock={(c) => router.push(`/brokers?tab=stock&code=${c}`)} />
         </div>
       ) : (
-      <div className="grid gap-4 content-start min-w-0">
+      <div className="grid gap-3 content-start min-w-0">
       <div className="card" ref={area}>
         <div className="card-h flex-wrap">
           <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ function HeatView({ rows }: { rows: ScanRow[] }) {
   const [period, setPeriod] = useState<Period>("d");
   const [size, setSize] = useState<"equal" | "cap" | "value">("equal");
   return (
-    <div className="px-4 pb-4">
+    <div className="px-3 pb-3">
       <div className="flex flex-wrap gap-3 mb-3" data-noexport>
         <div className="seg">{PERIODS.map((p) => <button key={p.k} className={period === p.k ? "on" : ""} onClick={() => setPeriod(p.k)}>{p.l}</button>)}</div>
         <span className="sub self-center">面積</span>
@@ -207,7 +207,7 @@ function RiverView({ rows, title }: { rows: ScanRow[]; title: string }) {
   };
 
   return (
-    <div className="px-4 pb-4">
+    <div className="px-3 pb-3">
       <div className="flex flex-wrap items-center gap-3 mb-3" data-noexport>
         <div className="seg">{SPAN.map((s) => <button key={s.k} className={span === s.k ? "on" : ""} onClick={() => setSpan(s.k)}>{s.l}</button>)}</div>
         {span === "d" && <div className="seg">{([[0, "全天"], [30, "30 分"], [15, "15 分"], [5, "5 分"]] as const).map(([k, l]) => <button key={k} className={win === k ? "on" : ""} onClick={() => setWin(k)}>{l}</button>)}</div>}

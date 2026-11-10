@@ -89,7 +89,7 @@ export default function Radar() {
   const athSet = new Set(ath.map((r) => r.c)), nearSet = new Set(near.map((r) => r.c)), atlSet = new Set(atl.map((r) => r.c));
 
   return (
-    <div className="grid gap-4" ref={area}>
+    <div className="grid gap-3" ref={area}>
       <div className="flex flex-wrap items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>新高追蹤</h1>
@@ -105,7 +105,7 @@ export default function Radar() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_380px] items-center">
+      <div className="grid gap-3 md:grid-cols-[1fr_380px] items-center">
         <div id="radar-head">
           <div className="flex items-start gap-2">
             <div className="text-3xl font-bold" style={{ fontFamily: "'Noto Serif TC', serif" }}>今天 <span className="up">{ath.length}</span> 檔創上市以來新高</div>
@@ -135,7 +135,7 @@ export default function Radar() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+      <div className="grid gap-3 lg:grid-cols-[1fr_380px]">
         <div className="card p-4 relative overflow-hidden" id="radar-grid">
           <div className="absolute right-3 top-3 z-10"><ExportBtn icon name="新高追蹤" target={() => document.getElementById("radar-grid")} /></div>
           {groups.map((g) => {
