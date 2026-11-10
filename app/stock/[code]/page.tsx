@@ -18,6 +18,14 @@ import type { Bar, Row } from "@/lib/types";
 
 type Q = Quote & { ind: string; row: Row | null; error?: string; flow: { buy: number; sell: number; value: number } | null; avg: number | null };
 
+/** 報價時間加上「盤中／收盤」：今天（台灣時間）平日 09:00～13:30 前是盤中，其他是收盤（不是今天就加日期） */
+function session(t: number) {
+  const tw = new Date(t + 8 * 3600e3), now = new Date(Date.now() + 8 * 3600e3);
+  const hhmm = tw.toISOString().slice(11, 16), sameDay = tw.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+  if (sameDay && tw.getUTCDay() % 6 !== 0 && hhmm >= "09:00" && hhmm < "13:30") return `盤中 ${hm(t)}`;
+  return `收盤 ${sameDay ? "" : tw.toISOString().slice(5, 10).replace("-", "/") + " "}${hm(t)}`;
+}
+
 export default function StockPage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
@@ -54,7 +62,7 @@ export default function StockPage() {
           {q && q.price > 0 && Array.isArray(q.bid) && <>
             <span className={`mono text-3xl font-semibold ${cls(chg)}`}>{price(q.price)}</span>
             <span className={`mono ${cls(chg)}`}>{chg > 0 ? "+" : ""}{price(chg)} ({pct(q.prev ? (chg / q.prev) * 100 : 0)})</span>
-            <span className="sub mono">{hm(q.time)}</span>
+            <span className="sub mono">{session(q.time)}</span>
           </>}
           <div className="flex-1" />
           <span data-noexport className="flex gap-2">
@@ -64,14 +72,14 @@ export default function StockPage() {
           </span>
         </div>
         {q && q.price > 0 && (
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] mono text-text-2">
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] mono text-text-2">
             <span>開盤 <span className={cls(q.open - q.prev)}>{price(q.open)}</span></span>
             <span>最高 <span className={cls(q.high - q.prev)}>{price(q.high)}</span></span>
             <span>最低 <span className={cls(q.low - q.prev)}>{price(q.low)}</span></span>
             {q.avg != null && <span>均價 <span className={cls(q.avg - q.prev)}>{price(q.avg)}</span></span>}
             <span>昨收 <span className="text-text">{price(q.prev)}</span></span>
-            <span>漲停價 <span className="up">{price(q.up)}</span></span>
-            <span>跌停價 <span className="down">{price(q.down)}</span></span>
+            <span>漲停 <span className="up">{price(q.up)}</span></span>
+            <span>跌停 <span className="down">{price(q.down)}</span></span>
             <span>成交量 <span className="text-text">{num(q.vol)} 張</span></span>
             {q.row && <span>成交金額 <span className="text-text">{(q.flow?.value ?? q.row.value).toFixed(0)} 億</span></span>}
             {q.row && <span>市值 <span className="text-text">{num(q.row.cap)} 億</span></span>}
