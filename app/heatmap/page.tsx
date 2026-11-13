@@ -39,7 +39,9 @@ export default function HeatmapPage() {
 
   return (
     <div className="grid gap-3">
-      <div className="flex flex-wrap items-center gap-3">
+      {/* 下載鈕固定在右上角，控制項自己換行，不讓按鈕單獨掉到下一列 */}
+      <div className="flex items-start gap-3">
+      <div className="flex flex-1 min-w-0 flex-wrap items-center gap-3">
         <h1 className="text-lg font-bold">大盤熱力圖<Help>紅色上漲、綠色下跌，面積越大代表{sizeBy === "cap" ? "市值" : "成交值"}越大。顯示 {indCount} 個產業中{sizeBy === "cap" ? "市值" : "成交值"}最大的 {shown.length} 檔（佔全體個股{sizeBy === "cap" ? "市值" : "成交值"} {share}%）；產業標題是整個產業的市值加權漲跌幅。{period !== "d" && "近 N 日是對比 N 個交易日前收盤，未還原除權息。"}</Help></h1>
         <span className="sub">漲跌週期</span>
         <div className="seg">{PERIODS.map((p) => <button key={p.k} className={period === p.k ? "on" : ""} onClick={() => setPeriod(p.k)}>{p.l}</button>)}</div>
@@ -48,7 +50,8 @@ export default function HeatmapPage() {
         <div className="seg">{(["全部", "電子", "金融", "傳產"] as const).map((g) => <button key={g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{g}</button>)}</div>
         <div className="flex-1" />
         <Legend cap={period === "d" ? 10 : period === 5 ? 15 : 35} />
-        <ExportBtn name="大盤熱力圖" target={() => document.getElementById("heatmap-area")} />
+      </div>
+        <div className="shrink-0"><ExportBtn name="大盤熱力圖" target={() => document.getElementById("heatmap-area")} /></div>
       </div>
       <div id="heatmap-area" className="grid gap-3 xl:grid-cols-[1fr_260px]">
         <div className="card p-2 overflow-hidden">

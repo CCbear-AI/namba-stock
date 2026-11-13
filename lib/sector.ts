@@ -9,27 +9,46 @@ import { UNIVERSE } from "./universe";
 import { getMarket } from "./market";
 import type { Bar } from "./types";
 
-const TSE_CODES = Array.from({ length: 31 }, (_, i) => `tse_t${String(i + 1).padStart(2, "0")}.tw`);
-const OTC_CODES = ["otc_o00.tw", ...Array.from({ length: 32 }, (_, i) => `otc_o${String(i + 1).padStart(2, "0")}.tw`)];
+// MIS 類股指數代號與名稱（2026-11-13 從 MIS 取得；t19、o01~o03 等代號不存在）
+const SECTORS: [string, string][] = [["t01","水泥類指數"],["t02","食品類指數"],["t03","塑膠類指數"],["t04","紡織纖維類指數"],["t05","電機機械類指數"],["t06","電器電纜類指數"],["t07","化學生技醫療類指數"],["t08","玻璃陶瓷類指數"],["t09","造紙類指數"],["t10","鋼鐵類指數"],["t11","橡膠類指數"],["t12","汽車類指數"],["t13","電子工業類指數"],["t14","建材營造類指數"],["t15","航運類指數"],["t16","觀光餐旅類指數"],["t17","金融保險類指數"],["t18","貿易百貨類指數"],["t20","其他類指數"],["t21","化學類指數"],["t22","生技醫療類指數"],["t23","油電燃氣類指數"],["t24","半導體類指數"],["t25","電腦及週邊設備類指數"],["t26","光電類指數"],["t27","通信網路類指數"],["t28","電子零組件類指數"],["t29","電子通路類指數"],["t30","資訊服務類指數"],["t31","其他電子類指數"],["o00","櫃買指數"],["o04","櫃買紡纖類指數"],["o05","櫃買機械類指數"],["o10","櫃買鋼鐵類指數"],["o13","櫃買電子類指數"],["o14","櫃買營建類指數"],["o15","櫃買航運類指數"],["o16","櫃買觀光餐旅類指數"],["o20","櫃買其他類指數"],["o21","櫃買化工類指數"],["o22","櫃買生技醫療類指數"],["o24","櫃買半導體類指數"],["o25","櫃買電腦及週邊類指數"],["o26","櫃買光電業類指數"],["o27","櫃買通信網路類指數"],["o28","櫃買電子零組件類指數"],["o29","櫃買電子通路類指數"],["o30","櫃買資訊服務類指數"],["o31","櫃買其他電子類指數"],["o32","櫃買文化創意業類指數"]];
+const CODES = SECTORS.map(([c]) => `${c.startsWith("o") ? "otc" : "tse"}_${c}.tw`);
 
-export type SectorQuote = { id: string; name: string; short: string; market: "tse" | "otc"; price: number; prev: number; pct: number; hasHistory: boolean };
+export type SectorQuote = { id: string; name: string; short: string; market: "tse" | "otc"; price: number; prev: number; pct: number; hasHistory: boolean; stale?: boolean };
 
 let live: { at: number; list: SectorQuote[] } | null = null;
 
+const toQuote = (id: string, name: string, price: number, prev: number): SectorQuote => {
+  const market = id.startsWith("o") ? "otc" : "tse";
+  const short = name.replace(/^櫃買/, "").replace(/類指數$/, "").replace(/業$/, "");
+  return { id, name, short, market, price, prev, pct: prev ? Math.round(((price - prev) / prev) * 10000) / 100 : 0, hasHistory: Boolean(historyKey(name, market)) };
+};
+
+/** 證交所 MIS 抓不到時（短時間問太多次會回空白）：用官方類股日 K 最後一天收盤 */
+function fromHistory(): SectorQuote[] {
+  const out: SectorQuote[] = [];
+  for (const [id, name] of SECTORS) {
+    const market = id.startsWith("o") ? "otc" : "tse";
+    const key = historyKey(name, market);
+    const bars = key ? load(market).bars[key] : null;
+    if (!bars || bars.length < 2) continue;
+    out.push({ ...toQuote(id, name, bars[bars.length - 1][4], bars[bars.length - 2][4]), stale: true });
+  }
+  return out;
+}
+
 export async function sectorQuotes(): Promise<SectorQuote[]> {
   if (live && Date.now() - live.at < 15_000) return live.list;
-  const qs = await getQuotes([...TSE_CODES, ...OTC_CODES]);
-  const list = qs
-    .filter((q) => q.price > 0)
-    .map((q) => {
-      const market = q.c.startsWith("o") ? "otc" : "tse";
-      const short = q.n.replace(/^櫃買/, "").replace(/類指數$/, "").replace(/業$/, "");
-      return {
-        id: q.c, name: q.n, short, market,
-        price: q.price, prev: q.prev, pct: q.prev ? Math.round(((q.price - q.prev) / q.prev) * 10000) / 100 : 0,
-        hasHistory: Boolean(historyKey(q.n, market)),
-      } as SectorQuote;
-    });
+  let qs = (await getQuotes(CODES)).filter((q) => q.price > 0);
+  if (!qs.length) {
+    // MIS 偶爾回空白（限流），等一下再試一次
+    await new Promise((r) => setTimeout(r, 1500));
+    qs = (await getQuotes(CODES, 8_000)).filter((q) => q.price > 0);
+  }
+  if (!qs.length) {
+    // 還是沒有：沿用上一次成功的資料，再沒有就用官方收盤；不更新 at，下次請求會再試
+    return live?.list.length ? live.list : fromHistory();
+  }
+  const list = qs.map((q) => toQuote(q.c, q.n, q.price, q.prev));
   live = { at: Date.now(), list };
   return list;
 }
@@ -66,7 +85,7 @@ export async function sectorDaily(id: string): Promise<Bar[]> {
   const bars: Bar[] = raw.map(([d, o, h, l, c]) => ({ time: Date.parse(d) / 1000, open: o, high: h, low: l, close: c, volume: vol.out.get(d) ?? 0 }));
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
   const t = Date.parse(today) / 1000;
-  if (q.price && (!bars.length || bars[bars.length - 1].time < t)) {
+  if (q.price && !q.stale && (!bars.length || bars[bars.length - 1].time < t)) {
     const wd = new Date(t * 1000).getUTCDay();
     if (wd >= 1 && wd <= 5) {
       // 今天還沒有官方日 K：用即時成交量加總
