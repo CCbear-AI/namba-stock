@@ -8,7 +8,7 @@ import type { ScanRow } from "@/lib/scan";
 
 export type Period = "d" | 5 | 20 | 60;
 export type SizeBy = "cap" | "value" | "equal";
-export const PERIODS: { k: Period; l: string }[] = [{ k: "d", l: "當日" }, { k: 5, l: "近 5 日" }, { k: 20, l: "近 20 日" }, { k: 60, l: "近 60 日" }];
+export const PERIODS: { k: Period; l: string }[] = [{ k: "d", l: "當日" }, { k: 5, l: "近5日" }, { k: 20, l: "近20日" }, { k: 60, l: "近60日" }];
 export const periodPct = (r: ScanRow, p: Period) => (p === "d" ? r.pct : p === 5 ? r.d5 : p === 20 ? r.d20 : r.d60);
 
 /** 漲跌幅 → 顏色（台股：紅漲綠跌）；cap 是顏色封頂的漲跌幅 */

@@ -41,13 +41,13 @@ export default function HeatmapPage() {
     <div className="grid gap-3 grid-cols-[minmax(0,1fr)]">
       {/* 色條＋下載鈕固定在右上角，控制項自己換行 */}
       <div className="flex flex-wrap items-start gap-3">
-      <div className="flex flex-[1_1_320px] min-w-0 flex-wrap items-center gap-3">
+      <div className="flex flex-[1_1_320px] min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
         <h1 className="text-lg font-bold">大盤熱力圖<Help>紅色上漲、綠色下跌，面積越大代表{sizeBy === "cap" ? "市值" : "成交值"}越大。顯示 {indCount} 個產業中{sizeBy === "cap" ? "市值" : "成交值"}最大的 {shown.length} 檔（佔全體個股{sizeBy === "cap" ? "市值" : "成交值"} {share}%）；產業標題是整個產業的市值加權漲跌幅。{period !== "d" && "近 N 日是對比 N 個交易日前收盤，未還原除權息。"}</Help></h1>
         <span className="sub">漲跌週期</span>
-        <div className="seg">{PERIODS.map((p) => <button key={p.k} className={period === p.k ? "on" : ""} onClick={() => setPeriod(p.k)}>{p.l}</button>)}</div>
+        <div className="seg sm">{PERIODS.map((p) => <button key={p.k} className={period === p.k ? "on" : ""} onClick={() => setPeriod(p.k)}>{p.l}</button>)}</div>
         <span className="sub">面積依據</span>
-        <div className="seg"><button className={sizeBy === "cap" ? "on" : ""} onClick={() => setSizeBy("cap")}>市值</button><button className={sizeBy === "value" ? "on" : ""} onClick={() => setSizeBy("value")}>成交值</button></div>
-        <div className="seg">{(["全部", "電子", "金融", "傳產"] as const).map((g) => <button key={g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{g}</button>)}</div>
+        <div className="seg sm"><button className={sizeBy === "cap" ? "on" : ""} onClick={() => setSizeBy("cap")}>市值</button><button className={sizeBy === "value" ? "on" : ""} onClick={() => setSizeBy("value")}>成交值</button></div>
+        <div className="seg sm">{(["全部", "電子", "金融", "傳產"] as const).map((g) => <button key={g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{g}</button>)}</div>
       </div>
         {/* 色條和下載鈕一組：寬螢幕在右上角同一列，太窄就一起換到下一列靠右 */}
         <div className="shrink-0 ml-auto flex items-center gap-3 min-h-8">
