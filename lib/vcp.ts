@@ -28,28 +28,28 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
  * bars：由舊到新的日K，最後一根＝今天（盤中用現價）；只放有成交的日子
  * idxClose：加權指數 日期→收盤；idxToday：今天的加權指數（盤中用即時）
  */
-export function vcp(bars: VcpBar[], idxClose: Map<string, number>, idxToday: number): VcpResult | null {
-  const n = bars.length, T = n - 1, S = VCP.seg;
+export function vcp(bars: VcpBar[], idxClose: Map<string, number>, idxToday: number, o: typeof VCP = VCP): VcpResult | null {
+  const n = bars.length, T = n - 1, S = o.seg;
   if (n < 260 || n <= 3 * S + 1) return null;
   const c = bars.map((b) => b.c);
   const ma = (len: number, end = T) => avg(c.slice(end - len + 1, end + 1));
-  const ma50 = ma(50), ma150 = ma(150), ma200 = ma(200), ma200ago = ma(200, T - VCP.upBars);
+  const ma50 = ma(50), ma150 = ma(150), ma200 = ma(200), ma200ago = ma(200, T - o.upBars);
   const last250 = bars.slice(n - 250);
   const low52 = lo(last250), high52 = hi(last250);
   const px = c[T];
   const trend = px > ma150 && px > ma200 && ma150 > ma200 && ma200 > ma200ago && ma50 > ma150 && ma50 > ma200 && px > ma50
-    && low52 > 0 && px >= low52 * VCP.lowMult && high52 > 0 && px >= high52 * (1 - VCP.highPct / 100);
+    && low52 > 0 && px >= low52 * o.lowMult && high52 > 0 && px >= high52 * (1 - o.highPct / 100);
   if (!trend) return null;
 
   const seg = (k: number) => bars.slice(T - k * S, T - (k - 1) * S); // k=1 最近一段（不含今天）
   const s3 = seg(1), s2 = seg(2), s1 = seg(3);
   const depth = (s: VcpBar[]) => { const h = hi(s); return h > 0 ? ((h - lo(s)) / h) * 100 : 0; };
   const d1 = depth(s1), d2 = depth(s2), d3 = depth(s3);
-  if (!(d1 >= VCP.minFirst && d1 > d2 && d2 > d3 && d3 <= VCP.maxLast)) return null;
+  if (!(d1 >= o.minFirst && d1 > d2 && d2 > d3 && d3 <= o.maxLast)) return null;
 
   const v = bars.map((b) => b.v);
   const avg10 = avg(v.slice(T - 10, T)), avg50 = avg(v.slice(T - 50, T));
-  if (!(avg50 > 0 && avg10 / avg50 < VCP.dry)) return null;
+  if (!(avg50 > 0 && avg10 / avg50 < o.dry)) return null;
 
   // 相對強度：個股 250 日漲幅 ≥ 加權 250 日漲幅（對齊同一天）
   const base = bars[T - 250], ib = idxClose.get(base.date);
@@ -59,7 +59,7 @@ export function vcp(bars: VcpBar[], idxClose: Map<string, number>, idxToday: num
   const pivotPrev = hi(bars.slice(T - 1 - S, T - 1)); // 昨天那根看到的樞紐點
   const res = (state: 0 | 1 | 2): VcpResult => ({ state, pivot: r2(pivot), d: [r2(d1), r2(d2), r2(d3)], dry: r2(avg10 / avg50), vr50: r2(v[T] / avg50) });
   const cross = px > pivot && c[T - 1] <= pivotPrev;
-  if (cross && v[T] > avg50 * VCP.brk && v[T] >= VCP.minVol) return res(2);
-  if (px <= pivot && avg50 >= VCP.minVol) return res(1);
+  if (cross && v[T] > avg50 * o.brk && v[T] >= o.minVol) return res(2);
+  if (px <= pivot && avg50 >= o.minVol) return res(1);
   return null;
 }

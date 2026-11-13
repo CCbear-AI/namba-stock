@@ -1,5 +1,6 @@
-// 技術指標（87 個）。全部回傳跟 bars 對齊的陣列，算不出來的位置是 null
+// 技術指標（88 個）。全部回傳跟 bars 對齊的陣列，算不出來的位置是 null
 import type { Bar } from "./types";
+import { vcp, VCP, type VcpBar } from "./vcp";
 
 export type V = (number | null)[];
 /** 主圖上的方框／線段（i2 = null 代表延伸到最右邊） */
@@ -426,6 +427,31 @@ export const INDICATORS: Ind[] = [
     ts.forEach((_, i) => { const g = utSig(c, ts, i); if (g) marks.push({ i, buy: g > 0, text: g > 0 ? "買" : "賣" }); });
     return [
       { name: "停損", data: ts, color: OVU, width: 2, colors: ts.map((s, i) => (s == null ? null : c[i] > s ? OVU : OVD)) },
+      { name: "訊號", data: [], color: "", type: "marks", marks, hide: true },
+    ];
+  } },
+  { id: "vcp", name: "VCP 波動收縮", abbr: "VCP", cat: "熱門腳本", overlay: true, params: [25, 10, 10, 0.7, 1.5], labels: ["每段天數", "末段收縮上限 %", "首段收縮下限 %", "量縮比（10日÷50日均量）", "突破量倍數（÷50日均量）"],
+    desc: "Minervini 波動收縮（請用日K、至少 260 根）：最右邊畫出最近三段回檔區間與幅度、樞紐線（最後一段最高價）；過去符合條件的放量突破標「VCP」。粉紫＝目前符合（整理中或今天突破）、灰＝不符合。圖上沒有算「贏過加權指數」那條，選股器有", calc: (b, [seg, maxLast, minFirst, dry, brk]) => {
+    const o = { ...VCP, seg, maxLast, minFirst, dry, brk };
+    const vb: VcpBar[] = b.map((x) => ({ date: String(x.time), h: x.high, l: x.low, c: x.close, v: x.volume }));
+    const none = new Map<string, number>();
+    const marks: Mark[] = [];
+    for (let i = 259; i < vb.length; i++) if (vcp(vb.slice(Math.max(0, i - 280), i + 1), none, 0, o)?.state === 2) marks.push({ i, buy: true, text: "VCP" });
+    const T = b.length - 1, S = seg;
+    if (T < 3 * S + 1) return [{ name: "訊號", data: [], color: "", type: "marks", marks, hide: true }];
+    const now = vcp(vb, none, 0, o), on = !!now, col = on ? OVU : "#8b919a";
+    const shapes: Shape[] = [];
+    let pivot = 0;
+    for (let k = 3; k >= 1; k--) {
+      const i1 = T - k * S, part = b.slice(i1, i1 + S);
+      const top = Math.max(...part.map((x) => x.high)), bot = Math.min(...part.map((x) => x.low));
+      shapes.push({ k: "box", i1, i2: i1 + S - 1, top, bot, color: col, alpha: 0.1, text: `第${4 - k}段 ${(((top - bot) / top) * 100).toFixed(1)}%` });
+      if (k === 1) pivot = top;
+    }
+    const tag = now?.state === 2 ? "今日突破" : now?.state === 1 ? "整理中" : "不符合";
+    shapes.push({ k: "seg", i1: T - S, p1: pivot, i2: null, p2: pivot, color: col, dash: true, width: 1.5, text: `樞紐 ${pivot}（${tag}）`, textAt: "end" });
+    return [
+      { name: "區間", data: [], color: "", type: "shapes", shapes, hide: true },
       { name: "訊號", data: [], color: "", type: "marks", marks, hide: true },
     ];
   } },
