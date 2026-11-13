@@ -55,6 +55,7 @@ export default function SectorPage() {
         ))}
         {!list.length && <span className="loading">類股載入中…</span>}
       </div>
+      {list[0]?.stale && <div className="sub -mt-1">證交所暫時抓不到即時報價，先顯示 {list[0].stale.slice(5).replace("-", "/")} 收盤的漲跌，稍後會自動更新</div>}
       <div className="grid gap-3 lg:grid-cols-[1fr_340px]">
         <div className="card overflow-hidden">
           <div className="px-4 pt-3 flex items-baseline gap-3 flex-wrap">

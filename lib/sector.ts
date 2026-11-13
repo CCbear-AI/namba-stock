@@ -13,7 +13,7 @@ import type { Bar } from "./types";
 const SECTORS: [string, string][] = [["t01","水泥類指數"],["t02","食品類指數"],["t03","塑膠類指數"],["t04","紡織纖維類指數"],["t05","電機機械類指數"],["t06","電器電纜類指數"],["t07","化學生技醫療類指數"],["t08","玻璃陶瓷類指數"],["t09","造紙類指數"],["t10","鋼鐵類指數"],["t11","橡膠類指數"],["t12","汽車類指數"],["t13","電子工業類指數"],["t14","建材營造類指數"],["t15","航運類指數"],["t16","觀光餐旅類指數"],["t17","金融保險類指數"],["t18","貿易百貨類指數"],["t20","其他類指數"],["t21","化學類指數"],["t22","生技醫療類指數"],["t23","油電燃氣類指數"],["t24","半導體類指數"],["t25","電腦及週邊設備類指數"],["t26","光電類指數"],["t27","通信網路類指數"],["t28","電子零組件類指數"],["t29","電子通路類指數"],["t30","資訊服務類指數"],["t31","其他電子類指數"],["o00","櫃買指數"],["o04","櫃買紡纖類指數"],["o05","櫃買機械類指數"],["o10","櫃買鋼鐵類指數"],["o13","櫃買電子類指數"],["o14","櫃買營建類指數"],["o15","櫃買航運類指數"],["o16","櫃買觀光餐旅類指數"],["o20","櫃買其他類指數"],["o21","櫃買化工類指數"],["o22","櫃買生技醫療類指數"],["o24","櫃買半導體類指數"],["o25","櫃買電腦及週邊類指數"],["o26","櫃買光電業類指數"],["o27","櫃買通信網路類指數"],["o28","櫃買電子零組件類指數"],["o29","櫃買電子通路類指數"],["o30","櫃買資訊服務類指數"],["o31","櫃買其他電子類指數"],["o32","櫃買文化創意業類指數"]];
 const CODES = SECTORS.map(([c]) => `${c.startsWith("o") ? "otc" : "tse"}_${c}.tw`);
 
-export type SectorQuote = { id: string; name: string; short: string; market: "tse" | "otc"; price: number; prev: number; pct: number; hasHistory: boolean; stale?: boolean };
+export type SectorQuote = { id: string; name: string; short: string; market: "tse" | "otc"; price: number; prev: number; pct: number; hasHistory: boolean; stale?: string /* 抓不到即時時：用的是哪天收盤 */ };
 
 let live: { at: number; list: SectorQuote[] } | null = null;
 
@@ -31,7 +31,7 @@ function fromHistory(): SectorQuote[] {
     const key = historyKey(name, market);
     const bars = key ? load(market).bars[key] : null;
     if (!bars || bars.length < 2) continue;
-    out.push({ ...toQuote(id, name, bars[bars.length - 1][4], bars[bars.length - 2][4]), stale: true });
+    out.push({ ...toQuote(id, name, bars[bars.length - 1][4], bars[bars.length - 2][4]), stale: bars[bars.length - 1][0] });
   }
   return out;
 }
