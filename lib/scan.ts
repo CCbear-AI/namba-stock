@@ -32,6 +32,8 @@ const avg = (a: number[]) => { let s = 0, k = 0; for (const v of a) if (!Number.
 const max = (a: number[]) => { let m = -Infinity; for (const v of a) if (!Number.isNaN(v) && v > m) m = v; return m === -Infinity ? NaN : m; };
 const min = (a: number[]) => { let m = Infinity; for (const v of a) if (!Number.isNaN(v) && v < m) m = v; return m === Infinity ? NaN : m; };
 const r2 = (v: number) => (Number.isFinite(v) ? Math.round(v * 100) / 100 : 0);
+// 均線、N 日漲跌幅拿來跟門檻比，留 4 位小數：2 位會把 10.497 捨入成 10.50，「站上均線」「≤ -8%」這類邊界會判錯
+const r4 = (v: number) => (Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0);
 // N 日新高／新低的門檻：含今天共 N 天＝前 N-1 天收盤；歷史不足給 0（不判斷）
 const nHi = (closes: number[], n: number) => (closes.length >= n - 1 ? r2(max(closes.slice(-(n - 1)))) : 0);
 const nLo = (closes: number[], n: number) => (closes.length >= n - 1 ? r2(min(closes.slice(-(n - 1)))) : 0);
@@ -125,9 +127,9 @@ export function scan(m: Market): ScanRow[] {
       ...r,
       vr: r2(v5 ? r.vol / v5 : 0),
       rvol: r2(v20 ? r.vol / (v20 * frac) : 0),
-      ma5: r2(maN(5)), ma20: r2(maN(20)), ma60: r2(maN(60)),
-      d5: r2((px / ago(5) - 1) * 100), d20: r2((px / ago(20) - 1) * 100), d60: r2((px / ago(60) - 1) * 100),
-      d20c: (() => { const i = h && calIdx >= 0 ? lastIdx(h.c, calIdx) : -1; return i >= 0 ? r2((px / h!.c[i] - 1) * 100) : 0; })(),
+      ma5: r4(maN(5)), ma20: r4(maN(20)), ma60: r4(maN(60)),
+      d5: r4((px / ago(5) - 1) * 100), d20: r4((px / ago(20) - 1) * 100), d60: r4((px / ago(60) - 1) * 100),
+      d20c: (() => { const i = h && calIdx >= 0 ? lastIdx(h.c, calIdx) : -1; return i >= 0 ? r4((px / h!.c[i] - 1) * 100) : 0; })(),
       hi20: nHi(closes, 20), hi60: nHi(closes, 60), hi120: nHi(closes, 120),
       lo20: nLo(closes, 20), lo60: nLo(closes, 60), lo120: nLo(closes, 120),
       move20: r2(avg(closes.slice(-21).map((c, i, a) => (i ? Math.abs(c / a[i - 1] - 1) * 100 : NaN)))),
