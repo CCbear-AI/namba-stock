@@ -34,6 +34,8 @@ export const CONDS: Cond[] = [
   { id: "f3", label: "外資連買 ≥ 3 日", test: (r) => r.fDays >= 3 },
   { id: "t3", label: "投信連買 ≥ 3 日", test: (r) => r.tDays >= 3 },
   { id: "utbuy", label: "UT Bot 今日買訊", test: (r) => r.ut > 0 },
+  { id: "vcpbrk", label: "VCP 突破", test: (r) => r.vcp?.state === 2 },
+  { id: "vcpset", label: "VCP 整理中", test: (r) => r.vcp?.state === 1 },
   { id: "ma20", label: "站上 20 日線", test: (r) => above(r.price, r.ma20) },
   { id: "hi60", label: "創 60 日新高", test: (r) => newHigh(r, r.hi60) },
   { id: "hi20", label: "創 20 日新高", test: (r) => newHigh(r, r.hi20) },

@@ -52,6 +52,7 @@ function Screener() {
     const v = (c: string) => { const x = rk.get(c); return !x ? -2 : x.pctile ?? -1; };
     return [...hits].sort((a, b) => v(b.c) - v(a.c));
   }, [hits, sort, rank, rk, col]);
+  const showVcp = conds.includes("vcpbrk") || conds.includes("vcpset");
   const strategy = STRATEGIES.find((s) => s.conds.length === conds.length && s.conds.every((c) => conds.includes(c)));
   const toggle = (id: string) => setConds((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   const key = [...conds].sort().join(",");
@@ -109,7 +110,7 @@ function Screener() {
               return <th key={k} className="cursor-pointer select-none whitespace-nowrap" aria-sort={on ? (col.asc ? "ascending" : "descending") : "none"} onClick={() => sortBy(k)} title="點一下排序（再點一次反向）">
                 {k === "vr" ? <Term tip={VR_HELP}>{l}</Term> : l}<span className={on ? "text-[var(--gold)]" : "opacity-30"}>{on ? (col.asc ? " ▲" : " ▼") : " ↕"}</span>
               </th>;
-            })}<th>均線 / 新高</th>{sort === "conc" && <th>賣方集中度</th>}<th>操作</th></tr></thead>
+            })}<th>均線 / 新高</th>{showVcp && <th className="whitespace-nowrap"><Term tip="樞紐點＝最後一段（前 25 天）最高價；三段＝前 75 天每 25 天的回檔深度（舊→新）；量縮＝10 日均量 ÷ 50 日均量；突破量＝今日量 ÷ 50 日均量">VCP</Term></th>}{sort === "conc" && <th>賣方集中度</th>}<th>操作</th></tr></thead>
             <tbody>
               {shown.map((r) => (
                 <tr key={r.c} className="click" onClick={() => (multi ? setSel((s) => (s.includes(r.c) ? s.filter((x) => x !== r.c) : [...s, r.c])) : router.push(`/stock/${r.c}`))}>
@@ -122,6 +123,11 @@ function Screener() {
                   <td className="mono">{r.fDays > 0 ? `${r.fDays} 日` : "—"}</td>
                   <td className="mono">{r.tDays > 0 ? `${r.tDays} 日` : "—"}</td>
                   <td>{hiTag(r) || "—"}</td>
+                  {showVcp && <td className="mono whitespace-nowrap text-[12px]">{r.vcp ? <>
+                    樞紐 {price(r.vcp.pivot)}{r.vcp.state === 1 && <span className="sub">（差 {((r.vcp.pivot / r.price - 1) * 100).toFixed(1)}%）</span>}
+                    <span className="sub"> ｜ 三段 {r.vcp.d.map((x) => x.toFixed(0)).join("→")}% ｜ 量縮 {r.vcp.dry.toFixed(2)}</span>
+                    {r.vcp.state === 2 && <span className="up"> ｜ 突破量 {r.vcp.vr50.toFixed(1)}x</span>}
+                  </> : "—"}</td>}
                   {sort === "conc" && <td>{!rank ? <span className="sub loading">…</span> : (() => {
                     const x = rk.get(r.c);
                     if (!x) return <span className="sub">沒資料</span>;
@@ -137,7 +143,7 @@ function Screener() {
               ))}
             </tbody>
           </table>
-          {data && !hits.length && <div className="sub text-center py-10">{conds.length ? "目前沒有股票同時符合這些條件" : "勾選左邊的條件開始選股"}</div>}
+          {data && !hits.length && <div className="sub text-center py-10">{conds.length ? "目前沒有股票同時符合這些條件" : "勾選左邊的條件開始選股"}{showVcp && <div className="mt-1">VCP 條件很嚴，盤勢震盪大（最近一段回檔超過 10%）時常常一檔都沒有，這是正常的</div>}</div>}
           {!data && <div className="sub text-center py-10 loading">正在掃描上市櫃全部個股…</div>}
         </div>
         <div className="px-3 pb-3 sub leading-relaxed">

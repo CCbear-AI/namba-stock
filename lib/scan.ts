@@ -3,6 +3,8 @@
 import { getDaily, getChips, getAth, lastIdx, type Series } from "./history";
 import { volFraction } from "./misStats";
 import { utStop, utSig } from "./indicators";
+import { vcp, type VcpBar, type VcpResult } from "./vcp";
+import { load as loadIndex } from "./indexHist";
 import type { Bar, Market, Row } from "./types";
 
 export type ScanRow = Row & {
@@ -23,6 +25,7 @@ export type ScanRow = Row & {
   lockBid: number; // 漲停委買張數（漲停鎖住時的最佳買量）
   c20: number[]; // 近 20 日收盤（含今天），畫小走勢
   ut: number; // UT Bot（日K、敏感度 1、ATR 10）今天：1＝買訊、-1＝賣訊、0＝沒有
+  vcp: VcpResult | null; // VCP 波動收縮：state 1＝整理中、2＝今日放量突破
 };
 
 const avg = (a: number[]) => { let s = 0, k = 0; for (const v of a) if (!Number.isNaN(v)) { s += v; k++; } return k ? s / k : NaN; };
@@ -72,6 +75,11 @@ export function scan(m: Market): ScanRow[] {
   const minute = tw.getUTCHours() * 60 + tw.getUTCMinutes();
   const frac = m.open && dates.at(-1) !== today ? volFraction(minute) : 1;
 
+  // VCP 相對強度用的加權指數收盤（日期→收盤）與今天的加權
+  const idxClose = new Map((loadIndex("tse").bars["發行量加權股價指數"] ?? []).map((b) => [b[0], b[4]] as [string, number]));
+  const tq = m.indices.find((x) => x.c === "t00") ?? m.indices.find((x) => x.n.includes("加權"));
+  const idxToday = tq?.price || [...idxClose.values()].at(-1) || 0;
+
   // 法人連買：從最新往回
   const lastChip = chips.at(-1);
   const rows = m.stocks.map((r): ScanRow => {
@@ -104,6 +112,15 @@ export function scan(m: Market): ScanRow[] {
       bars.push({ time: e + 1, open: r.open || r.price, high: Math.max(r.high || r.price, r.price), low: Math.min(r.low || r.price, r.price), close: r.price, volume: r.vol });
       if (bars.length > 30) ut = utSig(bars.map((x) => x.close), utStop(bars), bars.length - 1);
     }
+    // VCP：近 280 根有成交的日K＋今天（今天沒成交不算）
+    let vc: VcpResult | null = null;
+    if (h && e >= 0 && r.vol > 0) {
+      const vb: VcpBar[] = [];
+      for (let i = e; i >= 0 && vb.length < 280; i--) if (!Number.isNaN(h.c[i])) vb.push({ date: dates[i], h: h.h[i], l: h.l[i], c: h.c[i], v: h.v[i] });
+      vb.reverse();
+      vb.push({ date: today, h: Math.max(r.high || r.price, r.price), l: Math.min(r.low || r.price, r.price), c: r.price, v: r.vol });
+      vc = vcp(vb, idxClose, idxToday);
+    }
     return {
       ...r,
       vr: r2(v5 ? r.vol / v5 : 0),
@@ -123,6 +140,7 @@ export function scan(m: Market): ScanRow[] {
       lockBid: r.up && r.price >= r.up ? r.bv : 0,
       c20: withToday.slice(-20).map(r2),
       ut,
+      vcp: vc,
     };
   });
   memo = { key, rows };

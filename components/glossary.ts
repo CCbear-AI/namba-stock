@@ -9,8 +9,11 @@ export const SCREENER_HELP = "創新高＝收盤 ≥ 前 N 日最高收盤；創
 
 /** 選股條件（lib/conditions 的 id）→ 說明 */
 const UT_HELP = "跟個股 K 線「熱門腳本 → UT Bot 買賣訊號」同一套算法（日K、敏感度 1、ATR 10）：今天收盤（盤中用現價）由下往上穿過 ATR 移動停損線＝買訊，往下穿＝賣訊。盤中價格還在動，訊號可能收盤前消失，以收盤為準。";
+const VCP_BASE = "VCP 波動收縮（Minervini）：①強勢趨勢：收盤站上 50／150／200 日線、50 > 150 > 200、200 日線比 20 天前高、比 52 週低點高 30% 以上、離 52 週高點 25% 以內 ②回檔一次比一次淺：前 75 天切三段（每段 25 天），(最高−最低)÷最高 第一段 ≥ 10%、逐段變淺、最後一段 ≤ 10% ③量縮：10 日均量 < 50 日均量 × 0.7 ④250 日漲幅贏過加權指數。樞紐點＝最後一段最高價。三段等長是近似算法，突破也可能失敗，記得設停損。";
+const VCP_BRK = `VCP 突破：符合下列條件，而且今天收盤由下往上突破樞紐點、量 > 50 日均量 1.5 倍、≥ 500 張。盤中價格還在動，以收盤為準。${VCP_BASE}`;
+const VCP_SET = `VCP 整理中：還沒突破、收盤仍在樞紐點以下的候選股（50 日均量 ≥ 500 張），可以先加自選等突破。${VCP_BASE}`;
 export const COND_HELP: Record<string, string> = {
-  vr2: VR_HELP, vshrink: VR_HELP, rvol2: RVOL_HELP, rvol3: RVOL_HELP, vpu: VPU_HELP, push: PUSH_HELP, stall: STALL_HELP, utbuy: UT_HELP, utsell: UT_HELP,
+  vr2: VR_HELP, vshrink: VR_HELP, rvol2: RVOL_HELP, rvol3: RVOL_HELP, vpu: VPU_HELP, push: PUSH_HELP, stall: STALL_HELP, utbuy: UT_HELP, utsell: UT_HELP, vcpbrk: VCP_BRK, vcpset: VCP_SET,
 };
 
 /** 強勢訊號標籤 → 說明（沒有的回傳 undefined） */
