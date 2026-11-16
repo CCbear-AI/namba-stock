@@ -81,7 +81,7 @@ const SYSTEM = `你是台股盤後評論員。根據使用者提供的當日數�
 只輸出 JSON：
 {"headline":"20字內標題","points":["重點1","重點2","重點3"],"watch":"明天可留意的一句話（40字內）"}
 講權值股拉抬／拖累點數時，個股名稱只能用「權值股拉抬」「拖累」那一行列出的，不要換成別檔。
-標題若寫點數，必須是加權指數的漲跌點數（例如跌 1374 點可寫「重挫逾千點」「跌1374點」），不能拿基差、期貨或個股的點數。
+標題若寫點數，必須是加權指數的漲跌點數，照使用者訊息最後「標題點數寫法」那行寫，不能拿基差、期貨或個股的點數。
 points 3～5 點，每點 50 字內，涵蓋大盤表現、資金集中的族群或個股、法人動向、期貨或國際（有資料才寫）。`;
 
 async function main() {
@@ -93,10 +93,17 @@ async function main() {
   let lastErr: unknown;
   for (let k = 0; k < 3; k++) {
     try {
-      const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 120_000, maxTokens: 16000 }));
+      const hint = Number.isFinite(f.taiexChg) ? `\n標題點數寫法：加權指數${f.taiexChg > 0 ? "漲" : "跌"} ${Math.abs(f.taiexChg).toFixed(2)} 點，標題要寫點數只能寫「${pointPhrase(f.taiexChg)}」或「${Math.round(Math.abs(f.taiexChg))}點」。` : "";
+      const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text + hint }], { timeout: 120_000, maxTokens: 16000 }));
       if (!j.headline || !Array.isArray(j.points) || !j.points.length) throw new Error("格式不對");
       const bad = checkPoints(j.headline, f.taiexChg);
-      if (bad) throw new Error(`標題點數不對：${bad}`);
+      if (bad) {
+        // 最後一次還錯：程式直接把標題裡的點數改成正確寫法，不要整份摘要都沒寫
+        if (k < 2) throw new Error(`標題點數不對：${bad}`);
+        const fixed = fixPoints(j.headline, f.taiexChg);
+        console.log(`標題點數不對（${bad}），改成「${fixed}」`);
+        j.headline = fixed;
+      }
       const wrong = checkNames(j.points, f.names, f.up, f.down);
       if (wrong.length) {
         const msg = wrong.map((w) => w.why).join("；");
@@ -141,6 +148,18 @@ export function checkPoints(text: string, chg: number): string | null {
     if (!ok) return `「${m[0]}」但加權指數${chg > 0 ? "漲" : "跌"} ${a.toFixed(2)} 點`;
   }
   return null;
+}
+
+/** 標題用的點數寫法：100 點以上取到百位「逾N點」，以下寫整數 */
+export function pointPhrase(chg: number): string {
+  const a = Math.abs(chg);
+  return a >= 100 ? `逾${Math.floor(a / 100) * 100}點` : `${Math.round(a)}點`;
+}
+
+/** 把標題裡對不上的「(逾/近…)N點」換成正確寫法 */
+export function fixPoints(text: string, chg: number): string {
+  return text.replace(/(逾|超過|超|近|約|將近)?\s*([0-9][0-9,.]*|[零一二兩三四五六七八九十百千萬]+)\s*點/g, (m) =>
+    checkPoints(m, chg) ? pointPhrase(chg) : m);
 }
 
 /** 重點裡講「拖累／拉抬 … 點」的句子，提到的個股必須是 facts 給的權值股名單；回傳寫錯的那幾點 */
