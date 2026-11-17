@@ -1,5 +1,5 @@
 // 一週回顧：週末把這週的大盤、族群、法人、期貨、融資、千張大戶、每天的盤後重點／國際焦點／重大訊息整理好，
-// 交給學校 AI 寫重點；下週法說會由程式從重大訊息挑出。存到 data/weekly/這週最後交易日.json，首頁顯示最新一份，寫好推播。
+// 交給 AI 寫重點。存到 data/weekly/這週最後交易日.json，首頁顯示最新一份，寫好推播。
 // 用法：npm run weekly-review [-- --force 平日也寫、已寫過也重寫 | --no-push]
 // （daily-data 週六集保那次跑、world-focus 週日早上再跑一次當備援；只在週六、日寫，同一週寫過就略過）
 import fs from "node:fs";
@@ -19,8 +19,6 @@ const sign = (v: number, d = 2) => `${v > 0 ? "+" : ""}${v.toFixed(d)}`;
 const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
 const day = (t: number) => new Date(t * 1000).toISOString().slice(0, 10);
 const readJson = <T,>(f: string): T | null => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : null);
-
-type Call = { c: string; n: string; d: string; text: string };
 
 /** 這週（最後交易日所在的週一～週五）在 dates 裡的範圍，與上週最後一天 */
 function weekRange(dates: string[]) {
@@ -44,25 +42,6 @@ function weekOf(bars: Bar[], prev: string, days: string[]) {
   const closes = bars.filter((b) => day(b.time) <= days.at(-1)!).map((b) => b.close);
   const ma = (n: number) => closes.slice(-n).reduce((a, x) => a + x, 0) / Math.min(n, closes.length);
   return { close, chg: close - p.close, pct: (close / p.close - 1) * 100, high: Math.max(...w.map((b) => b.high)), low: Math.min(...w.map((b) => b.low)), volRatio: pvol ? vol / pvol : 0, ma20: ma(20), ma60: ma(60) };
-}
-
-/** 從重大訊息找下週要開法說會的公司（日期寫在摘要或主旨裡，民國 115/11/03、11/03、11月3日 都認） */
-function nextWeekCalls(mon: string): Call[] {
-  const start = new Date(new Date(`${mon}T00:00:00Z`).getTime() + 7 * 86400e3).toISOString().slice(0, 10);
-  const end = new Date(new Date(`${start}T00:00:00Z`).getTime() + 6 * 86400e3).toISOString().slice(0, 10);
-  const year = Number(start.slice(0, 4));
-  const out = new Map<string, Call>();
-  for (const d of newsDates().slice(-15)) for (const x of readNewsDay(d).items) {
-    if (x.rep || !(x.tag === "法說會" || /法人說明會|法說會|業績說明會/.test(x.title))) continue;
-    const s = `${x.sum ?? ""} ${x.title}`;
-    const m = s.match(/(\d{3})[/.年](\d{1,2})[/.月](\d{1,2})/) ?? s.match(/(?<![\d/])()(\d{1,2})[/月](\d{1,2})日?/);
-    if (!m) continue;
-    const y = m[1] ? Number(m[1]) + 1911 : year;
-    const dd = `${y}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-    if (dd < start || dd > end) continue;
-    out.set(`${x.c}|${dd}`, { c: x.c, n: x.n, d: dd, text: (x.sum || x.title).slice(0, 60) });
-  }
-  return [...out.values()].sort((a, b) => a.d.localeCompare(b.d) || a.c.localeCompare(b.c));
 }
 
 async function facts() {
@@ -153,10 +132,7 @@ async function facts() {
   const cap = (c: string) => (BY_CODE.get(c)?.sh ?? 0) * (s.get(c)?.c[li] ?? 0);
   const imp = newsDates().filter((d) => d >= mon).flatMap((d) => readNewsDay(d).items).filter((x) => !x.rep && x.imp === 3 && x.sum).sort((a, b) => cap(b.c) - cap(a.c)).slice(0, 12);
   L.push("", "本週重要公司公告（市值大的在前）：", ...imp.map((x) => `- ${md(x.d)} ${x.n}：${x.sum}`));
-
-  const calls = nextWeekCalls(mon).sort((a, b) => cap(b.c) - cap(a.c)).slice(0, 20).sort((a, b) => a.d.localeCompare(b.d));
-  if (calls.length) L.push("", "下週法說會：", ...calls.map((x) => `- ${md(x.d)} ${x.n}`));
-  return { date: last, from: days[0], text: L.join("\n"), stats, calls };
+  return { date: last, from: days[0], text: L.join("\n"), stats };
 }
 
 const SYSTEM = `你是台股週報編輯，替散戶寫「一週回顧」。根據使用者提供的本週數據、每日重點與公告，寫出這週最重要的事。
@@ -166,8 +142,7 @@ const SYSTEM = `你是台股週報編輯，替散戶寫「一週回顧」。根�
 - 國際焦點裡的美股、台積電 ADR 漲跌不是台股個股的漲跌，台股個股表現以本週成交值、漲跌幅資料為準。
 - points 4～6 點，每點 60 字內，依序涵蓋：大盤週表現、資金集中的族群、法人與期貨籌碼、千張大戶或融資的變化、本週最重要的一兩件大事（公司或國際）。
 - 金額一律用「億」，照數據原本的億數寫，絕對不要換算成「兆」。
-- watch 寫下週可留意的一句話（50 字內），可以提到下週法說會的大公司。
-只輸出 JSON：{"headline":"20字內標題","points":["…"],"watch":"…"}`;
+只輸出 JSON：{"headline":"20字內標題","points":["…"]}`;
 
 async function main() {
   const force = process.argv.includes("--force");
@@ -181,11 +156,10 @@ async function main() {
   let lastErr: unknown;
   for (let k = 0; k < 3; k++) {
     try {
-      const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 240_000, maxTokens: 16000 }));
+      const j = parseJson<{ headline: string; points: string[] }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 240_000, maxTokens: 16000 }));
       if (!j.headline || !Array.isArray(j.points) || j.points.length < 3) throw new Error("格式不對");
       // 金額不准寫「兆」（AI 自己換算常差十倍）；最後一次還錯就拿掉那幾點
       if (hasTrillion(j.headline)) throw new Error(`標題金額用了兆：${j.headline}`);
-      if (j.watch && hasTrillion(j.watch)) { if (k < 2) throw new Error(`下週留意金額用了兆：${j.watch}`); j.watch = ""; }
       const tri = j.points.filter((p) => hasTrillion(p));
       if (tri.length) {
         const keep = j.points.filter((p) => !hasTrillion(p));
@@ -194,9 +168,9 @@ async function main() {
         j.points = keep;
       }
       fs.mkdirSync(OUT, { recursive: true });
-      const out = { date: f.date, from: f.from, generated: Date.now(), model: AI_MODEL, headline: j.headline, points: j.points.slice(0, 6), watch: j.watch ?? "", stats: f.stats, calls: f.calls, facts: f.text };
+      const out = { date: f.date, from: f.from, generated: Date.now(), model: AI_MODEL, headline: j.headline, points: j.points.slice(0, 6), stats: f.stats, facts: f.text };
       fs.writeFileSync(file, JSON.stringify(out, null, 1));
-      console.log(`\n${out.headline}\n- ${out.points.join("\n- ")}\n下週：${out.watch}`);
+      console.log(`\n${out.headline}\n- ${out.points.join("\n- ")}`);
       if (pushReady && !process.argv.includes("--no-push")) {
         try { console.log("一週回顧推播", await pushKind("weekly", { title: `一週回顧 ${md(f.from)}～${md(f.date)}`, body: out.headline, url: "/#weekly", tag: `weekly${f.date}` }), "則"); }
         catch (e) { console.error("推播失敗", (e as Error).message); }
