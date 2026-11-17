@@ -7,7 +7,7 @@ import { GET as marketGET } from "@/app/api/market/route";
 import { GET as taiexGET } from "@/app/api/taiex/route";
 import { GET as chipsGET } from "@/app/api/chips/route";
 import { GET as sectorsGET } from "@/app/api/sectors/route";
-import { aiReady, chat, parseJson, AI_MODEL } from "@/lib/ai";
+import { aiReady, chat, parseJson, AI_MODEL, hasTrillion } from "@/lib/ai";
 import { THEMES } from "@/lib/themes";
 
 const OUT = path.join(process.cwd(), "data", "summary");
@@ -82,6 +82,7 @@ const SYSTEM = `你是台股盤後評論員。根據使用者提供的當日數�
 {"headline":"20字內標題","points":["重點1","重點2","重點3"],"watch":"明天可留意的一句話（40字內）"}
 講權值股拉抬／拖累點數時，個股名稱只能用「權值股拉抬」「拖累」那一行列出的，不要換成別檔。
 標題若寫點數，必須是加權指數的漲跌點數，照使用者訊息最後「標題點數寫法」那行寫，不能拿基差、期貨或個股的點數。
+金額一律用「億」，照數據原本的億數寫（例如 -1143.9 億可寫「賣超約1144億」），絕對不要換算成「兆」。
 points 3～5 點，每點 50 字內，涵蓋大盤表現、資金集中的族群或個股、法人動向、期貨或國際（有資料才寫）。`;
 
 async function main() {
@@ -103,6 +104,19 @@ async function main() {
         const fixed = fixPoints(j.headline, f.taiexChg);
         console.log(`標題點數不對（${bad}），改成「${fixed}」`);
         j.headline = fixed;
+      }
+      // 金額不准寫「兆」（AI 自己換算常差十倍：1143.9 億寫成 1.14 兆）
+      if (hasTrillion(j.headline)) throw new Error(`標題金額用了兆：${j.headline}`);
+      if (j.watch && hasTrillion(j.watch)) {
+        if (k < 2) throw new Error(`明天留意金額用了兆：${j.watch}`);
+        console.log(`明天留意金額用了兆，拿掉：${j.watch}`); j.watch = "";
+      }
+      const tri = j.points.filter((p) => hasTrillion(p));
+      if (tri.length) {
+        const keep = j.points.filter((p) => !hasTrillion(p));
+        if (k < 2 || keep.length < 3) throw new Error(`金額用了兆：${tri.join("／")}`);
+        console.log(`金額用了兆，拿掉 ${tri.length} 點`);
+        j.points = keep;
       }
       const wrong = checkNames(j.points, f.names, f.up, f.down);
       if (wrong.length) {

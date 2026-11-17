@@ -97,3 +97,8 @@ export async function pool<T>(list: T[], par: number, fn: (x: T, i: number) => P
     while (next < list.length) { const k = next++; await fn(list[k], k); }
   }));
 }
+
+/** 數字後面接「兆」（金額換算成兆）；「兆豐」這類名稱前面不是數字，不算 */
+export function hasTrillion(text: string): boolean {
+  return /[0-9０-９.一二兩三四五六七八九十]\s*兆/.test(text);
+}

@@ -9,7 +9,7 @@ import { taiexDaily, sectorDaily } from "@/lib/sector";
 import { newsDates, readNewsDay } from "@/lib/news";
 import { THEMES } from "@/lib/themes";
 import { BY_CODE } from "@/lib/universe";
-import { aiReady, chat, parseJson, AI_MODEL } from "@/lib/ai";
+import { aiReady, chat, parseJson, AI_MODEL, hasTrillion } from "@/lib/ai";
 import { pushReady, pushKind } from "@/lib/pushServer";
 import type { Bar } from "@/lib/types";
 
@@ -165,6 +165,7 @@ const SYSTEM = `你是台股週報編輯，替散戶寫「一週回顧」。根�
 - 繁體中文、台灣用語、白話，不要給買賣建議。
 - 國際焦點裡的美股、台積電 ADR 漲跌不是台股個股的漲跌，台股個股表現以本週成交值、漲跌幅資料為準。
 - points 4～6 點，每點 60 字內，依序涵蓋：大盤週表現、資金集中的族群、法人與期貨籌碼、千張大戶或融資的變化、本週最重要的一兩件大事（公司或國際）。
+- 金額一律用「億」，照數據原本的億數寫，絕對不要換算成「兆」。
 - watch 寫下週可留意的一句話（50 字內），可以提到下週法說會的大公司。
 只輸出 JSON：{"headline":"20字內標題","points":["…"],"watch":"…"}`;
 
@@ -182,6 +183,16 @@ async function main() {
     try {
       const j = parseJson<{ headline: string; points: string[]; watch?: string }>(await chat([{ role: "system", content: SYSTEM }, { role: "user", content: f.text }], { timeout: 240_000, maxTokens: 16000 }));
       if (!j.headline || !Array.isArray(j.points) || j.points.length < 3) throw new Error("格式不對");
+      // 金額不准寫「兆」（AI 自己換算常差十倍）；最後一次還錯就拿掉那幾點
+      if (hasTrillion(j.headline)) throw new Error(`標題金額用了兆：${j.headline}`);
+      if (j.watch && hasTrillion(j.watch)) { if (k < 2) throw new Error(`下週留意金額用了兆：${j.watch}`); j.watch = ""; }
+      const tri = j.points.filter((p) => hasTrillion(p));
+      if (tri.length) {
+        const keep = j.points.filter((p) => !hasTrillion(p));
+        if (k < 2 || keep.length < 3) throw new Error(`金額用了兆：${tri.join("／")}`);
+        console.log(`金額用了兆，拿掉 ${tri.length} 點`);
+        j.points = keep;
+      }
       fs.mkdirSync(OUT, { recursive: true });
       const out = { date: f.date, from: f.from, generated: Date.now(), model: AI_MODEL, headline: j.headline, points: j.points.slice(0, 6), watch: j.watch ?? "", stats: f.stats, calls: f.calls, facts: f.text };
       fs.writeFileSync(file, JSON.stringify(out, null, 1));
