@@ -146,7 +146,7 @@ export async function checkup(code: string, opts: { rev?: Map<string, { ym: stri
     else {
       const d = t1[0] - t0[0], h = t1[1] - t0[1];
       const lv: Lv = d >= 0.3 ? "g" : d <= -0.3 ? "r" : "y";
-      lights.push({ k: "big", name: "大戶", lv, text: `千張大戶 ${t1[0].toFixed(1)}%（本週 ${sg(d, 2)}），股東人數 ${sg(h)}` });
+      lights.push({ k: "big", name: "大戶", lv, text: `千張大戶 ${t1[0].toFixed(1)}%（本週 ${sg(d, 2)}）${t1[2] != null && t0[2] != null ? `，400張以上 ${t1[2].toFixed(1)}%（${sg(t1[2] - t0[2], 2)}）` : ""}，股東人數 ${sg(h)}` });
     }
   }
 

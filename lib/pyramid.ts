@@ -1,6 +1,6 @@
 // 神秘金字塔（norway.twsthr.info）個股股權分散歷史：每週千張大戶比例、400 張以上大戶比例、股東人數
 // 資料源頭是集保每週公布；這個網站整理了多年歷史，比集保開放資料（只有最新一週）好用
-export type HolderWeek = { date: string; holders: number; big: number; big400: number; close: number };
+export type HolderWeek = { date: string; holders: number; big: number; big400: number; n400: number; close: number };
 
 const cache = new Map<string, { at: number; v: HolderWeek[] }>();
 const num = (s: string) => Number(s.replace(/,/g, "")) || 0;
@@ -21,7 +21,7 @@ export async function holderHistory(code: string): Promise<HolderWeek[]> {
     const date = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
     if (seen.has(date)) continue;
     seen.add(date);
-    out.push({ date, holders: num(cells[i + 2]), big400: num(cells[i + 5]), big: num(cells[i + 11]), close: num(cells[i + 12]) });
+    out.push({ date, holders: num(cells[i + 2]), big400: num(cells[i + 5]), n400: num(cells[i + 6]), big: num(cells[i + 11]), close: num(cells[i + 12]) });
   }
   out.sort((a, b) => a.date.localeCompare(b.date));
   if (!out.length) throw new Error(`神秘金字塔沒有回資料（${html.length} 字，${html.slice(0, 80).replace(/\s+/g, " ")}）`);

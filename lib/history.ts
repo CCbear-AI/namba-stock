@@ -54,8 +54,11 @@ export const getAth = cached(() => {
 
 /** 集保：最近幾週 [千張大戶%, 股東人數] */
 export const getTdcc = cached(() =>
-  listDays(path.join(DATA, "tdcc")).map((f) => readJson<{ date: string; s: Record<string, [number, number]> }>(path.join(DATA, "tdcc", f))),
+  listDays(path.join(DATA, "tdcc")).map((f) => readJson<{ date: string; s: Record<string, TdccRow> }>(path.join(DATA, "tdcc", f))),
 );
+
+/** 集保每週一檔：[千張大戶%, 股東人數, 400張以上%, 400張以上人數, 50張以下散戶%]（後三欄 2026-11 才加，舊週可能沒有） */
+export type TdccRow = [number, number, number?, number?, number?];
 
 export type FutDay = { tx: [number, number, number]; top10: number; pcr: number; retail: number; fOpt: [number, number] };
 export const getFutures = cached(() => {

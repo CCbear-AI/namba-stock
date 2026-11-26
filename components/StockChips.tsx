@@ -13,8 +13,11 @@ type C = {
   qfii: { pct: number; chg: number | null } | null;
   margin: { bal: number; chg: number; use: number | null; short: number; shortChg: number; ratio: number } | null;
   dayTrade: number | null; sbl: { bal: number; chg: number | null } | null;
-  tdcc: { date: string; big: number; holders: number; bigChg: number | null; holdersChg: number | null; big400?: number } | null;
-  holders?: [string, number, number, number][];
+  tdcc: {
+    date: string; big: number; holders: number; bigChg: number | null; holdersChg: number | null;
+    big400?: number | null; big400Chg?: number | null; n400?: number | null; n400Chg?: number | null; retail?: number | null; retailChg?: number | null;
+  } | null;
+  holders?: [string, number, number, number, number | null][];
 };
 type B = { error?: string; from: string; to: string; buy: { n: string; lots: number; pct: number }[]; sell: { n: string; lots: number; pct: number }[]; buySum: number; sellSum: number; conc: number | null };
 const sg = (v: number) => `${v > 0 ? "+" : ""}${num(v)}`;
@@ -99,13 +102,26 @@ export function ChipsBig({ code }: { code: string }) {
       <div>
         <div className="flex items-baseline text-[13px]"><span className="text-text-2">千張大戶持股比例<Help>集保每週公布{c.tdcc ? `（資料日期 ${md(c.tdcc.date)}）` : ""}，增減是跟前一週比；大戶增加、股東人數減少代表籌碼集中。</Help></span><span className="ml-auto mono">{c.tdcc ? `${c.tdcc.big.toFixed(2)}%` : "—"}</span>{c.tdcc?.bigChg != null && <span className={`mono ml-2 text-[12px] ${cls(c.tdcc.bigChg)}`}>{pctChg(c.tdcc.bigChg)}</span>}</div>
         {c.tdcc && <Bar pct={c.tdcc.big} />}
-        <KV l="股東人數" v={c.tdcc ? `${num(c.tdcc.holders)} 人` : "—"} chg={chgText(c.tdcc?.holdersChg)} c={-(c.tdcc?.holdersChg ?? 0)} />
-        {c.holders && c.holders.length > 2 && (
-          <div className="grid grid-cols-2 gap-3 mt-3">
-            <div className="min-w-0 overflow-hidden"><div className="sub">大戶 · 近 {c.holders.length} 週</div><Spark data={c.holders.map((x) => x[1])} w={110} h={34} color="var(--gold)" /></div>
-            <div className="min-w-0 overflow-hidden"><div className="sub">股東人數 · 近 {c.holders.length} 週</div><Spark data={c.holders.map((x) => x[2])} w={110} h={34} color="#5aa9ff" /></div>
-          </div>
+        {c.tdcc?.big400 != null && (
+          <KV l={<>400 張以上大股東<Help>持股 400 張以上的股東，合計占集保庫存的比例；後面是持有人數。增減跟前一週比。</Help></>}
+            v={`${c.tdcc.big400.toFixed(2)}%`} chg={c.tdcc.big400Chg != null ? pctChg(c.tdcc.big400Chg) : ""} c={c.tdcc.big400Chg ?? 0} />
         )}
+        {c.tdcc?.n400 != null && <KV l="400 張以上人數" v={`${num(c.tdcc.n400)} 人`} chg={chgText(c.tdcc.n400Chg)} c={c.tdcc.n400Chg ?? 0} />}
+        {c.tdcc?.retail != null && (
+          <KV l={<>50 張以下散戶持股<Help>持股未滿 50 張（含零股）的股東，合計占集保庫存的比例。散戶比例下降、大戶比例上升＝籌碼集中。</Help></>}
+            v={`${c.tdcc.retail.toFixed(2)}%`} chg={c.tdcc.retailChg != null ? pctChg(c.tdcc.retailChg) : ""} c={-(c.tdcc.retailChg ?? 0)} />
+        )}
+        <KV l={<>總股東人數<Help>集保登記的股東總人數，大部分是散戶；人數減少通常代表散戶退場、籌碼往大戶集中。</Help></>} v={c.tdcc ? `${num(c.tdcc.holders)} 人` : "—"} chg={chgText(c.tdcc?.holdersChg)} c={-(c.tdcc?.holdersChg ?? 0)} />
+        {c.holders && c.holders.length > 2 && (() => {
+          const h400 = c.holders.filter((x) => x[4] != null);
+          return (
+            <div className={`grid gap-3 mt-3 ${h400.length > 2 ? "grid-cols-3" : "grid-cols-2"}`}>
+              <div className="min-w-0 overflow-hidden"><div className="sub">千張大戶 · {c.holders.length} 週</div><Spark data={c.holders.map((x) => x[1])} w={110} h={34} color="var(--gold)" /></div>
+              {h400.length > 2 && <div className="min-w-0 overflow-hidden"><div className="sub">400張以上 · {h400.length} 週</div><Spark data={h400.map((x) => x[4] as number)} w={110} h={34} color="#c792ea" /></div>}
+              <div className="min-w-0 overflow-hidden"><div className="sub">股東人數 · {c.holders.length} 週</div><Spark data={c.holders.map((x) => x[2])} w={110} h={34} color="#5aa9ff" /></div>
+            </div>
+          );
+        })()}
       </div>
       <div>
         <KV l={<>當沖比 · {md(dt.dayTrade)}<Help>當沖比＝當沖成交量 ÷ 當日成交量。</Help></>} v={c.dayTrade != null ? `${c.dayTrade.toFixed(2)}%` : "—"} />

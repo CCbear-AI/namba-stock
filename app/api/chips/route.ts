@@ -39,9 +39,11 @@ export async function GET(req: Request) {
     // 大戶持股歷史：用存好的每週集保資料（一次性從神秘金字塔回補 26 週，之後每週累積）；
     // 不夠的時候才直接問神秘金字塔（它會擋雲端機房，線上通常抓不到）
     let holdersError: string | null = null;
-    let hist = tdcc.filter((w) => w.s[code]).map((w) => ({ date: w.date, big: w.s[code][0], holders: w.s[code][1], big400: 0, close: 0 }));
+    type HW = { date: string; big: number; holders: number; big400?: number; n400?: number; retail?: number; close: number };
+    let hist: HW[] = tdcc.filter((w) => w.s[code]).map((w) => { const x = w.s[code]; return { date: w.date, big: x[0], holders: x[1], big400: x[2], n400: x[3], retail: x[4], close: 0 }; });
     if (hist.length < 3) hist = await holderHistory(code).catch((e) => { holdersError = (e as Error).message; return hist; });
     const h1 = hist.at(-1), h0 = hist.at(-2);
+    const dif = (a?: number, b?: number, r = true) => (a != null && b != null ? (r ? r2(a - b) : a - b) : null);
     return Response.json({
       code, date: last.date, dates: { margin: mg.date, qfii: qf.date, sbl: sb.date, dayTrade: dt.date },
       days: rows.slice(-20).map((x) => [x.date, x.v?.[0] ?? 0, x.v?.[1] ?? 0, x.v?.[2] ?? 0]),
@@ -50,9 +52,12 @@ export async function GET(req: Request) {
       margin: cur ? { bal: cur[3], chg: pv ? cur[3] - pv[3] : 0, use: cur[5] ? r2((cur[3] / cur[5]) * 100) : null, short: cur[4], shortChg: pv ? cur[4] - pv[4] : 0, ratio: cur[3] ? r2((cur[4] / cur[3]) * 100) : 0 } : null,
       dayTrade: dt.cur && dt.cur[8] >= 0 ? dt.cur[8] : null,
       sbl: sb.cur && sb.cur[7] >= 0 ? { bal: sb.cur[7], chg: sb.pv && sb.pv[7] >= 0 ? sb.cur[7] - sb.pv[7] : null } : null,
-      tdcc: h1 ? { date: h1.date, big: h1.big, holders: h1.holders, bigChg: h0 ? r2(h1.big - h0.big) : null, holdersChg: h0 ? h1.holders - h0.holders : null, big400: h1.big400 || undefined }
-        : t1?.s[code] ? { date: t1.date, big: t1.s[code][0], holders: t1.s[code][1], bigChg: t0?.s[code] ? r2(t1.s[code][0] - t0.s[code][0]) : null, holdersChg: t0?.s[code] ? t1.s[code][1] - t0.s[code][1] : null } : null,
-      holders: hist.slice(-26).map((w) => [w.date, w.big, w.holders, w.close]),
+      tdcc: h1 ? {
+        date: h1.date, big: h1.big, holders: h1.holders, bigChg: dif(h1.big, h0?.big), holdersChg: dif(h1.holders, h0?.holders, false),
+        big400: h1.big400 ?? null, big400Chg: dif(h1.big400, h0?.big400), n400: h1.n400 ?? null, n400Chg: dif(h1.n400, h0?.n400, false),
+        retail: h1.retail ?? null, retailChg: dif(h1.retail, h0?.retail),
+      } : t1?.s[code] ? { date: t1.date, big: t1.s[code][0], holders: t1.s[code][1], bigChg: t0?.s[code] ? r2(t1.s[code][0] - t0.s[code][0]) : null, holdersChg: t0?.s[code] ? t1.s[code][1] - t0.s[code][1] : null } : null,
+      holders: hist.slice(-26).map((w) => [w.date, w.big, w.holders, w.close, w.big400 ?? null]),
       holdersError,
     });
   }
